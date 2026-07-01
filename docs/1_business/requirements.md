@@ -1,43 +1,62 @@
-# Project: AI-Powered Personalized News Aggregator
+# Product Requirements: AI-Powered Personalized News Aggregator
 
-## 1. Overview
-A web-based platform that allows users to aggregate news from custom sources, process the content using AI based on personalized rules (summarization, translation, relevance filtering), and automatically deliver the curated content via preferred channels. The core philosophy is to gather multiple sources into a single, highly digestible summary.
+## 1. Product Goal
 
-## 2. Core Features
+Provide a web application that gathers news from user-selected sources, applies personalized AI summarization, translation, and relevance rules, and delivers one digest through the user's chosen channels.
 
-### 2.1 User Management
-- **Authentication:** Users can sign up and log in using OAuth providers (Google, GitHub). *Note: Email/Password login should be implemented but disabled in production to prevent system abuse (enabled only for development).*
-- **Profile:** Users can define their core interests, language preferences, and manage their connected delivery channels.
-- **Quotas & Limitations:** A user can create a maximum of **5 distinct processing flows**.
+## 2. Functional Requirements
 
-### 2.2 Data Sources (Ingestion) & Pre-Processing
-- Users can add and manage multiple news sources.
-- **Supported Source Types:**
-  - RSS / Atom Feeds
-  - Web URLs (News websites/blogs)
-- **Shared Resource Caching:** The system will fetch source data once and cache it globally. Instead of fetching a site multiple times for different users, the cached information will be reused across all user flows that rely on that source.
-- **Content Extraction:** For web URLs, the system will strip out menus, ads, and footers (e.g., using Readability) to extract only the main article text before sending it to the AI.
-- **Dead Feed Management:** If a source fails to fetch 5 times in a row, the system will automatically pause it and notify the user.
+### 2.1 Users
 
-### 2.3 AI Processing Rules Engine
-- Users can set up automated rules (flows) to process incoming news.
-- **Run Frequency:** Users can configure how often the flow executes (currently restricted to **daily**).
-- **Core Processing Logic:**
-  - **Batching & Aggregation:** The system will gather all new articles from the user's sources, perform **smart deduplication** to group similar stories, and pass them to the AI in batches to cut costs and produce a single cohesive digest.
-  - **Model Selection:** Users can choose the AI model for their tasks (currently restricted to **gpt-5.4-mini**).
-  - **Token Management (Truncation):** The system will employ a truncation strategy (e.g., limiting articles to a specific word count) to ensure batched payloads stay within the AI's context window.
-- **Summarization & Prompts:** 
-  - Users can select from **predefined prompt templates** or write their own **custom prompts** to dictate exactly how the news should be summarized and formatted.
-  - *Translation* and *Relevance Filtering* are handled based on the user's defined interests and prompt instructions.
-- **User Feedback Loop:** Users can provide a simple "Thumbs Up / Thumbs Down" on delivered content to refine their rules and filtering over time.
+- **BR-USER-01 — Authentication:** Users can sign up and sign in with Google or GitHub OAuth. Email/password authentication is available only for local development and is disabled in production.
+- **BR-USER-02 — Profile:** Users can manage interests, language preferences, and connected delivery channels.
+- **BR-USER-03 — Flow quota:** A user can own at most five processing flows.
 
-### 2.4 Delivery & Integrations
-- Users can configure how and where they receive their processed news.
-- **Supported Channels:**
-  - **In-App:** Save to a personal dashboard for later reading.
-  - **Email:** Send periodic digests. *(Security Note: Users can only send emails to their own verified email address).*
-  - **Telegram:** Send updates via a connected Telegram bot.
-  - **Slack:** Send updates to a specified Slack channel/workspace.
+### 2.2 Sources and ingestion
 
-## 3. Data Storage & Retention
-- **Processed Data Lifecycle:** Generated and processed news data will be stored for **1 week (7 days)** before being automatically deleted (subject to an operational cleanup schedule lag of up to 1 hour).
+- **BR-SRC-01 — Source management:** Users can add, view, and remove sources assigned to their flows.
+- **BR-SRC-02 — Feed sources:** RSS and Atom feeds are supported as automated multi-article sources.
+- **BR-SRC-03 — Article sources:** A direct article URL can be added and ingested once. General website crawling and link discovery are outside the initial release.
+- **BR-SRC-04 — Shared fetching:** A source used by multiple users is fetched once per update cycle and the result is shared across eligible flows.
+- **BR-SRC-05 — Extraction:** Article pages are reduced to their main readable text; navigation, advertising, and footer content are excluded.
+- **BR-SRC-06 — Source health:** After five consecutive failed fetch cycles, a source is paused and subscribed users see an in-app warning.
+
+### 2.3 Processing flows
+
+- **BR-FLOW-01 — Flow configuration:** Users can create, edit, enable, disable, and delete automated processing flows.
+- **BR-FLOW-02 — Frequency:** Enabled flows run once daily. The initial release uses a common 06:00 UTC processing window and does not expose per-user delivery times.
+- **BR-FLOW-03 — New content only:** An article is processed at most once by a given flow. A flow with no new articles records a `no_content` result and sends no digest.
+- **BR-FLOW-04 — Aggregation:** New articles are batched and near-duplicate stories are grouped before AI processing.
+- **BR-FLOW-05 — AI model:** The initial release uses `gpt-5.4-mini`; model selection is not exposed.
+- **BR-FLOW-06 — Input control:** Article and batch input is truncated before AI processing to remain within cost and context limits.
+- **BR-FLOW-07 — Prompts:** Users can choose a predefined prompt or provide a custom prompt for summarization, translation, and relevance filtering.
+- **BR-FLOW-08 — Feedback:** Users can rate a digest thumbs-up or thumbs-down. The initial release stores and reports feedback but does not modify prompts automatically.
+
+### 2.4 Delivery
+
+- **BR-DEL-01 — In-app:** Persist the digest in the user's dashboard.
+- **BR-DEL-02 — Email:** Send the digest only to the authenticated user's verified email address.
+- **BR-DEL-03 — Telegram:** Send through the application-owned Telegram bot after the user links a chat.
+- **BR-DEL-04 — Slack:** Send to a user-configured Slack incoming webhook.
+- **BR-DEL-05 — Generic webhook:** POST the digest as versioned, signed JSON to a user-configured HTTPS endpoint.
+- **BR-DEL-06 — Multiple outputs:** A flow can deliver one digest to one or more configured channels.
+
+### 2.5 Retention
+
+- **BR-DATA-01 — Content retention:** Ingested article content, generated digests, and delivery attempts are retained for seven days and permanently deleted with no more than one hour of cleanup lag.
+- **BR-DATA-02 — Operational metadata:** Content-free identifiers and sanitized operational records may outlive content only when they cannot reconstruct deleted user/news content.
+
+### 2.6 Project distribution and use
+
+- **BR-PROJ-01 — Non-commercial use:** The initial release is a non-commercial educational/personal project; commercial operation is outside scope.
+- **BR-PROJ-02 — Public repository:** Source code and project automation are maintained in a public GitHub repository. Secrets, production data, and generated private configuration must never be committed.
+- **BR-PROJ-03 — Reusable tooling:** No-cost open-source tools and GitHub features available to public repositories may be used when they improve implementation quality, security, or delivery simplicity.
+
+## 3. Explicit Initial-Release Exclusions
+
+- General website crawling and automatic link discovery.
+- User-selectable AI models.
+- Per-user execution times or time zones.
+- Automatic prompt adaptation from feedback.
+- Arbitrary custom headers for generic webhook delivery.
+- Commercial operation or paid-service guarantees.

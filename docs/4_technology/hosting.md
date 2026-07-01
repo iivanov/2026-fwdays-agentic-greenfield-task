@@ -1,370 +1,243 @@
-# Minimal Cost Hosting Analysis & Deployment Strategy
+# Zero-Cost Hosting and Deployment
 
-This document outlines the hosting options for the AI-Powered Personalized News Aggregator, comparing different deployment models to achieve the **absolute minimal cost** while satisfying the system's performance and data requirements.
+This document deploys the solutions selected in [`technology_requirements.md`](technology_requirements.md). Provider comparisons and technology choices are owned there; this file owns setup, topology, operations, and deployment consequences.
 
----
+## 0. Upstream Decision Basis
 
-## 1. Hosting Options Cost Comparison
+| Hosting decision | Upstream inputs | Realization |
+| --- | --- | --- |
+| **H-01 — Static frontend** | `T-02`, `T-04`, `BR-PROJ-01..03`, `NFR-CON-04/07` | Vercel Hobby serves the Vite build; no Vercel Functions or Cron. |
+| **H-02 — Managed backend** | `T-03`, `T-05..06`, `A-02..A-07` | One Supabase Free project hosts database, Auth, queue, schedules, functions, secrets, and logs. |
+| **H-03 — Delivery integrations** | `BR-DEL-02..05`, `T-09..T-10` | Brevo and direct HTTP adapters; no additional application host. |
+| **H-04 — Automated delivery** | `T-12..13`, `BR-PROJ-02..03`, `NFR-OPS-04`, `Q-01..Q-05` | Vercel Git deploy plus protected GitHub Actions for analysis, tests, migrations, and functions. |
+| **H-05 — Free-tier operations** | `NFR-CON-04..08`, `T-03`, `T-05`, `T-10`, `T-13` | Public-repository tooling, explicit quotas, fail-closed behavior, monitoring, and paid-stack exit conditions. |
+| **H-06 — Infrastructure as code** | `AT-01`, `AT-11`, `T-14`, `NFR-OPS-04` | Provider-native declarative files plus protected, idempotent bootstrap/deploy/audit automation. |
 
-To host this solution, we require hosting for four components:
-1.  **Frontend Dashboard:** Static React SPA.
-2.  **API Server & Workers:** Node.js runtime.
-3.  **Database:** PostgreSQL.
-4.  **Message Queue & Cache:** Redis.
+## 1. Deployment Selection
 
-Below is the comparative breakdown of hosting architectures:
+Use two hosted services:
 
-| Component | Option C: Single-Instance VPS (Docker Compose) | Option D: Hybrid Serverless (Vercel + GitHub Actions) | Option E: **Fully Vercel Stack (Zero Cost)** |
-| :--- | :--- | :--- | :--- |
-| **Frontend** | Free (Vercel / Netlify / CDN) | Free (Vercel / Netlify) | **Free** (Vercel) |
-| **API Server** | Shared VPS Resource ($0) | Free (Vercel Serverless Functions) | **Free** (Vercel Serverless Functions) |
-| **Workers** | Shared VPS Resource ($0) | Free (Scheduled GitHub Actions Runner) | **Free** (Vercel Serverless + Cron / QStash) |
-| **PostgreSQL**| Shared VPS Resource ($0) | Free (Neon Serverless Postgres / Supabase) | **Free** (Vercel Postgres / Neon) |
-| **Redis / Queue**| Shared VPS Resource ($0) | Bypassed (Managed in DB) | **Free** (Vercel KV / Upstash Redis) |
-| **Est. Total**| **$4 - $6 / month** (Flat Rate) | **$0.00 / month** | **$0.00 / month** |
-| **Pros** | Simple architecture, standard BullMQ queues, no execution limits, no code workarounds. | Zero hosting cost, no server maintenance, runs simple Node scripts on GitHub actions without timeouts. | **All assets & state in one ecosystem (Vercel)**, zero cost, automated Vercel Cron scheduling. |
-| **Cons** | VPS host crashes; manual OS updates and backups. | Out-of-ecosystem dependencies (GitHub Actions cron runner), scheduling delays. | Requires job chaining or state machine for large volumes of users or feeds. |
+| Component | Provider | Plan | Purpose |
+| --- | --- | --- | --- |
+| Static frontend | Vercel | Hobby | Build and serve the React/Vite assets with HTTPS, previews, and a generated `vercel.app` domain. |
+| Backend platform | Supabase | Free | PostgreSQL, Auth, Row Level Security, Queues, Cron, Edge Functions, secrets, logs, and generated API. |
 
----
+Use Brevo Free for email delivery and the provider APIs required by the product (OpenAI, Telegram, and Slack). Generic webhooks call user-owned HTTPS endpoints directly. These are integrations, not application hosts.
 
-## 2. Option C: Single-Instance VPS ($4 - $6/month)
+Vercel hosts static assets only. GitHub Actions runs CI and deploys Supabase changes but is not part of the running application. Supabase owns all stateful and scheduled runtime behavior.
 
-If a robust, real-time background processing queue is needed with standard libraries and zero execution time constraints, a single VPS running Docker Compose is the most straightforward option.
+### 1.1 Hosting alternatives summary
 
-```mermaid
-graph TD
-    subgraph Client
-        U[User Web Browser]
-    end
+The detailed component analysis is in decisions `T-03` and `T-04` in [`technology_requirements.md`](technology_requirements.md). The deployment-level result is:
 
-    subgraph Free CDN
-        F[Vercel / Netlify / GitHub Pages]
-    end
+| Hosting option | Meets $0 target | Meets schedules/queues/data needs | Setup | Decision |
+| --- | --- | --- | --- | --- |
+| Vercel Hobby frontend + Supabase Free | Yes; its personal/non-commercial condition matches `BR-PROJ-01` | Yes: Supabase supplies relational data, Auth, queues, minute-level Cron, and functions | Two managed services with direct Git/Vite setup | **Selected** |
+| Cloudflare Pages + Supabase Free | Yes, within quotas | Yes, because Supabase still provides the backend | Two managed services | Strong fallback, but no material simplicity advantage for this project |
+| Full Vercel Hobby + external data services | Potentially | Not by itself: relational data, durable queue, and Auth still require external services; Hobby Cron cannot run the one-minute worker or 30-minute cleanup schedules | At least three services plus orchestration | Rejected |
+| Single VPS | No | Yes | Server patching, TLS, backups, database, and queue operations | Rejected by `NFR-CON-04..05` |
 
-    subgraph $4-$6 VPS Host
-        subgraph Docker Bridge Network
-            N[Nginx Reverse Proxy & SSL]
-            A[Node.js API Server]
-            W[BullMQ Workers]
-            P[(PostgreSQL DB)]
-            R[(Redis Queue & Cache)]
-        end
-        V[(Docker Volumes)]
-    end
+### 1.2 Why Vercel only for the frontend?
 
-    U -->|1. Load Static Files| F
-    U -->|2. HTTPS API Requests| N
-    N -->|3. Route Request| A
-    A -->|Enqueue Jobs| R
-    A <-->|Read/Write| P
-    W <-->|Process Jobs| R
-    W <-->|Read/Write| P
-    P <-->|Data Persistence| V
-```
+Vercel Hobby is selected because the project is explicitly public, personal/educational, and non-commercial. Its Git integration, Vite support, preview deployments, generated HTTPS domain, and rollback workflow satisfy `NFR-CON-04..05` with minimal setup.
 
-### 2.1 Reference Implementation: `docker-compose.yml`
+Vercel is not selected for the backend:
 
-To deploy this, we use a single `docker-compose.yml` configuration on our VPS. This keeps services containerized and reproducible.
+1. Hobby Cron runs at most once per day with hourly precision, while the application needs a worker every minute and cleanup every 30 minutes (`A-04`, `NFR-DATA-01`).
+2. Relational storage, durable queues, database-level row isolation, and OAuth still require Supabase or several additional services.
+3. Keeping Vercel static avoids duplicating the API/runtime boundary and keeps all stateful operations transactionally close to PostgreSQL.
 
-```yaml
-version: '3.8'
+If the project becomes commercial, `BR-PROJ-01` changes and `T-04` must be reassessed before continued deployment. Cloudflare Pages is the documented first fallback.
 
-services:
-  # 1. API Server & App
-  api:
-    image: news-aggregator-api:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: always
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=${POSTGRES_DB}
-      - DB_USER=${POSTGRES_USER}
-      - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - REDIS_URL=redis://redis:6379/0
-      - ENCRYPTION_SECRET=${ENCRYPTION_SECRET} # Master encryption key
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-    expose:
-      - "3000"
-    depends_on:
-      - postgres
-      - redis
+## 2. Cost Boundary
 
-  # 2. BullMQ Worker Service
-  worker:
-    image: news-aggregator-api:latest # Reuses same build/image
-    command: npm run start:worker
-    restart: always
-    environment:
-      - NODE_ENV=production
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=${POSTGRES_DB}
-      - DB_USER=${POSTGRES_USER}
-      - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - REDIS_URL=redis://redis:6379/0
-      - ENCRYPTION_SECRET=${ENCRYPTION_SECRET}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-    depends_on:
-      - postgres
-      - redis
+The expected infrastructure hosting bill is **$0/month** while the application remains within free-plan quotas. The claim has explicit boundaries:
 
-  # 3. Database Layer
-  postgres:
-    image: postgres:15-alpine
-    restart: always
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+- OpenAI API usage is not free and remains usage-billed.
+- A custom domain is optional and is not included; the generated Vercel and Supabase domains work at no cost.
+- Google and GitHub OAuth application registration is free.
+- Telegram, Slack, and generic outbound webhooks do not add hosting cost, subject to remote platform policies and limits.
+- Email remains free only within Brevo's free allowance.
+- Free plans provide no uptime SLA and can change. Quotas must be reviewed before launch and monitored afterward.
+- Supabase Free does not include automatic database backups. The $0 plan therefore has no guaranteed recovery point; upgrade before the stored configuration becomes business-critical.
+- Vercel is used within Hobby's personal/non-commercial terms and included limits; the project does not use Vercel Functions or Cron.
 
-  # 4. Queue / Caching Layer
-  redis:
-    image: redis:7-alpine
-    restart: always
-    command: redis-server --appendonly yes --auto-aof-rewrite-min-size 16mb # Persist queues and compact AOF aggressively
-    volumes:
-      - redisdata:/data
-
-  # 5. Reverse Proxy / SSL Layer
-  nginx:
-    image: nginx:1.25-alpine
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-      - /var/www/certbot:/var/www/certbot:ro
-    depends_on:
-      - api
-
-volumes:
-  pgdata:
-  redisdata:
-```
-
-### 2.2 Sample Proxy Config (`nginx.conf`)
-
-Create the following file in the same directory as `docker-compose.yml` to route external HTTPS traffic to the backend containers:
-
-```nginx
-events { worker_connections 1024; }
-
-http {
-    upstream api_server {
-        server api:3000;
-    }
-
-    server {
-        listen 80;
-        server_name api.yourdomain.com;
-
-        location /.well-known/acme-challenge/ {
-            root /var/www/certbot;
-        }
-
-        location / {
-            return 301 https://$host$request_uri;
-        }
-    }
-
-    server {
-        listen 443 ssl;
-        server_name api.yourdomain.com;
-
-        ssl_certificate /etc/letsencrypt/live/api.yourdomain.com/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/api.yourdomain.com/privkey.pem;
-
-        location / {
-            proxy_pass http://api_server;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-        }
-    }
-}
-```
-
-### 2.3 TLS Bootstrapping on a Fresh VPS
-
-On a first-time deployment, the Nginx container will fail to start if the `/etc/letsencrypt` folder is empty because it references non-existent certificate files. To bootstrap your SSL certificates:
-1. Keep the Docker Compose stack stopped.
-2. Run Certbot on the host in standalone mode: `certbot certonly --standalone -d api.yourdomain.com` (this temporarily binds port 80 on the host to complete the ACME HTTP-01 validation challenge).
-3. Once the certificates are successfully written to `/etc/letsencrypt/live/api.yourdomain.com/`, start the Docker Compose stack (`docker-compose up -d`).
-
-**Automated Zero-Downtime Certificate Renewal:** Let's Encrypt certificates expire after 90 days. To automate renewal without downtime, Certbot uses the webroot path mounted to `/var/www/certbot` (served by Nginx's HTTP port 80). Configure a weekly cron job on the host that runs:
-```bash
-0 0 * * 0 certbot renew --quiet --webroot -w /var/www/certbot --post-hook "docker-compose --project-directory /home/ubuntu/news-aggregator exec -T nginx nginx -s reload"
-```
-Replace `/home/ubuntu/news-aggregator` in `--project-directory` with the actual absolute path to the directory containing your `docker-compose.yml` file. The job automatically renews certificates when they are within 30 days of expiration and reloads Nginx dynamically without stopping Nginx or dropping any active client connections.
-
-*(Alternatively, you can replace Nginx with **Caddy**, which automatically handles ACME TLS bootstrapping and renewals out-of-the-box with zero custom script setup).*
-
-### 2.4 Production Host Providers Recommendation
-
-For the host provider, choose one of the following developers-first VPS clouds:
-
-1.  **Hetzner Cloud (Recommended for EU/Global):**
-    *   *Plan:* `CX22` (2 vCPUs, 4 GB RAM, 40 GB SSD).
-    *   *Cost:* **~€3.80 / month** ($4.15 USD).
-    *   *Why:* Unbeatable cost-to-performance ratio in the industry.
-2.  **DigitalOcean (Recommended for US/Global):**
-    *   *Plan:* `Basic Droplet` (1 vCPU, 1 GB RAM, 25 GB SSD).
-    *   *Cost:* **$6.00 / month**.
-    *   *Why:* Very beginner-friendly interface, excellent documentation.
-3.  **Scaleway or OVH (Alternative EU):**
-    *   *Plan:* `Stardust` or `VPS Starter` (1 vCPU, 1 GB RAM).
-    *   *Cost:* **~€3.00 - €5.00 / month**.
-
-### 2.5 Operations & Risk Mitigation on a Single VPS
-
-Hosting a database, cache, and application server on a single instance introduces risks that we must mitigate:
-
-*   **Out of Memory (OOM) Crashes:** Scraping or heavy AI parsing spikes memory, triggering the Linux OOM killer to terminate the PostgreSQL database.
-    *   *Mitigation:* Configure a **Swap File** (e.g., 2 GB of swap space on the SSD) on the VPS operating system to prevent outright crashes during temporary memory spikes. Set Node.js heap memory limits (`--max-old-space-size=512`) in the docker-compose configurations.
-    *   *Mitigation:* Write a nightly cron job on the VPS host that runs `pg_dump` to export database tables. To strictly comply with the 7-day data retention SLA, backup dumps must **exclude all ephemeral news and article data** using the flags `--exclude-table-data='public."IngestedArticle"' --exclude-table-data='public."ProcessedDigest"' --exclude-table-data='public."DigestDeliveryAttempt"'` (quoting the patterns is required to prevent PostgreSQL from folding mixed-case table names to lowercase). This ensures backup dumps only contain persistent system configurations (users, sources, flows) and never store raw article text or expired user digests. Securely push the compressed SQL dumps to an inexpensive object store (like Cloudflare R2, which has a **10 GB free tier**). Configure the R2 bucket with an **Object Lifecycle Rule** set to automatically expire and permanently delete backup files older than 30 days to manage the storage footprint.
-
-#### 2.5.1 Redis AOF Data Cleanup Policy
-
-With AOF enabled, TTL expiry and BullMQ job deletion append deletion commands to the log; they do not immediately remove the original payload bytes from the existing AOF file. Those bytes remain on the SSD until Redis rewrites the AOF. Low-volume instances may never reach Redis's default rewrite thresholds, so configure an aggressive threshold such as `--auto-aof-rewrite-min-size 16mb`, as shown in the Compose configuration above.
-
-Also schedule a daily host cron job to force deterministic compaction after expired keys and deleted jobs have been removed:
-
-```bash
-0 3 * * * cd /home/ubuntu/news-aggregator && docker compose exec -T redis redis-cli BGREWRITEAOF
-```
-
-Replace `/home/ubuntu/news-aggregator` with the actual absolute path to the directory containing `docker-compose.yml`. The rewrite compacts the AOF and permanently removes deleted payload bytes from the SSD-backed Redis volume.
-
-#### 2.5.2 Programmatic Connection Pool Configuration
-
-Do not interpolate an unescaped database password directly into a connection URL. Characters such as `@`, `/`, `:`, or `?` can change the URL's syntax and cause the connection pool to fail during startup. Prefer constructing the pool with separate connection fields (`host`, `port`, `database`, `user`, and `password`). If a library requires a URL, build it programmatically and URL-encode the password, for example with `encodeURIComponent(password)`, before inserting it into the URL. Apply the same rule to every API and worker process that creates a database pool.
-
----
-
-## 3. Option D: Hybrid Serverless (Vercel + GitHub Actions - $0/month)
-
-Uses Vercel for the API and dashboard, Neon for the database, and schedules a Node script inside a GitHub Actions runner (2,000 free minutes/month) to run the daily ingestion and AI tasks. *Crucial Scheduling SLA Warning:* Because GitHub Actions scheduled crons can be delayed or dropped by several hours under high runner load, relying solely on GitHub Actions scheduling **cannot guarantee the strict 1-hour cleanup lag SLA**. To strictly guarantee compliance with the 1-hour retention cleanup SLA under Option D, you must set up a dedicated external scheduler (such as Cron-Job.org running every 30 minutes) to ping the secure `/api/cron/prune-data` Vercel API endpoint, bypassing GitHub Actions for data pruning completely.
-
-### 3.1 GitHub Actions Workflow (`.github/workflows/daily_processing.yml`)
-
-To deploy the worker under this option, add this file to your repository:
-
-```yaml
-name: Daily News Aggregation Worker
-
-on:
-  schedule:
-    - cron: '0 6 * * *' # Triggers daily at 6:00 AM UTC to run news ingestion/AI (pruning is delegated to the external pruner)
-  workflow_dispatch: # Allows manual trigger from GitHub UI for testing
-
-jobs:
-  run-aggregator:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '22' # Uses the Node.js 22 LTS release
-          cache: 'npm'
-
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Run Aggregation Script
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ENCRYPTION_SECRET: ${{ secrets.ENCRYPTION_SECRET }}
-        run: npm run start:worker-script
-```
-
----
-
-## 4. Option E: The Fully Vercel Stack ($0/month)
-
-We can host the entire system on Vercel using the following Vercel ecosystem services (all have generous permanent free tiers):
-1.  **Vercel Frontend:** Static dashboard hosting.
-2.  **Vercel Postgres (Neon-backed):** $0 tier (250,000 writes/month, 250MB storage).
-3.  **Vercel KV (Upstash Redis-backed):** $0 tier (3,000 requests/day, 256MB storage).
-4.  **Vercel Cron:** $0 tier (2 cron jobs, max daily or hourly frequency).
+## 3. Deployment Topology
 
 ```mermaid
-graph TD
-    subgraph Vercel Cloud Ecosystem (Free Tier)
-        V_FE[React Frontend]
-        V_API[Vercel Serverless API]
-        V_DB[(Vercel Postgres)]
-        V_KV[(Vercel KV Redis)]
-        V_CRON[Vercel Cron Service]
+flowchart LR
+    U[Browser] -->|static assets| V[Vercel Hobby]
+    U -->|OAuth and authenticated API| S[Supabase]
+
+    subgraph S[Supabase Free project]
+        AUTH[Auth]
+        API[Edge API function]
+        CRON[Cron]
+        WORK[Worker function]
+        DB[(PostgreSQL + RLS)]
+        Q[Postgres queues]
+        VAULT[Secrets]
+
+        CRON --> WORK
+        API --> DB
+        API --> Q
+        WORK --> Q
+        WORK --> DB
+        WORK --> VAULT
     end
 
-    subgraph External
-        Q[Upstash QStash Message Queue]
-        AI[gpt-5.4-mini AI API]
-        DEL[Telegram / Slack / SMTP]
-    end
-
-    V_FE <-->|HTTPS| V_API
-    V_API <-->|SQL Queries| V_DB
-    V_API <-->|Redis Cache/State| V_KV
-
-    V_CRON -->|1. Daily Trigger| V_API
-    V_API -->|2. Publish Jobs| Q
-    Q -->|3. Delayed Webhooks| V_API
-    V_API -->|4. Summarize & Group| AI
-    V_API -->|5. Deliver Digests| DEL
+    WORK --> OAI[OpenAI API]
+    WORK --> MAIL[Brevo API]
+    WORK --> TG[Telegram API]
+    WORK --> SLACK[Slack webhook]
+    WORK --> HOOK[User webhook endpoint]
+    WORK --> NEWS[Feeds and article pages]
 ```
 
-### 4.1 Vercel Fluid Compute Execution Limits
+## 4. One-Time Setup
 
-Vercel deployments utilizing **Fluid Compute** (enabled by default on new accounts and modern setups) have the following maximum execution timeout limits:
-*   **Hobby (Free) Tier:** **300 seconds (5 minutes)** per serverless function execution.
-*   **Pro Tier:** Up to **800 seconds (13.3 minutes)** per serverless function execution.
+### 4.1 Supabase
 
-*Note: The legacy limit of 10 seconds (configurable to 60 seconds) only applies to older environments or non-Fluid configurations.*
+1. Create one Free project in the region nearest the expected users.
+2. Link the repository with the Supabase CLI and commit migrations, function source, and local configuration.
+3. Enable/configure Auth providers for Google and GitHub. Add production and localhost redirect URLs. Disable hosted email/password sign-up in production.
+4. Apply migrations that create the application schema, row-level security policies, database functions, queues, and cron schedules.
+5. Deploy the `api`, `schedule-daily`, and `work` Edge Functions.
+6. Add backend secrets: OpenAI API key, encryption key, Brevo API key/sender, operator email, Telegram bot token, scheduler secret, and allowed frontend origin.
+7. Invoke each scheduled function manually once, verify authorization, and inspect the recorded cron/job result before enabling users.
+8. Run the infrastructure audit script and store its non-secret result as the initial desired-state baseline.
 
-While a 5-minute timeout is generous and sufficient to process a small number of user flows sequentially in a single invocation, a growing user base, complex custom prompt execution, or slow RSS sources can still exceed this limit. To prevent timeout failures, the system should adopt asynchronous task partitioning if scaled.
+### 4.2 OAuth Providers
 
-### 4.2 Workarounds to Handle Scaling or Non-Fluid Environments
+- Create a Google OAuth web client and a GitHub OAuth App.
+- Use the Supabase callback URL shown by each provider configuration.
+- Request only identity/profile/email scopes needed for sign-in.
+- Keep provider client secrets in Supabase Auth configuration, never in Vercel browser variables.
 
-To handle large user volumes or prevent blocking serverless executions, we partition the daily pipeline into modular components:
+### 4.3 Vercel
 
-#### Workaround A: Serverless Queue Chaining with Upstash QStash (Recommended)
-Upstash QStash is a serverless messaging queue that has a free tier of **2,000 messages/day** ($0). 
-Instead of running a monolithic processing flow, we write modular API routes and chain them:
+1. Import the public personal GitHub repository into a Vercel Hobby project.
+2. Set the frontend package as the project root and select the Vite build/output settings.
+3. Expose only the Supabase project URL and publishable key to the browser. These are intentionally public; authorization relies on JWT validation and RLS.
+4. Configure the SPA fallback so client-side routes serve `index.html`.
+5. Add the production `vercel.app` URL to Supabase Auth redirects and to the API CORS allowlist. Do not allow arbitrary preview origins in production CORS/Auth configuration.
 
-1.  **Trigger:** Vercel Cron hits `/api/cron/start-ingestion` once a day.
-2.  **Queue Sources:** The endpoint queries Vercel Postgres for active sources, writes them to Vercel KV, and publishes a message to QStash for each source url.
-3.  **Process Ingestion:** QStash sends a webhook call back to Vercel at `/api/jobs/ingest-source` for each url. Vercel fetches, parses the HTML with Readability, saves the `IngestedArticle` to Postgres, and completes in ~2 seconds.
-4.  **AI Aggregation:** Once all sources are ingested, QStash triggers `/api/jobs/process-ai` for each flow. The endpoint retrieves the articles, calls the `gpt-5.4-mini` API, stores the `ProcessedDigest`, and finishes in ~4 seconds.
-5.  **Delivery:** A final QStash call triggers `/api/jobs/deliver-digest`, which decrypts the tokens and calls Slack/Telegram/SMTP in ~1 second.
-6.  **Independent Data Pruning:** To enforce the 7-day retention SLA (with 1-hour cleanup lag), a separate, dedicated external scheduler (such as Cron-Job.org scheduled every 30 minutes) is configured to call `/api/cron/prune-data` directly. Running every 30 minutes provides a buffer against scheduling and network delays. To satisfy the SLA, the external scheduler must be configured with automated retries (e.g., 3 retries with 5-minute backoff) and trigger alerts (such as Slack alerts or email notifications) upon persistent failure, ensuring pruning is not silently missed. This database-pruning job executes independently from the QStash processing pipelines.
+If the repository is transferred to a GitHub organization, reassess `T-04`; Vercel Hobby cannot connect organization-owned Git repositories, so Cloudflare Pages becomes the default fallback.
 
-#### Workaround B: Database-Backed State Machine with External Scheduler (Cron-Job.org)
-If we want to avoid external queues like QStash and only use Vercel Postgres and Vercel Serverless:
+### 4.4 Delivery Providers
 
-1.  **Trigger:** Since Vercel's free Hobby-tier Cron is limited to a maximum frequency of **once per day**, we utilize a free external scheduler (such as **Cron-Job.org**) to ping our `/api/cron/step-processor` endpoint every 5 to 10 minutes for free.
-2.  **Batch Processing:** When triggered, the endpoint checks the database for any pending source URLs, AI flows, or delivery attempts to process. Instead of processing exactly one step per trigger (which limits daily throughput), the endpoint runs a loop processing tasks sequentially for up to 60 seconds (or 80% of Vercel's serverless function timeout limit) before cleanly terminating. In each loop iteration, it processes **one** step (fetching one feed, running AI for one flow, or delivering notifications for one attempt) and commits the success state to Postgres. This batch loop allows a single trigger to process dozens of tasks, avoiding execution bottlenecks.
-3.  **Durable State Machine:** By using an external scheduler to trigger the endpoint frequently, processing batches of tasks on each run, and terminating each execution cleanly within Vercel's timeouts without unawaited self-invocations (which are frozen by Vercel), the daily pipeline runs reliably to completion over consecutive runs even as user volume scales.
-4.  **Independent Data Pruning:** To implement a robust, best-effort pruning flow, the database retention pruner is triggered directly by a dedicated scheduler (e.g. Cron-Job.org) once every 30 minutes (providing a safety buffer against network and execution delays), completely bypassing the sequential queue state-machine and immediately executing the SQL delete operations. To satisfy the 1-hour cleanup SLA, the external scheduler must be configured with automated retries (e.g., 3 retries with 5-minute backoff) and trigger alerts (such as Slack alerts or email notifications) upon persistent failure, ensuring pruning is not silently missed.
+- Verify one application-owned sender identity in Brevo and create a restricted transactional API key.
+- Create one Telegram bot and store its token only in Supabase secrets.
+- Slack webhook URLs are supplied per user/channel and encrypted by the API before storage.
+- Generic webhook URLs and generated signing secrets are encrypted by the API. Test endpoints must return 2xx before activation.
 
----
+### 4.5 CI/CD
 
-## 5. Summary Recommendations for Greenfield Phase
+- Vercel deploys the frontend from the production branch through its Git integration and creates preview deployments for pull requests.
+- A GitHub Actions workflow runs tests on pull requests. On the protected production branch it uses pinned Supabase CLI tooling to apply forward migrations and deploy Edge Functions.
+- Store the Supabase access token, project reference, and database password as GitHub environment secrets. Require approval for the production environment; never expose them to pull requests from forks.
+- GitHub Actions is used only for analysis, tests, and deployment—not daily processing or cleanup. Standard hosted runners are free for the public repository.
 
-*   **If you want simplicity and fast progress:** Choose **Option C (VPS + Docker Compose)**. It costs $4-$6/mo but saves you from writing complex async webhook handlers, state machines, or managing serverless execution limitations.
-*   **If you want $0 cost with the simplest code:** Choose **Option D (Vercel + GitHub Actions)**. The API is hosted on Vercel, and the background worker is just a standard Node script run via GitHub Actions. There are no timeout limits, and it requires zero architectural workarounds.
-*   **If you want a unified ecosystem on Vercel for $0:** Choose **Option E (Fully Vercel Stack)**. Utilize Vercel Fluid Compute's 300-second limit for early stages. As the system scales, transition to QStash webhook-chaining or the Cron-Job.org database state-machine workaround.
+### 4.6 Static analysis and public-repository security
+
+1. Enable CodeQL advanced setup for `javascript-typescript` and `actions` with the `security-extended` query suite.
+2. Enable Dependabot alerts and weekly update groups for npm and GitHub Actions.
+3. Add Dependency Review, ESLint/`typescript-eslint`, `deno lint`, `tsc --noEmit`, `deno check`, Prettier, `deno fmt --check`, `actionlint`, tests, and migration validation to required pull-request checks.
+4. Keep GitHub secret scanning enabled and retain user push protection. A detected secret requires revocation/rotation, not merely deleting it in a later commit.
+5. Pin third-party Actions to full commit SHAs and review Dependabot updates before merge.
+6. Configure the default branch ruleset to block merging when required checks fail or high/critical security findings remain unresolved.
+
+### 4.7 Infrastructure as code workflow
+
+The initial release uses the provider-native IaC selected in `T-14`:
+
+| Repository path | Managed infrastructure/configuration |
+| --- | --- |
+| `supabase/migrations/` | Tables, constraints, RLS, database functions, queues, schedules, retention, Vault references |
+| `supabase/config.toml` | Local Supabase/Auth/function configuration supported by the CLI |
+| `supabase/functions/` | Versioned API, scheduler, worker, and shared Edge Function code |
+| `vercel.json` | SPA routing, response/security headers, and repository-supported Vercel settings |
+| `.github/workflows/` | CI, CodeQL, migration validation, protected deployment, and infrastructure audit |
+| `.github/dependabot.yml` | npm and GitHub Actions update policy |
+| `infra/scripts/` | Idempotent bootstrap/audit for GitHub rules and provider settings not represented by native files |
+| `.env.example` | Required variable names and descriptions without values |
+
+Pull requests run format/validation, migration checks, and read-only infrastructure audits. Merge to the protected production branch applies migrations and deploys functions; Vercel deploys the static frontend from Git. Mutating bootstrap scripts require explicit production-environment approval and must be safe to rerun.
+
+The following remain manual but documented: creating personal GitHub/Vercel/Supabase accounts/projects, registering Google/GitHub OAuth applications, linking the repository initially, and entering secrets. The audit script verifies their non-secret observable settings afterward.
+
+Do not commit IaC state, provider tokens, plan files containing sensitive values, `.env` files, database dumps, or generated provider-link directories. If OpenTofu is adopted later, use encrypted locked remote state and protected CI-only apply.
+
+## 5. Scheduled Operations
+
+Supabase Cron owns all recurring work:
+
+| Schedule | Operation | Failure behavior |
+| --- | --- | --- |
+| Every day at 06:00 UTC | Enqueue due source and flow work | The next worker run processes durable queued work. Duplicate cycle keys are ignored. |
+| Every minute | Invoke the worker for at most one job | Unacknowledged messages become visible after their lease. Five failures move to dead-letter state. |
+| Every 30 minutes | Delete content older than seven days and recover expired leases | Record the run; alert after two consecutive failures. |
+
+Cleanup is a database-side operation, so it does not depend on a frontend host or GitHub Actions scheduling. Queue messages contain identifiers only; deleting expired articles and digests removes the content even if operational queue metadata remains.
+
+## 6. Free-Tier Risks and Controls
+
+### Supabase project pausing
+
+Supabase may pause a low-activity Free project after seven days. Scheduled work is expected to create regular database activity, but this is not an uptime guarantee. Configure owner email alerts and treat a pause as an accepted limitation of the $0 plan. If unattended availability is required, zero-cost hosting is not a valid production requirement.
+
+### Function limits
+
+Workers process one job per invocation and stop after 100 seconds. Expensive parsing and deduplication must have representative integration/load tests because edge functions have CPU, memory, and wall-clock limits. A timeout leaves the queue message unacknowledged for retry.
+
+### Storage
+
+The seven-day content purge is the primary storage control. Add alerts at 300 MB and 400 MB. Queue payloads store IDs only, dead-letter records contain sanitized error metadata, and no database backups containing ephemeral article/digest content are exported on the free plan.
+
+### Backup and recovery
+
+Supabase Free has no automatic backups. For the initial non-critical release, migrations in source control rebuild the schema and loss of hosted data is an accepted risk. Do not copy production database dumps into CI artifacts or source control: they would contain user identity/configuration data and could extend retained content. If an operational recovery-point objective is introduced, move to a plan with managed backups and define encrypted backup retention before launch.
+
+### No automatic overage
+
+Keep every provider on a plan that stops or rejects work when its free allowance is exhausted. The application records the provider error and retains retryable work; operators decide whether to wait, reduce load, or upgrade.
+
+## 7. Deployment and Rollback
+
+- Pull requests run lint, type checking, unit tests, migration validation, Edge Function integration tests, and the frontend build.
+- Pull requests validate declarative infrastructure and run read-only drift/audit checks; they never apply production changes.
+- Merge to the production branch deploys the Vercel frontend and Supabase functions. Database migrations run as an explicit protected CI step before functions that require them.
+- Migrations must be backward compatible for one deployment window: add schema first, deploy code, then remove obsolete schema in a later change.
+- Roll back frontend/functions by redeploying the previous artifact. Database rollback uses a tested compensating migration; destructive down-migrations are not automatic.
+- After deployment, run smoke checks for login, an authorized API read, queue publish/claim, a non-delivering test flow, and cleanup against seeded expired test data.
+
+## 8. Production Readiness Checklist
+
+- Google and GitHub production callbacks work.
+- Production password sign-up is disabled.
+- RLS tests prove cross-user reads/writes fail for every user-owned table.
+- SSRF tests cover source and webhook URLs, redirects, IPv4/IPv6 private ranges, DNS rebinding, and metadata endpoints.
+- Encryption round-trip and key-version tests pass; logs contain no plaintext secrets.
+- Queue retry, lease recovery, idempotency, and dead-letter tests pass.
+- The 30-minute cleanup schedule is enabled and monitored.
+- Provider keys and sender/chat/Slack/generic-webhook setup are validated with test deliveries.
+- Free-tier usage alerts and owner notification emails are configured.
+- CodeQL, Dependabot, Dependency Review, secret scanning, push protection, and required branch checks are enabled.
+- A clean checkout can validate all IaC; bootstrap/audit scripts are idempotent; no secret or IaC state file is tracked.
+- The operator accepts that $0 hosting has no SLA and that OpenAI calls still incur usage cost.
+
+## 9. Verified Platform References
+
+External limits and plan behavior were checked on 2026-07-01:
+
+- [Vercel Hobby](https://vercel.com/docs/plans/hobby) documents its personal/non-commercial restriction and included usage; [Vercel limits](https://vercel.com/docs/limits) document Git organization repository restrictions; [Vercel Cron limits](https://vercel.com/docs/cron-jobs/usage-and-pricing) explain why scheduling remains in Supabase.
+- [Cloudflare Pages limits](https://developers.cloudflare.com/pages/platform/limits/) support the documented fallback comparison.
+- [Supabase pricing](https://supabase.com/pricing) documents the Free database, Auth, Edge Function, storage, and egress allowances.
+- [Supabase project pausing](https://supabase.com/docs/guides/platform/free-project-pausing) documents inactivity behavior and restoration.
+- [Supabase Cron](https://supabase.com/docs/guides/cron), [Queues](https://supabase.com/docs/guides/queues), and [Edge Function limits](https://supabase.com/docs/guides/functions/limits) document the scheduled worker design and its constraints.
+- [GitHub Actions billing](https://docs.github.com/en/actions/concepts/billing-and-usage), [CodeQL](https://docs.github.com/en/code-security/concepts/code-scanning/codeql/codeql-code-scanning), [Dependency Review](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependency-review), and [secret scanning](https://docs.github.com/en/code-security/reference/secret-security/secret-scanning-scope) document the public-repository tooling used here.
+- [Supabase deployment](https://supabase.com/docs/guides/deployment) documents its repository/CLI deployment model; [Vercel's Terraform integration](https://vercel.com/kb/guide/integrating-terraform-with-vercel) and [OpenTofu state encryption](https://opentofu.org/docs/v1.10/language/state/encryption/) document the deferred stateful IaC alternative.
+
+## 10. Traceability Check
+
+The deployment is valid only while it continues to implement `T-01..T-14` and satisfy `NFR-CON-04..08`. Commercial use, repository privatization, multiple long-lived environments, or a provider-limit change is first reassessed in the business/technology layers; hosting is then updated to implement the resulting decision.

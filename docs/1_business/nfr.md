@@ -1,35 +1,53 @@
-# Non-Functional Requirements (NFRs)
+# Non-Functional Requirements
 
-This document outlines the technical constraints, system qualities, and operational requirements for the AI-Powered Personalized News Aggregator.
+## 1. Performance and scalability
 
-## 1. Performance & Scalability
-* **Global Caching:** The system must implement shared resource caching for ingested feeds and web pages. If multiple users subscribe to the same source, the system must fetch the source only once per update cycle to minimize redundant network requests and prevent IP bans.
-* **Asynchronous Processing:** Data ingestion, AI processing, and content delivery must be executed asynchronously via background jobs/queues to guarantee the web UI remains responsive.
-* **Payload & Token Optimization:** The system must implement intelligent truncation and token estimation strategies to ensure batched payloads stay strictly within the context window limits of the AI model.
-* **API Rate Limiting:** The system must proactively manage and respect the rate limits of external APIs (e.g., OpenAI, Telegram, Slack).
+- **NFR-PERF-01 — Shared source work:** Fetch each source at most once per update cycle across all users.
+- **NFR-PERF-02 — Responsive UI:** Ingestion, AI processing, delivery, retries, and cleanup execute outside interactive browser requests.
+- **NFR-PERF-03 — AI payload control:** Enforce deterministic per-article, per-batch, and output limits before calling the AI API.
+- **NFR-PERF-04 — External rate limits:** Bound concurrency and respect rate-limit responses from providers and user-configured webhook origins.
 
-## 2. Reliability & Fault Tolerance
-* **Dead Feed Management:** The system must track the health of data sources. If a source fails to fetch 5 consecutive times, it must automatically pause the feed and notify the user.
-* **Retry Mechanisms:** Transient failures in external service calls (AI processing, delivery channels) must be handled using exponential backoff and retry logic.
-* **Idempotent Delivery (Best-Effort):** The delivery pipeline must implement best-effort idempotency to minimize duplicate news digests. For channels lacking native deduplication APIs (including Slack, Telegram, and standard SMTP), at-least-once delivery is acceptable, and double-delivery must be minimized using database-level pre-flight state locking.
+## 2. Reliability
 
-## 3. Security & Privacy
-* **Production Authentication:** Production authentication must strictly rely on secure OAuth providers (Google, GitHub). Email/password login is explicitly disabled in production environments.
-* **Anti-Spam / Delivery Restrictions:** To prevent the system from being used as a spam relay, email delivery is strictly restricted to the user's own verified email address.
-* **Data Isolation:** User data, custom prompt instructions, and personalized flow configurations must be securely isolated.
-* **Secret Management:** Sensitive data, such as OAuth tokens and third-party delivery credentials (e.g., Slack webhooks, Telegram tokens), must be securely encrypted at rest.
+- **NFR-REL-01 — Durable work:** Background work survives runtime restarts and is acknowledged only after durable state commits.
+- **NFR-REL-02 — Retry:** Retry transient external failures with bounded exponential backoff; exhausted work becomes operator-visible.
+- **NFR-REL-03 — Source health:** Pause a source after five consecutive failed fetch cycles.
+- **NFR-REL-04 — Delivery semantics:** Delivery is best-effort at-least-once where a receiver lacks native idempotency. Database state minimizes duplicates, and generic webhooks include a stable event ID for receiver deduplication.
+- **NFR-REL-05 — Timeouts and recovery:** External calls use bounded timeouts and abandoned processing leases are recoverable.
 
-## 4. System Constraints & Quotas
-* **Flow Limits:** The system must enforce a hard limit of **5 processing flows** per user.
-* **Execution Frequency:** Flow execution is currently restricted to a maximum of **once per day** (every 24 hours).
-* **Model Restriction:** AI processing is strictly constrained to the **`gpt-5.4-mini`** model to control operational costs and ensure predictable performance.
+## 3. Security and privacy
 
-## 5. Data Retention & Lifecycle
-* **Automated Data Purge:** All processed news data and generated digests must be automatically and permanently deleted 1 week (7 days) after creation (subject to an operational cleanup schedule lag of up to 1 hour).
+- **NFR-SEC-01 — Production authentication:** Production permits Google and GitHub OAuth only.
+- **NFR-SEC-02 — Authorization:** User-owned data is deny-by-default and isolated between users.
+- **NFR-SEC-03 — Secret protection:** OAuth tokens, delivery credentials, webhook URLs/signing secrets, and custom prompts are encrypted at rest and excluded from logs.
+- **NFR-SEC-04 — Email anti-abuse:** Email delivery is restricted to the authenticated user's verified email.
+- **NFR-SEC-05 — SSRF defense:** User-provided source and webhook URLs cannot reach loopback, private, link-local, multicast, reserved, or cloud metadata addresses; redirects are revalidated.
+- **NFR-SEC-06 — Signed webhooks:** Generic webhook bodies are integrity-protected and authenticated with a per-channel signing secret.
 
-## 6. Maintainability & Observability
-* **System Logging:** The system must implement structured logging, particularly for the background processing and AI integration pipelines, to trace processing failures or skipped sources.
-* **Cost & Usage Monitoring:** The system must monitor and log AI token usage per user/flow to analyze costs and prevent abuse.
+## 4. Product and operational constraints
+
+- **NFR-CON-01 — Flow limit:** Enforce at most five flows per user.
+- **NFR-CON-02 — Execution frequency:** A flow runs at most once per UTC day.
+- **NFR-CON-03 — Model restriction:** AI processing uses only `gpt-5.4-mini` in the initial release.
+- **NFR-CON-04 — Hosting cost:** Initial infrastructure hosting must remain $0/month within documented free-tier quotas. Usage-billed OpenAI calls and an optional custom domain are outside this hosting-cost boundary.
+- **NFR-CON-05 — Setup simplicity:** Prefer the fewest managed services and no continuously administered server for the initial release.
+- **NFR-CON-06 — Free-tier failure:** The system must not enable paid overage automatically; it queues/rejects work and alerts the operator when a free allowance is exhausted.
+- **NFR-CON-07 — Public/non-commercial project:** Hosting and developer tooling may rely on benefits restricted to public repositories or personal/non-commercial use.
+- **NFR-CON-08 — Tooling cost:** Prefer maintained open-source tools and no-cost GitHub public-repository security/CI features before introducing paid tooling.
+
+## 5. Data lifecycle
+
+- **NFR-DATA-01 — Seven-day purge:** Permanently delete article content, digests, and delivery attempts seven days after creation, with at most one hour of cleanup lag.
+- **NFR-DATA-02 — Cached content:** Cached user/news content expires within 24 hours.
+- **NFR-DATA-03 — Queue minimization:** Queue payloads contain identifiers and operational metadata, never article bodies, digests, prompts, or credentials.
+
+## 6. Maintainability and observability
+
+- **NFR-OPS-01 — Structured logs:** API and worker logs are structured and correlated by request, job, flow, and source identifiers without sensitive content.
+- **NFR-OPS-02 — Persistent failures:** Critical/exhausted failures remain operator-visible beyond short platform log retention.
+- **NFR-OPS-03 — Usage monitoring:** Record AI token usage per flow/run and monitor hosting/provider quotas.
+- **NFR-OPS-04 — Change safety:** Schema and runtime changes are tested and deployed through a rollback-capable CI/CD process.
 
 ## 7. Usability
-* **Responsive Design:** The web application dashboard must be fully responsive, functioning seamlessly across desktop, tablet, and mobile devices.
+
+- **NFR-UX-01 — Responsive dashboard:** The browser application supports desktop, tablet, and mobile layouts.

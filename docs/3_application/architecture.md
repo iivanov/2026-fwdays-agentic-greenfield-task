@@ -1,65 +1,99 @@
 # Application Architecture
 
-## 1. High-Level Architecture Overview
+This document derives logical responsibilities from the [business requirements](../1_business/requirements.md), [NFRs](../1_business/nfr.md), and [data decisions](../2_data/data_structure.md). Concrete products, languages, frameworks, libraries, and hosting providers are selected only in `4_technology`. Cross-cutting implementation rules are defined in [architecture tactics](architecture_tactics.md).
 
-The AI-Powered Personalized News Aggregator is designed as a distributed, asynchronous system. It comprises a user-facing Web Application for configuration, a centralized API Server for data management, and a series of background worker services (Ingestion, AI Processing, Delivery) that handle the heavy processing asynchronously via message queues.
+## 0. Upstream Decision Basis
 
-## 2. Core Components
+| Architecture decision | Inputs | Result |
+| --- | --- | --- |
+| **A-01 — Browser/API boundary** | `BR-USER-*`, `BR-SRC-01`, `BR-FLOW-01`, `BR-DEL-06`, `NFR-UX-01`, `D-01` | Responsive browser application plus authenticated stateless API boundary. |
+| **A-02 — Relational persistence** | `D-01..D-06`, `NFR-SEC-02`, `NFR-DATA-01` | Transactional relational storage with constraints, ownership isolation, locking, and cleanup. |
+| **A-03 — Shared source coordination** | `BR-SRC-04`, `NFR-PERF-01`, `D-02` | Global source state and one source claim per processing cycle. |
+| **A-04 — Durable asynchronous pipeline** | `NFR-PERF-02`, `NFR-REL-01..05`, `D-03..D-04` | Scheduler and durable ingestion, processing, delivery, retry, dead-letter, and maintenance work. |
+| **A-05 — Integration adapters** | `BR-SRC-02..03`, `BR-DEL-02..05`, `NFR-PERF-04` | Replaceable source, AI, and output adapters isolated from domain logic. |
+| **A-06 — Security boundary** | `NFR-SEC-01..06`, `D-01`, `D-04` | Deny-by-default authorization, encrypted secrets, SSRF controls, and signed webhooks. |
+| **A-07 — Observable operations** | `NFR-OPS-01..03`, `D-06` | Correlated logs plus persistent sanitized failure state. |
 
-### 2.1 Web Application (Frontend)
-- **Responsibility:** Provides the dashboard for users to authenticate, manage their profiles, configure their news sources, and set up processing flows and delivery channels.
-- **Key Features:** Fully responsive design, OAuth login flow, real-time feedback on flow statuses.
+## 1. Architecture Requirements
 
-### 2.2 API Server (Backend)
-- **Responsibility:** Acts as the central hub for the Web Application. Handles business logic, database interactions, and acts as the gateway to the system.
-- **Key Features:** 
-  - OAuth 2.0 authentication integration (Google, GitHub).
-  - CRUD operations for `User`, `GlobalSource`, `ProcessingFlow`, and `DeliveryChannel` entities.
-  - Rate limiting and quota enforcement (e.g., max 5 flows per user).
+- **Browser application:** A responsive web framework must provide authentication, source and flow configuration, delivery-channel setup, execution status, digest history, and feedback controls.
+- **Application API:** A stateless API boundary must authenticate requests, authorize every user-owned resource, validate input, enforce quotas, and expose the domain operations required by the browser application.
+- **Relational storage:** Durable data must be stored in a relational database with transactions, foreign keys, uniqueness constraints, row-level user isolation, and support for flexible encrypted configuration values.
+- **Low-latency shared state:** The system needs shared caching and coordination so a source is fetched at most once per update cycle and concurrent workers cannot perform the same work. This capability may use a dedicated fast store or the relational database when the selected scale and hosting model make that simpler.
+- **Durable asynchronous work:** Ingestion, AI processing, delivery, retries, and cleanup must execute outside interactive API requests. Jobs must survive process restarts and use bounded retries, visibility/lease timeouts, and dead-letter handling.
+- **Recurring scheduling:** A scheduler must start due daily flows, recover abandoned work, and run retention cleanup at least every 30 minutes.
+- **External integrations:** Replaceable adapters must isolate the AI provider, OAuth providers, feeds/web pages, email, Telegram, Slack, and generic outbound webhooks from domain logic.
+- **Observability:** Every API request and background job must emit structured logs with correlation identifiers. Failed or exhausted jobs must be visible to an operator.
 
-### 2.3 Data Storage & Caching
-- **Primary Database:** Relational database (e.g., PostgreSQL) to store system entities with strict relationships and ACID guarantees.
-- **Cache / Message Broker:** In-memory datastore (e.g., Redis) used for two primary purposes:
-  - **Message Queues:** Facilitating asynchronous communication between the API Server and background workers.
-  - **Shared Resource Caching:** Temporarily caching fetched source data to ensure a source is only fetched once per update cycle across all users.
+The API, scheduler, and workers are logical components. They do not need to be independently deployed services for the initial scale.
 
-### 2.4 Background Worker Services
-To ensure the web UI remains responsive and external API limits are respected, heavy processing is offloaded to independent, asynchronous background workers.
+## 2. Logical Components
 
-#### 2.4.1 Ingestion Service
-- **Responsibility:** Periodically fetches data from `GlobalSource` URLs (RSS, Atom, Web).
-- **Key Features:**
-  - Extracts main article text and strips ads/menus (e.g., using Readability).
-  - Implements shared caching to prevent redundant network requests and IP bans.
-  - Tracks failed fetches and pauses sources after 5 consecutive failures.
-  - Persists raw data into the `IngestedArticle` table.
+### 2.1 Browser Application
 
-#### 2.4.2 AI Processing Engine
-- **Responsibility:** Processes batched `IngestedArticle` data using the configured AI model (`gpt-5.4-mini`).
-- **Key Features:**
-  - Performs smart deduplication of similar stories before AI processing.
-  - Implements intelligent token estimation and truncation to fit within the AI context window.
-  - Applies user-defined custom prompts or predefined templates for summarization, translation, and filtering.
-  - Handles transient failures with external AI APIs using exponential backoff.
-  - Persists the final output as a `ProcessedDigest`.
+Provides the dashboard for authentication, profile management, sources, processing flows, delivery channels, digests, and feedback. It communicates only through authenticated APIs and must not receive server credentials or unencrypted delivery secrets.
 
-#### 2.4.3 Delivery Service
-- **Responsibility:** Dispatches `ProcessedDigest` content to the user's configured `DeliveryChannel`.
-- **Key Features:**
-  - Supports multiple delivery integrations: In-App, Email (restricted to user's verified address), Telegram, Slack.
-  - Implements best-effort idempotent delivery to minimize duplicate messages during retries.
-  - Respects external API rate limits for each respective delivery platform.
+### 2.2 Application API
 
-## 3. Data Flow
+- Validates authenticated user sessions and resource ownership.
+- Provides CRUD operations for profiles, sources, flows, and delivery channels.
+- Enforces the five-flow quota and daily frequency constraint.
+- Encrypts sensitive configuration before persistence.
+- Exposes health and job-status information without leaking cross-user data.
 
-1. **Configuration:** The user configures a `ProcessingFlow` via the Web Application. The API Server saves this to the Database and schedules the flow (e.g., daily).
-2. **Ingestion Trigger:** A cron job or scheduler triggers the Ingestion Service to fetch new articles for all `GlobalSource` records required by active flows.
-3. **Extraction & Storage:** The Ingestion Service extracts the article content and saves it as `IngestedArticle` records. An event is published to the AI Processing Queue.
-4. **AI Processing:** The AI Processing Engine picks up the event, batches the new `IngestedArticle` records, applies truncation and deduplication, and sends the payload to the AI model (`gpt-5.4-mini`).
-5. **Digest Creation:** The AI response is saved as a `ProcessedDigest`. An event is published to the Delivery Queue.
-6. **Delivery:** The Delivery Service picks up the event, decrypts the necessary channel credentials, and pushes the digest to the configured external platforms (Slack, Telegram, Email).
+### 2.3 Relational Data Store
 
-## 4. Security & Data Management
-- **Secret Encryption:** All sensitive data (Slack webhooks, Telegram tokens, OAuth tokens, custom prompt templates) must be encrypted at rest in the database.
-- **Data Lifecycle Management:** A cleanup worker runs every 30 minutes to automatically and permanently delete all `IngestedArticle`, `ProcessedDigest`, and `DigestDeliveryAttempt` records older than 7 days, maintaining a retention window of 7 days with a maximum cleanup lag of 1 hour (leaving 30 minutes of operational headroom for query runtime and scheduling jitter). To prevent re-ingesting purged articles whose database metadata has been deleted, the Ingestion Service must explicitly skip feed items older than 7 days during polling. Additionally, all user-related news content cached in Redis must enforce a strict TTL (maximum 24 hours), and BullMQ background queues must be configured to automatically evict completed or failed jobs and payloads (`removeOnComplete: true` and `removeOnFail: { age: 86400 }`) to prevent expired data from persisting in memory or Redis AOF logs.
-- **Data Isolation:** The database design and API access control ensure strict data isolation between tenants (users).
+Stores durable domain records, ingestion results, digests, delivery state, schedules, and job coordination state. Transactions and row locks provide the source-fetch and delivery pre-flight locks described in the data model.
+
+### 2.4 Shared Cache and Coordination
+
+- Reuses a source fetch across all subscribing flows during an update cycle.
+- Stores only identifiers in queued jobs; article bodies and generated digests remain in relational storage.
+- Applies an expiry of no more than 24 hours to any cached user news content.
+- Treats cache loss as recoverable; durable work state remains in relational storage or a durable queue.
+
+### 2.5 Background Processing
+
+Workers consume small, independently retryable jobs:
+
+1. **Ingestion:** Claims a due source, fetches it once, validates redirects and resolved addresses against the SSRF policy, extracts feed entries or readable page content, deduplicates items, records source health, and persists accepted articles.
+2. **AI processing:** Claims a due flow, selects unprocessed articles, groups near-duplicates, truncates the input to the configured budget, applies the user's prompt, records usage, and persists one digest.
+3. **Delivery:** Creates one attempt per configured channel, claims each attempt with a lease, sends it through the relevant adapter, and records success or retry state.
+4. **Maintenance:** Deletes expired content, recovers expired leases, removes old queue messages and cache entries, and surfaces exhausted jobs.
+
+## 3. Processing Flow
+
+1. At the fixed daily processing time, the scheduler identifies enabled flows that are due.
+2. The scheduler creates ingestion jobs for the distinct sources used by those flows. A source-cycle uniqueness key prevents duplicate fetches.
+3. Ingestion workers save newly accepted articles and enqueue flow-processing jobs after all source jobs for the cycle have reached a terminal state.
+4. A flow worker atomically claims articles not previously consumed by that flow, then performs deduplication, truncation, AI processing, and digest persistence.
+5. The worker creates delivery attempts for the flow's channels. In-app delivery is complete when the digest is persisted.
+6. Delivery workers send external messages with bounded network timeouts and retry transient failures with exponential backoff.
+7. User feedback is stored against the digest for reporting. Automatic prompt adaptation is outside the initial release; changing prompts without an explicit, testable rule would make behavior non-deterministic.
+
+If no new article is available for a flow, no empty digest is generated and the run is recorded as completed with a `no_content` outcome.
+
+## 4. Reliability and Concurrency Rules
+
+- Job handlers must be idempotent. Every job has a stable domain idempotency key.
+- Queue messages contain record identifiers and metadata, never full article or digest content.
+- A worker acknowledges a job only after its database transaction commits.
+- A source fetch is unique per source and processing cycle.
+- An article can be consumed by a flow only once; this is enforced by a relational uniqueness constraint.
+- Delivery remains best-effort at-least-once because the supported external channels do not all provide idempotency keys.
+- Network operations use a maximum 30-second timeout. Expired leases are recoverable after five minutes.
+- A job is dead-lettered after five failed attempts and must create an operator-visible error; source health rules still pause a source after five consecutive failed fetch cycles.
+
+## 5. Security and Data Lifecycle
+
+- Production sign-in uses only the approved OAuth providers. Development-only password authentication must not be enabled in the production environment.
+- Authorization is deny-by-default and enforced both at the API boundary and at the data layer where supported.
+- Delivery credentials, provider tokens owned by the application, webhook URLs/signing secrets, and custom prompts are encrypted with authenticated encryption before storage. Encryption keys live only in the runtime secret store.
+- User-supplied URLs are restricted to HTTP/HTTPS. Every initial host and redirect target must resolve to public addresses; loopback, private, link-local, multicast, and cloud metadata ranges are blocked.
+- Outbound delivery webhooks require HTTPS in production, are signed, do not follow redirects, and apply the same public-address validation immediately before every attempt.
+- Article content, digests, and delivery attempts are permanently removed after seven days, with cleanup scheduled every 30 minutes.
+- Cached copies of user news content expire within 24 hours. Job history containing only identifiers and operational metadata may be retained longer if it cannot reconstruct deleted content.
+
+## 6. Downstream Contract
+
+The technology layer must implement `A-01..A-07`, `AT-01..AT-12`, and `D-01..D-06` while satisfying `NFR-CON-04..08`. Technology alternatives are judged against those inputs; convenience alone is not sufficient justification.
