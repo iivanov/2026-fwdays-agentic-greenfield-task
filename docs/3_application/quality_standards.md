@@ -36,5 +36,5 @@ This document defines the engineering quality standards, testing strategies, and
 ## 6. Performance & Reliability
 - **Caching Policies:** The global source cache must be strictly enforced to avoid redundant network calls and IP bans.
 - **Resource Constraints:** The AI Processing Engine must strictly enforce truncation limits before sending payloads to the `gpt-5.4-mini` model to prevent exceeding context windows and manage costs.
-- **Idempotency:** Delivery mechanisms must be strictly idempotent. A failed delivery job that is retried must not result in duplicate messages being sent to the user.
+- **Idempotency (Best-Effort):** Delivery mechanisms must implement best-effort idempotency. For channels lacking native deduplication APIs (including Slack, Telegram, and standard SMTP), double-delivery must be minimized using database-level pre-flight state locking, and at-least-once delivery is acceptable. For channels with native deduplication, strict idempotency must be enforced.
 - **Dead Letter Queues (DLQ):** Messages in the background processing queues that fail repeatedly after max retries must be moved to a DLQ for manual inspection, ensuring the main queues are not blocked.

@@ -11,7 +11,7 @@ This document outlines the technical constraints, system qualities, and operatio
 ## 2. Reliability & Fault Tolerance
 * **Dead Feed Management:** The system must track the health of data sources. If a source fails to fetch 5 consecutive times, it must automatically pause the feed and notify the user.
 * **Retry Mechanisms:** Transient failures in external service calls (AI processing, delivery channels) must be handled using exponential backoff and retry logic.
-* **Idempotent Delivery:** The delivery pipeline must be idempotent to ensure users do not receive duplicate news digests if a delivery job is retried.
+* **Idempotent Delivery (Best-Effort):** The delivery pipeline must implement best-effort idempotency to minimize duplicate news digests. For channels lacking native deduplication APIs (including Slack, Telegram, and standard SMTP), at-least-once delivery is acceptable, and double-delivery must be minimized using database-level pre-flight state locking.
 
 ## 3. Security & Privacy
 * **Production Authentication:** Production authentication must strictly rely on secure OAuth providers (Google, GitHub). Email/password login is explicitly disabled in production environments.
@@ -25,7 +25,7 @@ This document outlines the technical constraints, system qualities, and operatio
 * **Model Restriction:** AI processing is strictly constrained to the **`gpt-5.4-mini`** model to control operational costs and ensure predictable performance.
 
 ## 5. Data Retention & Lifecycle
-* **Automated Data Purge:** All processed news data and generated digests must be automatically and permanently deleted exactly **1 week (7 days)** after creation.
+* **Automated Data Purge:** All processed news data and generated digests must be automatically and permanently deleted 1 week (7 days) after creation (subject to an operational cleanup schedule lag of up to 1 hour).
 
 ## 6. Maintainability & Observability
 * **System Logging:** The system must implement structured logging, particularly for the background processing and AI integration pipelines, to trace processing failures or skipped sources.

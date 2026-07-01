@@ -6,7 +6,7 @@ This document defines the technology requirements for the **AI-Powered Personali
 
 ## 1. Requirements Summary & Engineering Constraints
 
-Based on the [business requirements](file:///home/ivdt/tmp/forremove/ai-course/my-project/2026-fwdays-agentic-greenfield-task/docs/1_business/requirements.md) and [non-functional requirements (NFRs)](file:///home/ivdt/tmp/forremove/ai-course/my-project/2026-fwdays-agentic-greenfield-task/docs/1_business/nfr.md), the chosen technologies must support:
+Based on the [business requirements](../1_business/requirements.md) and [non-functional requirements (NFRs)](../1_business/nfr.md), the chosen technologies must support:
 *   **Asynchronous Background Tasks:** Heavy workloads (web scraping, HTML-to-text extraction, AI analysis, notification delivery) must run outside the request-response lifecycle of the API server.
 *   **Shared Resource Caching:** Global deduplication of source fetching is required (fetch once per cycle, cache results, and serve all subscribing user flows).
 *   **Structured Relational Schema:** Strong relationships between `User`, `ProcessingFlow`, `GlobalSource`, `DeliveryChannel`, and `ProcessedDigest` with support for complex metadata (interests, configurations).
@@ -143,7 +143,7 @@ Dynamic user-provided secrets (SMTP configurations, Slack Webhooks, Telegram bot
 | **HTML Reader-Mode** | `@mozilla/readability` + `linkedom` | High-quality text extraction without heavy memory footprints. |
 | **AI Model** | `gpt-5.4-mini` (via OpenAI SDK) | Defined business constraint. Used for synthesis, translation, and filtering. |
 | **Security & Encryption** | AES-256-GCM | Encrypts delivery channels and custom prompts at rest in PostgreSQL. |
-| **Data Retention Job** | Cron repeatable job in BullMQ | Automated daily execution of SQL deletes targeting records older than 7 days. |
+| **Data Retention Job** | Cron repeatable job in BullMQ | Automated execution of SQL deletes every 30 minutes targeting IngestedArticle, ProcessedDigest, and DigestDeliveryAttempt records older than 7 days (maximum 1-hour cleanup lag with 30-minute headroom). |
 
 ---
 

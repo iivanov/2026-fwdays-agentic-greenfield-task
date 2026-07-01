@@ -47,7 +47,7 @@ To ensure the web UI remains responsive and external API limits are respected, h
 - **Responsibility:** Dispatches `ProcessedDigest` content to the user's configured `DeliveryChannel`.
 - **Key Features:**
   - Supports multiple delivery integrations: In-App, Email (restricted to user's verified address), Telegram, Slack.
-  - Ensures idempotent delivery to prevent duplicate messages during retries.
+  - Implements best-effort idempotent delivery to minimize duplicate messages during retries.
   - Respects external API rate limits for each respective delivery platform.
 
 ## 3. Data Flow
@@ -61,5 +61,5 @@ To ensure the web UI remains responsive and external API limits are respected, h
 
 ## 4. Security & Data Management
 - **Secret Encryption:** All sensitive data (Slack webhooks, Telegram tokens, OAuth tokens, custom prompt templates) must be encrypted at rest in the database.
-- **Data Lifecycle Management:** A daily cleanup worker runs to automatically and permanently delete all `ProcessedDigest` records older than 7 days, adhering to the data retention policy.
+- **Data Lifecycle Management:** A cleanup worker runs every 30 minutes to automatically and permanently delete all `IngestedArticle`, `ProcessedDigest`, and `DigestDeliveryAttempt` records older than 7 days, maintaining a retention window of 7 days with a maximum cleanup lag of 1 hour (leaving 30 minutes of operational headroom for query runtime and scheduling jitter). To prevent re-ingesting purged articles whose database metadata has been deleted, the Ingestion Service must explicitly skip feed items older than 7 days during polling. Additionally, all user-related news content cached in Redis must enforce a strict TTL (maximum 24 hours), and BullMQ background queues must be configured to automatically evict completed or failed jobs and payloads (`removeOnComplete: true` and `removeOnFail: { age: 86400 }`) to prevent expired data from persisting in memory or Redis AOF logs.
 - **Data Isolation:** The database design and API access control ensure strict data isolation between tenants (users).

@@ -40,4 +40,4 @@ A web-based platform that allows users to aggregate news from custom sources, pr
   - **Slack:** Send updates to a specified Slack channel/workspace.
 
 ## 3. Data Storage & Retention
-- **Processed Data Lifecycle:** Generated and processed news data will be stored for exactly **1 week (7 days)** before being automatically deleted.
+- **Processed Data Lifecycle:** Generated and processed news data will be stored for **1 week (7 days)** before being automatically deleted (subject to an operational cleanup schedule lag of up to 1 hour).
