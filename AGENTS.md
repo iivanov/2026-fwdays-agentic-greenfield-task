@@ -18,6 +18,7 @@ This file applies to the entire repository. Add a nested `AGENTS.md` only when a
 - Keep technology names out of business, data, and application architecture documents unless the name is itself an approved product constraint.
 - Never commit secrets, production data, `.env` values, provider state, database dumps, or generated private configuration.
 - Prefer maintained open-source tools and no-cost public-repository GitHub capabilities where they satisfy the requirements.
+- Use `docs/DESIGN.md` and the stitch MCP server for UI design and implementation.
 
 ## Development Loop (Agentic)
 
