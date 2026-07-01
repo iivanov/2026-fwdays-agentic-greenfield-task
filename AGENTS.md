@@ -19,6 +19,89 @@ This file applies to the entire repository. Add a nested `AGENTS.md` only when a
 - Never commit secrets, production data, `.env` values, provider state, database dumps, or generated private configuration.
 - Prefer maintained open-source tools and no-cost public-repository GitHub capabilities where they satisfy the requirements.
 
+## Development Loop (Agentic)
+
+This project is built by an agent loop, not step-by-step hand-prompting. The
+loop is **spec-driven** (OpenSpec) and enforces **maker ≠ checker**: the agent
+that writes a change never certifies its own work.
+
+- **Spec engine:** OpenSpec (`schema: spec-driven`). Project context and
+  per-artifact rules live in `openspec/config.yaml`; changes live in
+  `openspec/changes/`, canonical specs in `openspec/specs/`. Every change traces
+  to upstream IDs (`BR-*`, `NFR-*`, `D-*`, `A-*`, `AT-*`, `Q-*`, `T-*`, `H-*`).
+- **The cycle (one change at a time):**
+  `plan → implement (maker) → verify (sub-agent) → review (sub-agent) → archive`.
+  Verify must be green AND review must have no unresolved blocking findings
+  before archive. On failure, findings go back to the maker and **both** checker
+  passes re-run on the final diff.
+- **Maker ≠ checker:** implementation, verification, and review are three
+  distinct sub-agents in fresh contexts. Verify runs the real gates and observes
+  behavior; review is an independent, adversarial code review. A maker's
+  self-review and external PR review (CodeRabbit) are *additional* layers, never
+  substitutes for the two in-loop checker sub-agents.
+- **Roles (skills, canonical in `.agent/skills/`; `.claude/skills/` symlinks to
+  the role skills):** `decompose-requirements` (planner), `implement-change`
+  (maker), `verify-change` (checker — static gates), `verify-e2e` (checker —
+  Playwright behavior + artifact), `review-change` (checker — independent review).
+- **Binding rules (`.agent/rules/`):** `10-spec-driven`, `20-maker-checker`,
+  `30-verification-gates`, `40-security-and-secrets`, `50-autonomous-operation`.
+  They apply to all agent work in this repo.
+- **Entry points (slash commands):** `/dev-loop` (supervised orchestrator),
+  `/autopilot` (unattended build loop), `/decompose` (build the backlog),
+  `/plan`, `/verify`, `/review`, plus OpenSpec's `/opsx:propose`, `/opsx:apply`,
+  `/opsx:archive`, `/opsx:explore`, `/opsx:sync`. Configured for **Antigravity**
+  (`.agent/workflows/`) and **Claude Code** (`.claude/commands/`).
+- Run `openspec update` after upgrading the OpenSpec CLI to refresh the
+  generated skills/commands; it does not touch the custom role skills or rules.
+
+### Autonomous mode (`/autopilot`)
+
+`/autopilot` runs the whole loop unattended: it decomposes requirements into an
+ordered backlog (`docs/roadmap.md`), then builds each slice with the same
+spec-driven, maker≠checker cycle — including a hard verification gate of static
+checks (`verify-change`) **plus** a Playwright e2e pass that emits a committed
+verification artifact (`verify-e2e` → `openspec/changes/<name>/verification.md`)
+— and moves to the next slice until the project is done. It decides from the
+architecture docs instead of prompting (`.agent/rules/50-autonomous-operation`).
+
+What it does **not** do without an explicit human go-ahead (by design): commit or
+push to `main`, merge PRs, deploy, spend money, or create external accounts. It
+works on an `autopilot/*` branch, opens PRs for external review, and collects
+account/secret/deploy needs under "Human bootstrap required" in
+`docs/roadmap.md`. It stops and reports when everything left is blocked, a
+human-bootstrap item is required, or a slice fails verification 3 times.
+Progress state is the roadmap statuses + OpenSpec changes + git, so `/autopilot`
+is resumable — re-running continues from the next `pending` slice.
+
+### Installed technology skills (third-party, trusted sources)
+
+Stack-specific know-how is provided by first-party skills installed with the
+`skills` CLI (`vercel-labs/skills`) into the canonical `.agent/skills/`
+(project scope, `--copy` so they are committed and self-contained). Provenance
+and content-integrity hashes are pinned in `skills-lock.json`; update with
+`npx skills update`.
+
+| Skill | Source | License | Why |
+| --- | --- | --- | --- |
+| `supabase` | `supabase/agent-skills` (official) | MIT | Database, Auth, Edge Functions, RLS, Queues, Cron, `supabase-js`, migrations — our whole backend (`T-03/T-05/T-06`). |
+| `supabase-postgres-best-practices` | `supabase/agent-skills` (official) | MIT | Postgres query/schema/index/RLS optimization for the data layer (`D-*`). |
+| `webapp-testing` | `anthropics/skills` (official) | Apache-2.0 | Playwright web-app testing (`T-12` e2e). Ships Python helper scripts. |
+| `frontend-design` | `anthropics/skills` (official) | Apache-2.0 | Visual/UX guidance for the React frontend (`T-02`). |
+| `skill-creator` | `anthropics/skills` (official) | Apache-2.0 | Authoring/evaluating new project skills in the loop. Ships Python scripts. |
+
+- Only first-party/vendor-official skills are used; community skill aggregators
+  are intentionally avoided. Third-party skills run with full agent permissions
+  — review a skill (and its scripts) before trusting it, and re-check
+  `skills-lock.json` hashes after updates.
+- These skills are *how-to* knowledge; they do not override the binding
+  `.agent/rules/` (policy) — on any conflict, the rules win.
+- For libraries without a trusted skill (React, Vite, TanStack Query, OpenAI
+  Responses API, Brevo), use the **context7 MCP** for live version-accurate docs
+  rather than an untrusted skill.
+- `.agents/` (plural) is a symlink to `.agent/` (singular) so the OpenSpec CLI
+  (writes `.agent/`) and the `skills` CLI (writes `.agents/`) share one real
+  directory; Antigravity reads either name.
+
 ## Development Process Record
 
 - Update `docs/development_process.md` after every material feature, architecture decision, tooling change, verification loop, or human correction.

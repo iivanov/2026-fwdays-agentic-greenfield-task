@@ -110,6 +110,152 @@ Current evidence is limited: the architecture work received iterative self-revie
 
 **Verification:** Confirmed repository-root and nested `AGENTS.md` discovery behavior against current official Codex documentation; checked the resulting paths and Markdown diff.
 
+### 2026-07-02 — Agentic development loop and OpenSpec setup
+
+**Human direction**
+
+- Set up an Antigravity ("agy") environment and a repeatable development loop to
+  carry the project to completion.
+- Required OpenSpec for spec-driven development, a maker that is separate from
+  verification, and explicit use of sub-agents for code review and verification.
+
+**AI contribution**
+
+- Initialized OpenSpec (`@fission-ai/openspec`, upgraded to 1.5.0) with
+  `schema: spec-driven`; moved the project brief and per-artifact rules into
+  `openspec/config.yaml` (the 1.5.0 `context:`/`rules:` mechanism) and removed
+  the legacy `openspec/project.md`.
+- Configured both Antigravity and Claude Code targets. Consolidated custom agent
+  assets under `.agent/` (singular; Antigravity reads it) and removed the empty
+  `.agents/`.
+- Authored four binding rules in `.agent/rules/` (spec-driven, maker≠checker,
+  verification-gates, security-and-secrets); three role skills in
+  `.agent/skills/` (`implement-change` maker, `verify-change` checker,
+  `review-change` checker); and four workflows in `.agent/workflows/`
+  (`/dev-loop`, `/plan`, `/verify`, `/review`).
+- Mirrored the loop into Claude Code: `.claude/commands/` slash commands and
+  `.claude/skills/` role skills as **relative symlinks** to the canonical
+  `.agent/skills/` files (single source of truth, no drift).
+- Added a "Development Loop (Agentic)" section to the root `AGENTS.md`.
+
+**Design decisions**
+
+- `.agent/` (singular) is the canonical home because the OpenSpec CLI manages it
+  and Antigravity reads it via backward compatibility; Claude skills symlink in.
+- The loop enforces maker≠checker with three separate sub-agents: verify (runs
+  real gates + observes behavior) and review (independent adversarial review)
+  are distinct from the maker and from each other. CodeRabbit/human PR review is
+  an additional external layer.
+
+**Verification performed**
+
+- Confirmed installed vs. latest OpenSpec (1.4.1 → 1.5.0) and re-initialized on
+  1.5.0; validated `openspec/config.yaml` parses (schema, `context`, `rules` for
+  proposal/specs/design/tasks).
+- Confirmed Antigravity conventions (`.agent/rules|skills|workflows`, root
+  `AGENTS.md`) and Claude Code conventions (`.claude/skills`, `.claude/commands`)
+  from current documentation.
+- Verified the `.claude/skills/*` symlinks resolve and are recorded by git as
+  symlinks (mode `120000`).
+
+**Not yet implemented**
+
+- No application code, tests, migrations, or CI exist yet; the loop's first
+  changes will scaffold them. Verification gates come online incrementally and
+  are added to the `AGENTS.md` Verification section only after they run green.
+- No change has been run through the full loop yet, so no independent
+  verifier/reviewer artifact is recorded from an actual cycle.
+
+### 2026-07-02 — Technology-specific skills installed (trusted sources)
+
+**Human direction**
+
+- Add technology-specific skills at the project level, but only commonly-used
+  skills from trusted sources; confirm they work with Antigravity; install the
+  ones that help.
+
+**AI contribution**
+
+- Verified provenance before installing: rejected community skill aggregators
+  and used only first-party repos. Installed via the `vercel-labs/skills` CLI
+  (`npx skills`, itself a trusted first-party tool) with `-a antigravity
+  --copy`, project-scoped.
+- Installed five skills into the canonical `.agent/skills/`:
+  `supabase` and `supabase-postgres-best-practices` (from `supabase/agent-skills`,
+  MIT); `webapp-testing`, `frontend-design`, and `skill-creator` (from
+  `anthropics/skills`, Apache-2.0).
+- Reconciled the directory-convention mismatch (OpenSpec uses `.agent/`, the
+  skills CLI uses `.agents/`) by making `.agents/` a symlink to `.agent/`, so
+  both tools write to one real directory and Antigravity reads either name.
+- Recorded provenance + content-integrity hashes in `skills-lock.json` and a
+  source/license table in `AGENTS.md`.
+
+**Verification performed**
+
+- Confirmed each skill passed the CLI's Socket/Snyk/Gen security assessments
+  (all installed as Safe / 0 alerts).
+- Scanned installed skills for shipped scripts: Supabase skills and
+  `frontend-design` are Markdown-only; `webapp-testing` and `skill-creator` ship
+  Python scripts that run with full agent permissions (reviewed as coming from
+  Anthropic's official Apache-2.0 repo).
+- Confirmed all five resolve under `.agent/skills/` via the `.agents` symlink and
+  that `.claude/` was not touched.
+
+**Not yet implemented / caution**
+
+- Skills are copied snapshots; refresh with `npx skills update` and re-check
+  `skills-lock.json` hashes. Third-party skills are advisory know-how and never
+  override the binding `.agent/rules/`.
+- For libraries without a trusted skill (React, Vite, TanStack Query, OpenAI
+  Responses API, Brevo), the context7 MCP is the intended live-docs source.
+
+### 2026-07-02 — Autonomous build loop (autopilot)
+
+**Human direction**
+
+- Create a flow where Antigravity develops the project with no human needed:
+  decompose requirements into tasks, define/make changes via OpenSpec, verify
+  with the Playwright CLI, produce an artifact that verifies the result, pass a
+  verification gate, then move to the next task until the project is done.
+
+**AI contribution**
+
+- Added the decomposed backlog `docs/roadmap.md` (19 dependency-ordered slices
+  `R-01..R-19` mapped to upstream IDs) plus an explicit "Human bootstrap
+  required" list for account/secret/spend/deploy steps.
+- Added the `decompose-requirements` (planner) and `verify-e2e` (Playwright CLI
+  behavior + committed verification artifact) skills; pointed `verify-change` at
+  `verify-e2e` for behavioral checks.
+- Added the `/decompose` and `/autopilot` workflows. `/autopilot` runs the
+  spec-driven maker≠checker cycle unattended, slice by slice, with a hard gate
+  (static gates + Playwright e2e artifact + independent review) and resumes from
+  roadmap state.
+- Added rule `50-autonomous-operation`: decide from the docs instead of
+  prompting; keep maker≠checker; safety rails (branch only, never `main`, no
+  force-push/auto-merge/deploy/spend/account-creation, never weaken gates);
+  explicit stop/escalate conditions.
+- Ignored regenerable Playwright artifacts (`playwright-report/`,
+  `test-results/`, `coverage/`, …) while keeping the committed
+  `openspec/changes/<name>/verification.md` evidence.
+
+**Design decisions / honest boundary**
+
+- "No human needed" applies to everything verifiable locally (code, migrations
+  against local Supabase, unit/integration/e2e, CI config). Steps that require
+  real accounts, secrets, spend, or production deploy — and the final merge to
+  `main` — remain human-gated by default and are collected, not faked. This can
+  be loosened only with an explicit human go-ahead.
+
+**Verification performed**
+
+- `git diff --check` clean; frontmatter valid on the new rule/skills/workflows;
+  internal path references resolve; OpenSpec CLI healthy.
+
+**Not yet implemented**
+
+- `/autopilot` has not been run yet, so no slice has been built or verified
+  through it; the roadmap statuses are all `pending`.
+
 ## 6. Definition of Done for Future Changes
 
 A change is complete only when:

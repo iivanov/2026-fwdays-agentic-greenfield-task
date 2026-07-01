@@ -25,3 +25,11 @@ venv/
 target/
 bin/
 obj/
+
+# Test / e2e generated artifacts (Playwright) — regenerable, keep out of git.
+# The committed verification evidence lives in openspec/changes/<name>/verification.md
+playwright-report/
+blob-report/
+test-results/
+.playwright/
+coverage/

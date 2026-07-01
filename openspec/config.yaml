@@ -1,0 +1,90 @@
+schema: spec-driven
+
+# Injected into every OpenSpec artifact request (propose/design/specs/tasks).
+# Condensed, stable brief. Authoritative decisions live in docs/architecture/.
+context: |
+  PRODUCT
+  AI-Powered Personalized News Aggregator: a web app that gathers news from
+  user-selected sources (RSS/Atom feeds and single article URLs), applies
+  personalized AI summarization / translation / relevance rules, and delivers
+  one daily digest to the user's chosen channels (in-app, email, Telegram,
+  Slack, signed generic webhook). Non-commercial / educational. Prefer a
+  complete, verified vertical slice over a large "seems to work" surface.
+
+  SOURCE OF TRUTH (one-way decision chain; never change upstream silently)
+  1_business (requirements.md, nfr.md) -> 2_data (data_structure.md)
+    -> 3_application (architecture.md, architecture_tactics.md, quality_standards.md)
+    -> 4_technology (technology_requirements.md, hosting.md)
+  Every change must trace to a stable upstream ID: BR-*, NFR-*, D-*, A-*, AT-*,
+  Q-*, T-*, H-*. No new product behavior downstream without a business
+  requirement. See docs/README.md for ownership and decision rules.
+
+  SELECTED STACK (docs/architecture/4_technology/technology_requirements.md)
+  - TypeScript everywhere (browser + API + workers). T-01
+  - Frontend: React + Vite + React Router + TanStack Query + CSS Modules. T-02
+  - Backend/data: Supabase Free - PostgreSQL, Auth (Google/GitHub OAuth PKCE),
+    Row Level Security, Edge Functions (Deno), secrets, logs. T-03, T-06
+  - Queue/schedule/cache: Postgres-native pgmq + pg_cron; relational records are
+    the shared source cache of record. T-05
+  - AI: OpenAI Responses API, model gpt-5.4-mini, strict structured output. T-11
+  - Feed/extraction: fast-xml-parser, @mozilla/readability, linkedom. T-07
+  - Email: Brevo transactional HTTP API. T-10
+  - Crypto: Web Crypto AES-256-GCM (secrets) + HMAC-SHA256 (webhook signing). T-09
+  - Hosting: Vercel Hobby (static frontend only) + Supabase (everything else). T-04
+  - IaC/GitOps: provider-native declarative files (supabase/migrations/,
+    supabase/config.toml, supabase/functions/, vercel.json, .github/workflows/)
+    + idempotent infra/scripts/ bootstrap/audit. T-14
+  - Tests/quality: Vitest, Playwright, strict tsc --noEmit + deno check,
+    ESLint/deno lint, Prettier/deno fmt, CodeQL, Dependabot, Dependency Review,
+    actionlint, secret scanning. T-12, T-13
+  Runtime: Edge Functions api (user JWT), schedule-daily, work (claims one queue
+  message/invocation), cleanup. Cron: daily 0 6 * * *, drain * * * * *,
+  cleanup */30 * * * *. See architecture.md section 4.
+
+  NON-NEGOTIABLE CONSTRAINTS
+  - $0 hosting within free tiers; never auto-enable paid overage (NFR-CON-04/06).
+    OpenAI usage billing is the only exception.
+  - Public repo, no secrets committed - no .env values, provider state, DB dumps,
+    or private config, ever (BR-PROJ-02, NFR-SEC-03).
+  - Security: deny-by-default authz + RLS; encrypt delivery secrets/webhook
+    URLs/prompts at rest; SSRF-block user URLs (loopback, private, link-local,
+    multicast, reserved, cloud-metadata) and re-validate on redirect; sign
+    generic webhooks (NFR-SEC-01..06, A-06).
+  - Durable async: ack a job only after the DB transaction commits; idempotent
+    handlers with a domain idempotency key; bounded retries (max 5) then
+    dead-letter + operator-visible OperationalEvent; 30s network timeouts;
+    leases recoverable after 5 min (NFR-REL-*, A-04).
+  - Retention: purge article content, digests, delivery attempts after 7 days
+    (<=1h lag); cached content <=24h; queue payloads are IDs only (NFR-DATA-*).
+  - Limits: <=5 flows/user; 1 run/flow/UTC-day; only gpt-5.4-mini; truncate AI
+    input before every call (NFR-CON-01..03, NFR-PERF-03).
+
+  HOW WE WORK
+  Spec-driven + maker != checker. Full policy in AGENTS.md and .agent/rules/.
+  The maker never verifies or reviews its own work; a separate sub-agent runs
+  verify (real gates only) and a separate sub-agent runs review. See /dev-loop.
+
+  TOOLCHAIN REALITY
+  The application has NOT been scaffolded yet - no runnable app code, tests,
+  migrations, or CI exist. Do not invent executable project commands. The first
+  changes scaffold the workspace (npm workspaces, Vitest, ESLint, tsc,
+  supabase init); each gate is added to the AGENTS.md Verification section only
+  after it runs green. Verifiers run only checks that exist and report which.
+
+# Additive rules applied when generating each artifact type.
+rules:
+  proposal:
+    - Cite the upstream requirement/decision IDs (BR-*, NFR-*, D-*, A-*, AT-*, Q-*, T-*) the change satisfies.
+    - Keep scope to one small, independently verifiable vertical slice; list explicit non-goals.
+    - Do not introduce product behavior that lacks a business requirement; if a gap is found, propose fixing 1_business first.
+  specs:
+    - Write requirements as testable statements and reference the upstream ID they refine.
+    - Every requirement must have at least one scenario; cover the error/abuse path, not just the happy path.
+  design:
+    - Respect the selected stack and the one-way decision chain; do not silently change an upstream decision.
+    - Call out security (authz/RLS, encryption, SSRF, signing), idempotency, retention, and $0/free-tier impact explicitly.
+  tasks:
+    - Include tasks for automated tests (unit/integration) alongside the implementation, not after.
+    - Include a task to run the verification gates and a task for independent review by a separate sub-agent (maker != checker).
+    - Include a task to update docs/development_process.md and, when a new gate becomes runnable, the AGENTS.md Verification section.
+    - Never add a task that commits secrets, .env values, or provider state.
