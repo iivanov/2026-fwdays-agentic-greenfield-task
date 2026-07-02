@@ -25,7 +25,7 @@ e2e + artifact) → review (sub-agent) → archive → next`.
 | --- | --- | --- | --- | --- |
 | R-01 | Monorepo scaffold: npm workspaces, TypeScript strict, ESLint + Prettier, Vitest, shared config | — | BR-PROJ-02..03, T-01, T-12, T-13, Q-01 | done |
 | R-02 | Supabase local dev: `supabase init`, `config.toml`, migration skeleton, local stack, migration lint | R-01 | T-03, T-14 | done |
-| R-03 | CI/CD + repo security gates: GitHub Actions (typecheck/lint/format/test), CodeQL, Dependabot, Dependency Review, actionlint, secret scanning, `.env.example` | R-01 | BR-PROJ-02..03, T-13, Q-05, NFR-OPS-04 | pending |
+| R-03 | CI/CD + repo security gates: GitHub Actions (typecheck/lint/format/test), CodeQL, Dependabot, Dependency Review, actionlint, secret scanning, `.env.example` | R-01 | BR-PROJ-02..03, T-13, Q-05, NFR-OPS-04 | done |
 
 ## Phase 1 — Data and access
 

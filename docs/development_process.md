@@ -309,6 +309,32 @@ Current evidence is limited: the architecture work received iterative self-revie
 
 - Core database schema and RLS policies (R-04) and CI/CD pipelines (R-03).
 
+### 2026-07-02 — R-03 CI/CD + Repo Security Gates
+
+**AI contribution**
+
+- Created `.github/workflows/ci.yml` — runs typecheck, lint, format, and test on push/PR to main.
+- Created `.github/workflows/codeql.yml` — CodeQL `security-extended` analysis weekly + on push/PR.
+- Created `.github/workflows/dependency-review.yml` — blocks PRs with high-severity vulnerable deps.
+- Created `.github/workflows/actionlint.yml` — lints workflow files on changes to `.github/workflows/`.
+- Created `.github/dependabot.yml` — daily npm and weekly GitHub Actions dependency checks.
+- Created `.env.example` — environment variable template with key names only, no real values.
+
+**Design decisions**
+
+- Used least-privilege `permissions` blocks in every workflow (contents: read).
+- CodeQL runs `security-extended` queries as specified by Q-05.
+- Dependabot covers both npm and github-actions ecosystems.
+
+**Verification performed**
+
+- Ran `npm run lint`, `npm run format`, and `npm run typecheck` locally — all pass.
+
+**Not yet implemented**
+
+- Core database schema and RLS policies (R-04).
+
+
 
 
 ## 6. Definition of Done for Future Changes
