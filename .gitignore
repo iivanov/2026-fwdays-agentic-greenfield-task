@@ -36,3 +36,7 @@ blob-report/
 test-results/
 .playwright/
 coverage/
+
+# Supabase local state
+supabase/.temp/
+supabase/.branches/

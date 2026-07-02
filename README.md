@@ -45,3 +45,34 @@
 ---
 
 Питання — у каналі курсу. Успіхів, і нехай цикли працюють на тебе 🟢
+
+## Local Development
+
+### Prerequisites
+
+- **Node.js**: >= 18.0.0
+- **Docker**: Required to run the local Supabase emulator stack.
+
+### Getting Started
+
+1. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+2. **Start the local database & emulator**:
+   ```bash
+   npm run supabase:start
+   ```
+3. **Stop the database & emulator**:
+   ```bash
+   npm run supabase:stop
+   ```
+
+### Verification & Quality Gates
+
+- **Typecheck**: `npm run typecheck`
+- **Lint**: `npm run lint`
+- **Format**: `npm run format`
+- **Unit/Integration Tests**: `npm run test`
+- **Supabase DB Lint**: `npm run supabase:lint`
+- **Supabase DB Reset (Re-apply Migrations)**: `npm run supabase:reset`

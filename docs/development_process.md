@@ -283,6 +283,33 @@ Current evidence is limited: the architecture work received iterative self-revie
 
 - Local Supabase setup (R-02) and CI/CD pipelines (R-03).
 
+### 2026-07-02 — R-02 Supabase Local Dev
+
+**Human direction**
+
+- Switched to developing directly on `main` branch.
+
+**AI contribution**
+
+- Installed Supabase CLI as a local project devDependency.
+- Initialized local Supabase project configurations (`supabase init`) under `supabase/`.
+- Updated `.gitignore` to ignore Supabase temp state files.
+- Formed initial empty migration file (`supabase/migrations/20260702000000_init.sql`).
+- Added package scripts `supabase:start`, `supabase:stop`, `supabase:reset`, and `supabase:lint` in root `package.json`.
+
+**Design decisions**
+
+- Setup Docker-based local Supabase emulator for cost-free database and auth local verification.
+
+**Verification performed**
+
+- Verified config.toml and validated that the scripts were wired up and parsed cleanly.
+
+**Not yet implemented**
+
+- Core database schema and RLS policies (R-04) and CI/CD pipelines (R-03).
+
+
 
 ## 6. Definition of Done for Future Changes
 
