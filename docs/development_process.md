@@ -372,7 +372,35 @@ Current evidence is limited: the architecture work received iterative self-revie
 
 **Not yet implemented**
 
-- Supabase Auth integration (R-05).
+- `api` Edge Function skeleton (R-06).
+
+### 2026-07-02 — R-05 Supabase Auth Integration
+
+**AI contribution**
+
+- Added `[auth.external.google]` and `[auth.external.github]` configurations to `supabase/config.toml` for local development.
+- Created database migration file `supabase/migrations/20260702000200_auth_trigger.sql`.
+- Defined a `handle_new_user()` trigger function on `auth.users` to automatically provision a user profile in `public.profiles` and default `in-app` (active) and `email` (active/pending depending on verification status) delivery channels upon new registration.
+- Installed `@supabase/supabase-js` package in `packages/browser`.
+- Created a configured, typed browser client `packages/browser/src/lib/supabase.ts` with explicit PKCE flow enabled (`flowType: 'pkce'`).
+- Re-exported the Supabase client and `SupabaseClient` type from the package entrypoint `packages/browser/src/index.ts`.
+- Updated `.env.example` with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and OAuth provider placeholder environment variables.
+
+**Design decisions**
+
+- Chose `SECURITY DEFINER` for the trigger function `handle_new_user()` to allow auth registration to bypass RLS policies on profiles and delivery channels safely. Used `set search_path = ''` to prevent search path injection attacks.
+- Configured default channels immediately upon OAuth registration, keeping email channel `pending` unless the OAuth provider certifies email verification (`new.email_confirmed_at is not null`).
+- Used Vite env vars (`VITE_SUPABASE_*`) to initialize the browser client, ensuring clean, framework-native client compilation for SPAs.
+
+**Verification performed**
+
+- Verified migrations apply cleanly with `npm run supabase:reset`.
+- Ran `npm run supabase:lint` locally — database schema lints cleanly.
+- Verified JavaScript/TypeScript quality gates with type checking (`npm run typecheck`), linting (`npm run lint`), formatting (`npm run format`), and tests (`npm run test`) — all passed.
+
+**Not yet implemented**
+
+- `api` Edge Function skeleton (R-06).
 
 
 
