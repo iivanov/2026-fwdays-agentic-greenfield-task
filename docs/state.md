@@ -2,8 +2,8 @@
 
 ## Current Position
 
-- **Last completed slice**: R-06 (`api` Edge Function skeleton)
-- **Next slice**: R-07 (Profile management CRUD - API + UI)
+- **Last completed slice**: R-07 (Profile management - API + React UI)
+- **Next slice**: R-08 (Source management - API + UI + SSRF validation)
 - **Loop mode**: autopilot
 
 ## Completed Slices
@@ -15,10 +15,11 @@
 | R-03 | CI/CD + security gates | committed to main |
 | R-04 | Core schema + RLS (15 tables, triggers, policies) | committed to main |
 | R-05 | Supabase Auth (Google/GitHub OAuth PKCE, triggers) | committed to main |
-| R-06 | `api` Edge Function skeleton (JWT, CORS, Zod, Envelope) | pending commit |
+| R-06 | `api` Edge Function gateway skeleton (JWT, CORS, Zod, Envelope) | committed to main |
+| R-07 | Profile management (interests, languages, channels) — API + React UI | pending commit |
 
 ## Notes
 
 - Single developer mode — no pushes, work on main branch only.
-- R-06 implemented path segment routing, dynamic CORS allowlist origins check, public health check bypasses, Zod schema validation helpers, and JSON envelope wrapping.
-- R-07 depends on R-06 and is the next pending slice.
+- R-07 scaffolded React/Vite/TSX SPA, configured HSL dark-slate palette variables, and implemented query bindings to the GET/PUT profiles endpoints.
+- R-08 depends on R-06 and is the next pending slice.

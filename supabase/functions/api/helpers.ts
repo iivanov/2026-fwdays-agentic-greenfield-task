@@ -65,6 +65,8 @@ export async function handleApiRoute(
   user: { id: string } | null,
   rootSegment: string,
   route: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient: any,
 ): Promise<Response> {
   // 1. Health check route (public, does not require JWT)
   if (rootSegment === 'health' || rootSegment === '') {
@@ -78,14 +80,41 @@ export async function handleApiRoute(
 
   // 3. Router matching
   if (rootSegment === 'profiles') {
-    return sendSuccess(
-      {
-        message: 'Profiles endpoint skeleton',
-        userId: user.id,
-        method: req.method,
-      },
-      req,
-    );
+    if (req.method === 'GET') {
+      const { data, error } = await supabaseClient
+        .from('profiles')
+        .select('id, email, interests, language_preferences')
+        .eq('id', user.id)
+        .single();
+      if (error) {
+        return sendError(error.message, req, 500);
+      }
+      return sendSuccess(data, req);
+    }
+
+    if (req.method === 'PUT') {
+      const profileSchema = z.object({
+        interests: z.array(z.string()),
+        language_preferences: z.array(z.string()),
+      });
+      const validation = await validateBody(req, profileSchema);
+      if (!validation.success) {
+        return sendError(validation.error, req, 400);
+      }
+      const { interests, language_preferences } = validation.data;
+      const { data, error } = await supabaseClient
+        .from('profiles')
+        .update({ interests, language_preferences })
+        .eq('id', user.id)
+        .select('id, email, interests, language_preferences')
+        .single();
+      if (error) {
+        return sendError(error.message, req, 500);
+      }
+      return sendSuccess(data, req);
+    }
+
+    return sendError('Method Not Allowed', req, 405);
   }
 
   if (rootSegment === 'sources') {
@@ -158,5 +187,5 @@ export async function apiHandler(req: Request, ctx: any): Promise<Response> {
     // Auth client failed or parsed invalid token
   }
 
-  return await handleApiRoute(req, user, rootSegment, route);
+  return await handleApiRoute(req, user, rootSegment, route, ctx.supabase);
 }

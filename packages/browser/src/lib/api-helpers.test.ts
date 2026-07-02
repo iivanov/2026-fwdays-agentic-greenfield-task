@@ -6,8 +6,8 @@ import {
   validateBody,
   handleApiRoute,
   getCorsHeaders,
-  apiHandler,
 } from '../../../../supabase/functions/api/helpers.js';
+import { apiHandler } from '../../../../supabase/functions/api/helpers.js';
 
 describe('API Edge Function Helpers & Router Unit Tests', () => {
   it('should verify CORS headers structure', () => {
@@ -35,7 +35,7 @@ describe('API Edge Function Helpers & Router Unit Tests', () => {
       headers: { Origin: 'https://malicious.com' },
     });
     const headers3 = getCorsHeaders(req3);
-    expect(headers3['Access-Control-Allow-Origin']).toBe('http://localhost:3000'); // default fallback
+    expect(headers3['Access-Control-Allow-Origin']).toBe('http://localhost:3000');
   });
 
   it('should verify success envelope structure', async () => {
@@ -105,7 +105,7 @@ describe('API Edge Function Helpers & Router Unit Tests', () => {
     const req = new Request('http://localhost/functions/v1/api/health', {
       method: 'GET',
     });
-    const res = await handleApiRoute(req, null, 'health', 'health');
+    const res = await handleApiRoute(req, null, 'health', 'health', null);
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.data.status).toBe('healthy');
@@ -116,21 +116,102 @@ describe('API Edge Function Helpers & Router Unit Tests', () => {
     const req = new Request('http://localhost/functions/v1/api/profiles', {
       method: 'GET',
     });
-    const res = await handleApiRoute(req, null, 'profiles', 'profiles');
+    const res = await handleApiRoute(req, null, 'profiles', 'profiles', null);
     expect(res.status).toBe(401);
     const json = await res.json();
     expect(json.error).toBe('Unauthorized');
   });
 
-  it('should allow profiles route when user is authenticated', async () => {
+  it('should return profiles payload when authenticated GET is invoked', async () => {
     const req = new Request('http://localhost/functions/v1/api/profiles', {
       method: 'GET',
     });
-    const res = await handleApiRoute(req, { id: 'test-user-id' }, 'profiles', 'profiles');
+    const mockProfile = {
+      id: 'test-user-id',
+      email: 'test@example.com',
+      interests: ['ai'],
+      language_preferences: ['en'],
+    };
+
+    const mockSupabase = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            single: async () => ({ data: mockProfile, error: null }),
+          }),
+        }),
+      }),
+    };
+
+    const res = await handleApiRoute(
+      req,
+      { id: 'test-user-id' },
+      'profiles',
+      'profiles',
+      mockSupabase,
+    );
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.data.userId).toBe('test-user-id');
-    expect(json.data.message).toBe('Profiles endpoint skeleton');
+    expect(json.data).toEqual(mockProfile);
+  });
+
+  it('should update profiles payload when authenticated PUT is invoked with valid body', async () => {
+    const req = new Request('http://localhost/functions/v1/api/profiles', {
+      method: 'PUT',
+      body: JSON.stringify({
+        interests: ['tech', 'sports'],
+        language_preferences: ['en', 'uk'],
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const mockSupabase = {
+      from: () => ({
+        update: () => ({
+          eq: () => ({
+            select: () => ({
+              single: async () => ({
+                data: {
+                  id: 'test-user-id',
+                  email: 'test@example.com',
+                  interests: ['tech', 'sports'],
+                  language_preferences: ['en', 'uk'],
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      }),
+    };
+
+    const res = await handleApiRoute(
+      req,
+      { id: 'test-user-id' },
+      'profiles',
+      'profiles',
+      mockSupabase,
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.data.interests).toEqual(['tech', 'sports']);
+    expect(json.data.language_preferences).toEqual(['en', 'uk']);
+  });
+
+  it('should fail profile update when invalid schema is passed', async () => {
+    const req = new Request('http://localhost/functions/v1/api/profiles', {
+      method: 'PUT',
+      body: JSON.stringify({
+        interests: 'not-an-array',
+        language_preferences: ['en'],
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const res = await handleApiRoute(req, { id: 'test-user-id' }, 'profiles', 'profiles', {});
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain('interests:');
   });
 });
 
@@ -139,7 +220,6 @@ describe('API Edge Function Handler Integration Tests', () => {
     const req = new Request('http://localhost/functions/v1/api/health/', {
       method: 'GET',
     });
-    // Create dummy context with throw to verify getUser is NOT called for health
     const ctx = {
       supabase: {
         auth: {
@@ -159,7 +239,6 @@ describe('API Edge Function Handler Integration Tests', () => {
     const req = new Request('http://localhost/functions/v1/apihealth', {
       method: 'GET',
     });
-    // getUser mock that resolves to unauthenticated to force 401
     const getUserMock = vi.fn().mockResolvedValue({ data: { user: null }, error: null });
     const ctx = {
       supabase: {
@@ -169,7 +248,7 @@ describe('API Edge Function Handler Integration Tests', () => {
       },
     };
     const res = await apiHandler(req, ctx);
-    expect(res.status).toBe(401); // Auth required since it's not the public health route
+    expect(res.status).toBe(401);
   });
 
   it('should return 404 for prefix sibling routes like /functions/v1/api/profiles-xyz for authenticated users', async () => {
@@ -179,7 +258,10 @@ describe('API Edge Function Handler Integration Tests', () => {
     const ctx = {
       supabase: {
         auth: {
-          getUser: async () => ({ data: { user: { id: 'test-id' } }, error: null }),
+          getUser: async () => ({
+            data: { user: { id: 'test-id' } },
+            error: null,
+          }),
         },
       },
     };
@@ -190,20 +272,37 @@ describe('API Edge Function Handler Integration Tests', () => {
   });
 
   it('should authenticate and route valid profiles requests', async () => {
-    const req = new Request('http://localhost/functions/v1/api/profiles/123', {
+    const req = new Request('http://localhost/functions/v1/api/profiles', {
       method: 'GET',
     });
     const ctx = {
       supabase: {
         auth: {
-          getUser: async () => ({ data: { user: { id: 'user-abc' } }, error: null }),
+          getUser: async () => ({
+            data: { user: { id: 'user-abc' } },
+            error: null,
+          }),
         },
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: {
+                  id: 'user-abc',
+                  email: 'abc@example.com',
+                  interests: [],
+                  language_preferences: [],
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }),
       },
     };
     const res = await apiHandler(req, ctx);
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.data.userId).toBe('user-abc');
-    expect(json.data.message).toBe('Profiles endpoint skeleton');
+    expect(json.data.id).toBe('user-abc');
   });
 });
