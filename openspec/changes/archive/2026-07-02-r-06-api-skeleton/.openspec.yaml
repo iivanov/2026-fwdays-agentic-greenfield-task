@@ -1,0 +1,6 @@
+name: r-06-api-skeleton
+status: active
+upstream_ids:
+  - A-01
+  - A-06
+  - NFR-SEC-02

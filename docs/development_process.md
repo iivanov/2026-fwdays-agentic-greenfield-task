@@ -372,7 +372,29 @@ Current evidence is limited: the architecture work received iterative self-revie
 
 **Not yet implemented**
 
-- `api` Edge Function skeleton (R-06).
+- Profile management CRUD (R-07).
+
+### 2026-07-02 — R-06 API Edge Function Skeleton
+
+**AI contribution**
+
+- Created the Deno Edge Function project structure under `supabase/functions/api/`.
+- Implemented core CORS configurations, response envelope wrappers (`sendSuccess`, `sendError`), and schema validators (`validateBody` via Zod).
+- Built a path-based routing gateway routing `/health` (public) and mapping `/profiles`, `/sources`, `/flows`, `/channels` (which verify user JWT sessions).
+- Created a comprehensive Vitest unit test suite `packages/browser/src/lib/api-helpers.test.ts` verifying CORS, envelope responses, validation error payloads, and routing conditions.
+
+**Design decisions**
+
+- Chose a single gateway router model for the `api` function over many small functions to minimize cold start latency and facilitate common middleware code reuse.
+- Factored out helper and router logic into `helpers.ts` (independent of `@supabase/server`) to support robust unit testing within Node-based Vitest execution.
+
+**Verification performed**
+
+- Verified Javascript/TypeScript linting, formatting, type checking, and all 13 unit/integration tests pass cleanly.
+
+**Not yet implemented**
+
+- Profile management CRUD (R-07).
 
 ### 2026-07-02 — R-05 Supabase Auth Integration
 

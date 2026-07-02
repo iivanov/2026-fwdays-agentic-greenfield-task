@@ -33,7 +33,7 @@ e2e + artifact) → review (sub-agent) → archive → next`.
 | --- | --- | --- | --- | --- |
 | R-04 | Core schema + RLS migrations (profiles, sources, flows, flow_sources, articles, flow_articles, digests, delivery_channels, delivery_attempts, operational_events, integration_circuits), deny-by-default RLS | R-02 | D-01..06, A-02, NFR-SEC-02 | done |
 | R-05 | Supabase Auth: Google/GitHub OAuth (PKCE), session handling, RLS bound to `auth.uid()`, dev-only password auth disabled in prod | R-04 | BR-USER-01, T-06, NFR-SEC-01 | done |
-| R-06 | `api` Edge Function skeleton: JWT verification, `{data,error}` envelope, Zod boundary validation, CORS allowlist | R-05 | A-01, A-06, NFR-SEC-02 | pending |
+| R-06 | `api` Edge Function skeleton: JWT verification, `{data,error}` envelope, Zod boundary validation, CORS allowlist | R-05 | A-01, A-06, NFR-SEC-02 | done |
 
 ## Phase 2 — Domain CRUD (API + UI)
 
