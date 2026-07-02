@@ -1,0 +1,6 @@
+name: r-05-supabase-auth
+status: active
+upstream_ids:
+  - BR-USER-01
+  - T-06
+  - NFR-SEC-01
