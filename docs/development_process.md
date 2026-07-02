@@ -334,6 +334,47 @@ Current evidence is limited: the architecture work received iterative self-revie
 
 - Core database schema and RLS policies (R-04).
 
+### 2026-07-02 — R-04 Core Schema + RLS Migrations
+
+**AI contribution**
+
+- Created database migration file `supabase/migrations/20260702000100_core_schema.sql`.
+- Defined all 15 tables and join structures specified in `data_structure.md`.
+- Enforced type restrictions using text CHECK constraints for simple, reliable migrations.
+- Set up deny-by-default Row Level Security (RLS) on all 15 tables.
+- Provisioned split RLS policies (separate insert/select/update/delete) on user-owned tables.
+- Column-level UPDATE grants restrict authenticated users from modifying internal fields.
+
+**Design decisions**
+
+- Chose text columns with SQL CHECK constraints over Postgres custom types for robust migration and ease of schema evolution.
+- Configured partial unique indices plus trigger-based cross-partition uniqueness checks for articles and fingerprints.
+
+**Security hardening (from 6 rounds of maker/checker review)**
+
+- `handle_updated_at()` trigger on profiles, delivery_channels, processing_flows, integration_circuits (auto-managed timestamps).
+- `handle_delivery_channel_verification()` trigger resets status/verified_at/failures on config/type change (prevents verification bypass).
+- Strict delivery channel INSERT policy enforces `status='pending'`, `verified_at IS NULL`, `consecutive_failure_count=0`, `last_error_code IS NULL`.
+- `get_next_0600_utc()` uses timezone-aware `at time zone 'utc'` arithmetic (session-timezone-independent).
+- `handle_processing_flow_scheduling()` trigger locks scheduling fields from authenticated users while allowing service_role.
+- `check_processing_flow_quota()` trigger with `FOR UPDATE` row lock on profile serializes concurrent quota enforcement (max 5 flows).
+- `check_article_uniqueness()` and `check_fingerprint_uniqueness()` triggers enforce cross-GUID/URL uniqueness.
+- All timestamp defaults changed from `timezone('utc', now())` to `now()` (correct for timestamptz columns).
+- `processing_runs` SELECT policy + grant added for authenticated users.
+- `flow_articles(article_id)` index added for cascade delete performance.
+- SQLSTATE code corrected to `raise_exception` (valid PL/pgSQL errcode).
+
+**Verification performed**
+
+- 6 rounds of independent verifier + reviewer sub-agents (maker ≠ checker enforced).
+- Final verdict: Verifier PASS (8/8 runnable gates green), Reviewer APPROVE (0 blocking findings, 5 low/info non-blocking).
+- All gates pass: typecheck, lint, format, test, supabase:reset, supabase:lint, npm audit, git diff --check.
+
+**Not yet implemented**
+
+- Supabase Auth integration (R-05).
+
+
 
 
 
