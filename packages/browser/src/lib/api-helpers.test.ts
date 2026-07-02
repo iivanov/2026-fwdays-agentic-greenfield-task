@@ -105,7 +105,7 @@ describe('API Edge Function Helpers & Router Unit Tests', () => {
     const req = new Request('http://localhost/functions/v1/api/health', {
       method: 'GET',
     });
-    const res = await handleApiRoute(req, null, 'health', 'health', null);
+    const res = await handleApiRoute(req, null, 'health', 'health', null, null);
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.data.status).toBe('healthy');
@@ -116,7 +116,7 @@ describe('API Edge Function Helpers & Router Unit Tests', () => {
     const req = new Request('http://localhost/functions/v1/api/profiles', {
       method: 'GET',
     });
-    const res = await handleApiRoute(req, null, 'profiles', 'profiles', null);
+    const res = await handleApiRoute(req, null, 'profiles', 'profiles', null, null);
     expect(res.status).toBe(401);
     const json = await res.json();
     expect(json.error).toBe('Unauthorized');
@@ -149,6 +149,7 @@ describe('API Edge Function Helpers & Router Unit Tests', () => {
       'profiles',
       'profiles',
       mockSupabase,
+      null,
     );
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -191,6 +192,7 @@ describe('API Edge Function Helpers & Router Unit Tests', () => {
       'profiles',
       'profiles',
       mockSupabase,
+      null,
     );
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -208,10 +210,223 @@ describe('API Edge Function Helpers & Router Unit Tests', () => {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    const res = await handleApiRoute(req, { id: 'test-user-id' }, 'profiles', 'profiles', {});
+    const res = await handleApiRoute(req, { id: 'test-user-id' }, 'profiles', 'profiles', {}, null);
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.error).toContain('interests:');
+  });
+
+  it('should retrieve sources connected to flows successfully', async () => {
+    const req = new Request('http://localhost/functions/v1/api/sources', {
+      method: 'GET',
+    });
+
+    const mockFlowSources = [
+      {
+        flow_id: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+        global_sources: {
+          id: 'e8a3a2d3-2b2a-4c28-98e6-e91b5b9c09c9',
+          url: 'https://example.com/rss',
+          type: 'rss',
+          status: 'active',
+        },
+      },
+    ];
+
+    const mockSupabase = {
+      from: () => ({
+        select: () => ({
+          then: (cb: (arg: { data: typeof mockFlowSources; error: null }) => void) =>
+            cb({ data: mockFlowSources, error: null }),
+        }),
+      }),
+    };
+
+    const res = await handleApiRoute(
+      req,
+      { id: 'user-123' },
+      'sources',
+      'sources',
+      mockSupabase,
+      null,
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.data).toEqual(mockFlowSources);
+  });
+
+  it('should reject POST source addition on unsafe SSRF URL target', async () => {
+    const req = new Request('http://localhost/functions/v1/api/sources', {
+      method: 'POST',
+      body: JSON.stringify({
+        url: 'http://127.0.0.1/rss',
+        type: 'rss',
+        flow_id: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const res = await handleApiRoute(req, { id: 'user-123' }, 'sources', 'sources', {}, null);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain('SSRF validation failed');
+  });
+
+  it('should add a new global source and link it to flow successfully', async () => {
+    const req = new Request('http://localhost/functions/v1/api/sources', {
+      method: 'POST',
+      body: JSON.stringify({
+        url: 'https://news.ycombinator.com/rss',
+        type: 'rss',
+        flow_id: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const mockSupabaseUser = {
+      from: (table: string) => {
+        if (table === 'processing_flows') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: async () => ({
+                  data: { id: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'flow_sources') {
+          return {
+            insert: async () => ({ error: null }),
+          };
+        }
+        return {};
+      },
+    };
+
+    const mockSupabaseAdmin = {
+      from: (table: string) => {
+        if (table === 'global_sources') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
+            insert: () => ({
+              select: () => ({
+                single: async () => ({
+                  data: { id: 'src-new-id' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        return {};
+      },
+    };
+
+    const mockDnsResolver = async () => ['8.8.8.8'];
+
+    const res = await handleApiRoute(
+      req,
+      { id: 'user-123' },
+      'sources',
+      'sources',
+      mockSupabaseUser,
+      mockSupabaseAdmin,
+      mockDnsResolver,
+    );
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.data.connected).toBe(true);
+    expect(json.data.sourceId).toBe('src-new-id');
+  });
+
+  it('should disconnect a source from flow successfully', async () => {
+    const req = new Request('http://localhost/functions/v1/api/sources', {
+      method: 'DELETE',
+      body: JSON.stringify({
+        flow_id: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+        source_id: 'e8a3a2d3-2b2a-4c28-98e6-e91b5b9c09c9',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const mockSupabase = {
+      from: (table: string) => {
+        if (table === 'flow_sources') {
+          return {
+            delete: () => ({
+              eq: () => ({
+                eq: () => ({
+                  select: async () => ({
+                    data: [{ flow_id: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d' }],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {};
+      },
+    };
+
+    const res = await handleApiRoute(
+      req,
+      { id: 'user-123' },
+      'sources',
+      'sources',
+      mockSupabase,
+      null,
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.data.disconnected).toBe(true);
+  });
+
+  it('should return 404 on DELETE when source connection does not exist', async () => {
+    const req = new Request('http://localhost/functions/v1/api/sources', {
+      method: 'DELETE',
+      body: JSON.stringify({
+        flow_id: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+        source_id: 'e8a3a2d3-2b2a-4c28-98e6-e91b5b9c09c9',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const mockSupabase = {
+      from: (table: string) => {
+        if (table === 'flow_sources') {
+          return {
+            delete: () => ({
+              eq: () => ({
+                eq: () => ({
+                  select: async () => ({ data: [], error: null }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {};
+      },
+    };
+
+    const res = await handleApiRoute(
+      req,
+      { id: 'user-123' },
+      'sources',
+      'sources',
+      mockSupabase,
+      null,
+    );
+    expect(res.status).toBe(404);
+    const json = await res.json();
+    expect(json.error).toContain('Connection not found or unauthorized access');
   });
 });
 

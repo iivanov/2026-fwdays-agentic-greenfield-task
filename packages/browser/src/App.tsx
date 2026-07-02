@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase.js';
 import ProfilePanel from './components/ProfilePanel.js';
+import SourcesPanel from './components/SourcesPanel.js';
 import { type Session } from '@supabase/supabase-js';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
+  const [activeTab, setActiveTab] = useState<'profile' | 'sources'>('profile');
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -315,7 +317,7 @@ export default function App() {
           zIndex: 10,
         }}
       >
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
           <h2
             style={{
               fontSize: '1.4rem',
@@ -326,6 +328,46 @@ export default function App() {
           >
             News Personalization
           </h2>
+          <nav style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setActiveTab('profile')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                background: activeTab === 'profile' ? 'rgba(255,255,255,0.08)' : 'transparent',
+                color:
+                  activeTab === 'profile'
+                    ? 'hsl(var(--text-primary))'
+                    : 'hsl(var(--text-secondary))',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              Preferences
+            </button>
+            <button
+              onClick={() => setActiveTab('sources')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                background: activeTab === 'sources' ? 'rgba(255,255,255,0.08)' : 'transparent',
+                color:
+                  activeTab === 'sources'
+                    ? 'hsl(var(--text-primary))'
+                    : 'hsl(var(--text-secondary))',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              Sources
+            </button>
+          </nav>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <span style={{ fontSize: '0.9rem', color: 'hsl(var(--text-secondary))' }}>
@@ -360,7 +402,11 @@ export default function App() {
       <main
         style={{ flex: 1, padding: '40px', maxWidth: '1200px', width: '100%', margin: '0 auto' }}
       >
-        <ProfilePanel session={session} />
+        {activeTab === 'profile' ? (
+          <ProfilePanel session={session} />
+        ) : (
+          <SourcesPanel session={session} />
+        )}
       </main>
     </div>
   );
