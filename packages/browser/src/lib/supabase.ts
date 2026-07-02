@@ -12,10 +12,8 @@
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const meta = import.meta as any;
-const supabaseUrl: string = (meta.env?.VITE_SUPABASE_URL as string | undefined) ?? '';
-const supabaseAnonKey: string = (meta.env?.VITE_SUPABASE_ANON_KEY as string | undefined) ?? '';
+const supabaseUrl: string = import.meta.env.VITE_SUPABASE_URL ?? '';
+const supabaseAnonKey: string = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
 
 let clientInstance: SupabaseClient | null = null;
 
