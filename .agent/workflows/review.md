@@ -1,5 +1,5 @@
 ---
-description: Independent code review of the current change by a separate sub-agent (maker ≠ checker).
+description: Independent code review of the current change by a separate sub-agent (maker != checker).
 ---
 
 # /review — independent code review (separate sub-agent)

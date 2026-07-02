@@ -1,5 +1,5 @@
 ---
-description: Run the spec-driven, maker≠checker development loop to move the project toward done, one verified change at a time.
+description: Run the spec-driven, maker/checker development loop to move the project toward done, one verified change at a time.
 ---
 
 # /dev-loop — the development loop

@@ -1,5 +1,8 @@
 # Repository Agent Guidance
 
+## General
+  Track your current state in the ./docs/state.md
+
 ## Scope
 
 This file applies to the entire repository. Add a nested `AGENTS.md` only when a subtree needs additional rules; closer guidance may refine this file for that subtree.

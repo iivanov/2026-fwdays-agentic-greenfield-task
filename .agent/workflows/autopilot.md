@@ -1,5 +1,5 @@
 ---
-description: Autonomously build the whole project — decompose, then run the spec-driven maker≠checker cycle slice by slice until done, unattended.
+description: Autonomously build the whole project - decompose, then run the spec-driven maker/checker cycle slice by slice until done, unattended.
 ---
 
 # /autopilot — build the project unattended
