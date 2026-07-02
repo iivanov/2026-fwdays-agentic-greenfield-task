@@ -424,9 +424,47 @@ Current evidence is limited: the architecture work received iterative self-revie
 
 - `api` Edge Function skeleton (R-06).
 
+### 2026-07-02 — R-07 Profile Management CRUD
 
+**AI contribution**
 
+- Implemented GET and PUT `/profiles` endpoints inside the API router gateway.
+- Built ProfilePanel dashboard tab styling with Outfit typography and HSL slate dark themes.
+- Configured user preference keyword tags and language selections query states using React Query.
 
+**Design decisions**
+
+- Used React SPA setup with Outfit fonts and custom HSL palettes.
+
+**Verification performed**
+
+- Passed lints, TypeScript type checks, and Vitest runs cleanly.
+
+### 2026-07-02 — R-08 Source Management
+
+**AI contribution**
+
+- Implemented standard-compliant, segment-based IPv6 address parser and normalized validation checkers.
+- Extended SSRF matrix checks to NAT64, 6to4, IPv4-Compatible, IPv4-Translated, unique-local, link-local, multicast, and loopback address blocks.
+- Added API routes for GET, POST, and DELETE `/sources` verifying flow ownership.
+- Built interactive dashboard navigation tabs switching between Preferences and Ingestion Sources settings.
+- Configured auto-scaffolding of default daily flows to prevent empty panel blocks in UX.
+- Updated DELETE /sources to execute `.select()` and throw clean `404` errors when disconnecting non-existent or unauthorized links.
+
+**Design decisions**
+
+- Chose DnsResolver callbacks on edge functions to decouple testing logic from Deno globals and support Node.js test mocking.
+- Bypassed RLS on POST /sources to resolve global unique records via service role supabaseAdmin, while retaining RLS user checks on flow ownership and linkages.
+
+**Verification performed**
+
+- 2 rounds of independent Verifier + Reviewer checkers (maker != checker).
+- Expanded ssrf.test.ts test matrix validating all translation bypass vectors.
+- All 42 tests passed, ESLint clean, and production client compiles correctly.
+
+**Not yet implemented**
+
+- Flow management settings panel (R-09) and delivery channels (R-10).
 
 ## 6. Definition of Done for Future Changes
 
