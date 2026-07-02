@@ -1,7 +1,9 @@
 # Repository Agent Guidance
 
 ## General
-  Track your current state in the ./docs/state.md
+
+Track your current state in the ./docs/state.md
+Commit each stage.
 
 ## Scope
 
@@ -41,7 +43,7 @@ that writes a change never certifies its own work.
 - **Maker ≠ checker:** implementation, verification, and review are three
   distinct sub-agents in fresh contexts. Verify runs the real gates and observes
   behavior; review is an independent, adversarial code review. A maker's
-  self-review and external PR review (CodeRabbit) are *additional* layers, never
+  self-review and external PR review (CodeRabbit) are _additional_ layers, never
   substitutes for the two in-loop checker sub-agents.
 - **Roles (skills, canonical in `.agent/skills/`; `.claude/skills/` symlinks to
   the role skills):** `decompose-requirements` (planner), `implement-change`
@@ -85,19 +87,19 @@ Stack-specific know-how is provided by first-party skills installed with the
 and content-integrity hashes are pinned in `skills-lock.json`; update with
 `npx skills update`.
 
-| Skill | Source | License | Why |
-| --- | --- | --- | --- |
-| `supabase` | `supabase/agent-skills` (official) | MIT | Database, Auth, Edge Functions, RLS, Queues, Cron, `supabase-js`, migrations — our whole backend (`T-03/T-05/T-06`). |
-| `supabase-postgres-best-practices` | `supabase/agent-skills` (official) | MIT | Postgres query/schema/index/RLS optimization for the data layer (`D-*`). |
-| `webapp-testing` | `anthropics/skills` (official) | Apache-2.0 | Playwright web-app testing (`T-12` e2e). Ships Python helper scripts. |
-| `frontend-design` | `anthropics/skills` (official) | Apache-2.0 | Visual/UX guidance for the React frontend (`T-02`). |
-| `skill-creator` | `anthropics/skills` (official) | Apache-2.0 | Authoring/evaluating new project skills in the loop. Ships Python scripts. |
+| Skill                              | Source                             | License    | Why                                                                                                                  |
+| ---------------------------------- | ---------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------- |
+| `supabase`                         | `supabase/agent-skills` (official) | MIT        | Database, Auth, Edge Functions, RLS, Queues, Cron, `supabase-js`, migrations — our whole backend (`T-03/T-05/T-06`). |
+| `supabase-postgres-best-practices` | `supabase/agent-skills` (official) | MIT        | Postgres query/schema/index/RLS optimization for the data layer (`D-*`).                                             |
+| `webapp-testing`                   | `anthropics/skills` (official)     | Apache-2.0 | Playwright web-app testing (`T-12` e2e). Ships Python helper scripts.                                                |
+| `frontend-design`                  | `anthropics/skills` (official)     | Apache-2.0 | Visual/UX guidance for the React frontend (`T-02`).                                                                  |
+| `skill-creator`                    | `anthropics/skills` (official)     | Apache-2.0 | Authoring/evaluating new project skills in the loop. Ships Python scripts.                                           |
 
 - Only first-party/vendor-official skills are used; community skill aggregators
   are intentionally avoided. Third-party skills run with full agent permissions
   — review a skill (and its scripts) before trusting it, and re-check
   `skills-lock.json` hashes after updates.
-- These skills are *how-to* knowledge; they do not override the binding
+- These skills are _how-to_ knowledge; they do not override the binding
   `.agent/rules/` (policy) — on any conflict, the rules win.
 - For libraries without a trusted skill (React, Vite, TanStack Query, OpenAI
   Responses API, Brevo), use the **context7 MCP** for live version-accurate docs
@@ -117,7 +119,11 @@ and content-integrity hashes are pinned in `skills-lock.json`; update with
 
 - For documentation changes, run `git diff --check`, validate local links/paths, and check requirement/decision traceability and stale terminology.
 - For code or infrastructure changes, run the narrowest relevant formatter, lint, type, test, security, migration, and IaC validation commands defined by the repository. Report exactly which checks ran.
-- The application has not been scaffolded yet; do not invent executable project commands. Add verified commands here when the toolchain exists.
+- Runnable project gates (run from workspace root):
+  - Strict Typecheck: `npm run typecheck`
+  - Lint: `npm run lint`
+  - Format Check: `npm run format`
+  - Unit/Integration Tests: `npm run test`
 - Use a separate checker pass for material changes when available. A maker's self-review is useful but is not evidence of independent review.
 
 ## Change Handoff

@@ -6,6 +6,9 @@ Thumbs.db
 .idea/
 .vscode/
 *.log
+*.tsbuildinfo
+*.tsbuildinfo.*
+
 
 # Секрети / змінні середовища
 .env

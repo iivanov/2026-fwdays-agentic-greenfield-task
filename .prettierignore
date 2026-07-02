@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+coverage
+playwright-report
+test-results
+.playwright
+package-lock.json
+.agent
+.agents
+.claude
+docs
+openspec
+

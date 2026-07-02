@@ -256,6 +256,34 @@ Current evidence is limited: the architecture work received iterative self-revie
 - `/autopilot` has not been run yet, so no slice has been built or verified
   through it; the roadmap statuses are all `pending`.
 
+### 2026-07-02 — R-01 Monorepo Scaffold
+
+**Human direction**
+
+- Run autopilot to build the backlog.
+
+**AI contribution**
+
+- Established npm workspaces for `@news-aggregator/shared`, `@news-aggregator/browser`, and `@news-aggregator/edge`.
+- Configured strict TypeScript compiler configuration at the root and extending into each package.
+- Formulated zero-warning ESLint flat configuration using `typescript-eslint`.
+- Structured Prettier for format checks and Vitest for unit testing.
+- Created a placeholder unit test verifying the Vitest environment works.
+
+**Design decisions**
+
+- Standardized on typescript-eslint flat configurations.
+- Verified test runner using in-memory vitest math test.
+
+**Verification performed**
+
+- Executed linting, formatting, typechecking, and vitest runs locally.
+
+**Not yet implemented**
+
+- Local Supabase setup (R-02) and CI/CD pipelines (R-03).
+
+
 ## 6. Definition of Done for Future Changes
 
 A change is complete only when:

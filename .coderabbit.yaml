@@ -2,7 +2,7 @@
 # Стек у студентів будь-який, тому рев'ю фокусується на ДОКАЗАХ застосування
 # агентних інженерних практик, а не на конкретній технології.
 # Перевірки дорадчі (не блокують мердж) — це навчальний фідбек, не гейт.
-language: "uk-UA"
+language: 'uk-UA'
 tone_instructions: >-
   Ти — ментор курсу Agentic Engineering (greenfield). Пиши українською, дружньо,
   але вимогливо. Оцінюй ПРОЦЕС (як застосовано агентні інженерні практики), а не
@@ -10,7 +10,7 @@ tone_instructions: >-
   фреймворку чи структури папок.
 
 reviews:
-  profile: "assertive"
+  profile: 'assertive'
   request_changes_workflow: false
   high_level_summary: true
   poem: false
@@ -18,7 +18,7 @@ reviews:
     enabled: true
     drafts: false
   path_instructions:
-    - path: "**"
+    - path: '**'
       instructions: >-
         Це здача домашнього завдання курсу «Agentic Engineering: Greenfield».
         Студент міг використати будь-який стек. Прочитай опис Pull Request разом зі
