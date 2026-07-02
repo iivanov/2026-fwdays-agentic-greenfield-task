@@ -40,7 +40,7 @@ e2e + artifact) → review (sub-agent) → archive → next`.
 | ID | Slice | Depends on | Upstream IDs | Status |
 | --- | --- | --- | --- | --- |
 | R-07 | Profile management (interests, languages, channels) — API + React UI | R-06 | BR-USER-02, NFR-UX-01 | done |
-| R-08 | Source management (RSS/Atom + single article URL) — API + UI + SSRF validation | R-06 | BR-SRC-01..03, NFR-SEC-05 | pending |
+| R-08 | Source management (RSS/Atom + single article URL) — API + UI + SSRF validation | R-06 | BR-SRC-01..03, NFR-SEC-05 | done |
 | R-09 | Flow management (CRUD, enable/disable, 5-flow quota, prompt choice/custom) — API + UI | R-06 | BR-FLOW-01, BR-FLOW-07, BR-USER-03, NFR-CON-01 | pending |
 | R-10 | Delivery channels (in-app, email, Telegram link, Slack webhook, generic signed webhook) — API + UI + AES-GCM encryption + HMAC signing | R-06 | BR-DEL-01..06, T-09, NFR-SEC-03..06 | pending |
 
