@@ -16,7 +16,7 @@ blocked.
 
 ## 0. Set up the run (once)
 
-- Create/switch to a dedicated branch `autopilot/build` (never work on `main`).
+- Ensure you are on the `main` branch.
 - Ensure the backlog exists: if `docs/roadmap.md` has no slices, run
   `/decompose` first.
 - Read `docs/roadmap.md`, `openspec list`, and `openspec status` to find state.
@@ -80,8 +80,7 @@ Only when both gates are green AND review has no unresolved blocking findings:
 - Mark the slice `done` in `docs/roadmap.md` and link the archived change.
 - Update `docs/development_process.md` (decisions, gates run + evidence, files,
   findings, unresolved work; done vs planned).
-- Commit on the `autopilot/build` branch citing requirement IDs. Open/refresh a
-  PR so CodeRabbit reviews. **Do not merge to `main` and do not deploy** —
+- Commit on the `main` branch citing requirement IDs. **Do not deploy** —
   those are human-gated.
 
 ## 7. Continue
@@ -94,12 +93,12 @@ Only when both gates are green AND review has no unresolved blocking findings:
 ## Stop and report
 
 When you stop, write a status report: slices shipped this run, slices blocked
-and why, the "Human bootstrap required" items needed to unblock, and the current
-PR link. Never fabricate a passing gate to keep going.
+and why, and the "Human bootstrap required" items needed to unblock.
+Never fabricate a passing gate to keep going.
 
 ## Guardrails (from `50-autonomous-operation`)
 
-- No secrets/`.env`/state committed; branch only, never `main`; no force-push,
+- No secrets/`.env`/state committed; commit directly to `main` without pushing to origin; no force-push,
   no auto-merge, no deploy, no spend, no external account creation.
 - Never weaken gates/RLS/SSRF/encryption to pass. Maker≠checker always holds.
 - One slice per cycle; decide from the docs instead of prompting.

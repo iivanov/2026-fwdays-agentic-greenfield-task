@@ -23,15 +23,15 @@ at a time, keeping every quality bar. This is the skill form of
   `docs/roadmap.md`); never pause for interactive prompts mid-loop.
 - Keep maker != checker even unattended: implement, verify, and review run as
   three separate sub-agents in fresh contexts.
-- Safety rails: work only on branch `autopilot/build`; never commit/push to
-  `main`, never force-push, never auto-merge, never deploy, never spend, never
+- Safety rails: work directly on the `main` branch; never push to
+  origin, never auto-merge, never deploy, never spend, never
   create external accounts, never commit secrets, never weaken a gate/RLS/SSRF
   check to pass.
 - One slice per cycle; keep `docs/roadmap.md` statuses and `tasks.md` current.
 
 ## Instructions
 
-1. **Set up (once).** Create/switch to branch `autopilot/build`. If
+1. **Set up (once).** Ensure you are on the `main` branch. If
    `docs/roadmap.md` has no slices, run the `decompose-requirements` skill first.
    Read `docs/roadmap.md`, `openspec list`, `openspec status`.
 2. **Select** the first slice with status `pending` whose dependencies are all
@@ -54,8 +54,8 @@ at a time, keeping every quality bar. This is the skill form of
 7. **Archive + record.** Only when both gates are green and review has no
    unresolved blocking findings: `openspec validate <name> --strict`,
    `/opsx:archive`, mark the slice `done` in `docs/roadmap.md`, update
-   `docs/development_process.md`, commit on `autopilot/build` citing requirement
-   IDs, open/refresh a PR. Do not merge to `main` and do not deploy.
+   `docs/development_process.md`, commit on `main` citing requirement
+   IDs. Do not deploy.
 8. **Continue.** Emit a one-line status and immediately return to step 2 for the
    next slice. Repeat until all slices are `done` or only `blocked` remain.
 
@@ -68,5 +68,5 @@ actions needed, and the PR link. Never fabricate a passing gate to keep going.
 
 ## Output
 
-Archived changes on `autopilot/build`, updated `docs/roadmap.md` statuses,
-committed verification artifacts, an open PR, and a final status report.
+Archived changes on `main`, updated `docs/roadmap.md` statuses,
+committed verification artifacts, and a final status report.

@@ -70,9 +70,7 @@ verification artifact (`verify-e2e` → `openspec/changes/<name>/verification.md
 — and moves to the next slice until the project is done. It decides from the
 architecture docs instead of prompting (`.agent/rules/50-autonomous-operation`).
 
-What it does **not** do without an explicit human go-ahead (by design): commit or
-push to `main`, merge PRs, deploy, spend money, or create external accounts. It
-works on an `autopilot/*` branch, opens PRs for external review, and collects
+What it does **not** do without an explicit human go-ahead (by design): push to origin, deploy, spend money, or create external accounts. It works directly on the `main` branch, commits locally, and collects
 account/secret/deploy needs under "Human bootstrap required" in
 `docs/roadmap.md`. It stops and reports when everything left is blocked, a
 human-bootstrap item is required, or a slice fails verification 3 times.

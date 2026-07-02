@@ -32,8 +32,7 @@ sub-agent has no unresolved blocking findings.
 ## Safety rails (never cross without an explicit human go-ahead)
 
 - Never commit secrets, `.env` values, tokens, or provider state.
-- Work only on a dedicated branch (e.g. `autopilot/*`); **never commit or push
-  to `main`**, never force-push, never auto-merge PRs.
+- Work directly on the `main` branch; **never push to origin**, never force-push, never auto-merge PRs.
 - Never deploy to any hosted environment and never take any action that spends
   money or creates external accounts. Collect those under "Human bootstrap
   required" in `docs/roadmap.md` instead.
@@ -58,6 +57,6 @@ and the exact human actions needed to unblock.
 ## Progress hygiene
 
 - One slice per cycle; keep `docs/roadmap.md` statuses and `tasks.md` current.
-- Commit each archived change on the branch with a message citing requirement
-  IDs. Open/refresh a PR so external review (CodeRabbit) runs.
+- Commit each archived change on the `main` branch with a message citing requirement
+  IDs.
 - After each slice, immediately continue to the next `pending` one.
