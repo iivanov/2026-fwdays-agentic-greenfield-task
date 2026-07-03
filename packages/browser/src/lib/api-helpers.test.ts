@@ -8,7 +8,11 @@ import {
   getCorsHeaders,
 } from '../../../../supabase/functions/api/helpers.js';
 import { apiHandler } from '../../../../supabase/functions/api/helpers.js';
-import { encryptConfig, getMasterKey } from '../../../../supabase/functions/api/crypto.js';
+import {
+  decryptConfig,
+  encryptConfig,
+  getMasterKey,
+} from '../../../../supabase/functions/api/crypto.js';
 
 describe('API Edge Function Helpers & Router Unit Tests', () => {
   it('should verify CORS headers structure', () => {
@@ -525,12 +529,23 @@ describe('API Edge Function Handler Integration Tests', () => {
   describe('/flows endpoints routing', () => {
     const validFlowId = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
 
-    it('should retrieve flows for user successfully', async () => {
+    it('should retrieve flows for user successfully and decrypt custom prompts for the owner', async () => {
       const req = new Request('http://localhost/functions/v1/api/flows', {
         method: 'GET',
       });
 
-      const mockFlows = [{ id: validFlowId, name: 'Briefing' }];
+      const encryptedPrompt = await encryptConfig(
+        { prompt_template: 'Focus on TypeScript security.' },
+        getMasterKey(),
+      );
+      const mockFlows = [
+        {
+          id: validFlowId,
+          name: 'Briefing',
+          prompt_type: 'custom',
+          prompt_template: JSON.stringify(encryptedPrompt),
+        },
+      ];
       const mockSupabase = {
         from: () => ({
           select: () => ({
@@ -549,10 +564,62 @@ describe('API Edge Function Handler Integration Tests', () => {
       );
       expect(res.status).toBe(200);
       const json = await res.json();
-      expect(json.data).toEqual(mockFlows);
+      expect(json.data).toEqual([
+        {
+          id: validFlowId,
+          name: 'Briefing',
+          prompt_type: 'custom',
+          prompt_template: 'Focus on TypeScript security.',
+        },
+      ]);
     });
 
-    it('should create new flow successfully', async () => {
+    it('should constrain service-role flow reads by the authenticated user before decrypting prompts', async () => {
+      const req = new Request('http://localhost/functions/v1/api/flows', { method: 'GET' });
+      const encryptedPrompt = await encryptConfig(
+        { prompt_template: 'User scoped prompt' },
+        getMasterKey(),
+      );
+      const eqCalls: Array<[string, string]> = [];
+      const mockSupabaseAdmin = {
+        from: () => ({
+          select: () => ({
+            eq: (column: string, value: string) => {
+              eqCalls.push([column, value]);
+              return {
+                order: async () => ({
+                  data: [
+                    {
+                      id: validFlowId,
+                      name: 'Briefing',
+                      prompt_type: 'custom',
+                      prompt_template: JSON.stringify(encryptedPrompt),
+                    },
+                  ],
+                  error: null,
+                }),
+              };
+            },
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        'flows',
+        {},
+        mockSupabaseAdmin,
+      );
+
+      expect(res.status).toBe(200);
+      expect(eqCalls).toEqual([['user_id', 'user-abc']]);
+      const json = await res.json();
+      expect(json.data[0].prompt_template).toBe('User scoped prompt');
+    });
+
+    it('should create new custom flow with encrypted prompt storage and plaintext owner response', async () => {
       const req = new Request('http://localhost/functions/v1/api/flows', {
         method: 'POST',
         body: JSON.stringify({
@@ -563,13 +630,62 @@ describe('API Edge Function Handler Integration Tests', () => {
         headers: { 'Content-Type': 'application/json' },
       });
 
+      let storedPayload: Record<string, unknown> | null = null;
+      const mockSupabase = {
+        from: () => ({
+          insert: (payload: Record<string, unknown>) => {
+            storedPayload = payload;
+            return {
+              select: () => ({
+                single: async () => ({
+                  data: { id: validFlowId, name: 'Tech Briefing', ...payload },
+                  error: null,
+                }),
+              }),
+            };
+          },
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        'flows',
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(201);
+      expect(storedPayload?.prompt_template).not.toBe('Focus on TypeScript');
+      expect(typeof storedPayload?.prompt_template).toBe('string');
+      const encryptedPrompt = JSON.parse(storedPayload?.prompt_template as string);
+      expect(encryptedPrompt).toHaveProperty('ciphertext');
+      const decryptedPrompt = await decryptConfig(encryptedPrompt, getMasterKey());
+      expect(decryptedPrompt).toEqual({ prompt_template: 'Focus on TypeScript' });
+
+      const json = await res.json();
+      expect(json.data.id).toBe(validFlowId);
+      expect(json.data.prompt_template).toBe('Focus on TypeScript');
+    });
+
+    it('should not echo custom prompt bodies when flow persistence fails', async () => {
+      const secretPrompt = 'DO-NOT-LEAK-R-11C-PROMPT';
+      const req = new Request('http://localhost/functions/v1/api/flows', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Tech Briefing',
+          prompt_type: 'custom',
+          prompt_template: secretPrompt,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
       const mockSupabase = {
         from: () => ({
           insert: () => ({
             select: () => ({
               single: async () => ({
-                data: { id: validFlowId, name: 'Tech Briefing' },
-                error: null,
+                data: null,
+                error: { message: `database rejected ${secretPrompt}` },
               }),
             }),
           }),
@@ -584,9 +700,10 @@ describe('API Edge Function Handler Integration Tests', () => {
         mockSupabase,
         null,
       );
-      expect(res.status).toBe(201);
-      const json = await res.json();
-      expect(json.data.id).toBe(validFlowId);
+      expect(res.status).toBe(500);
+      const text = await res.text();
+      expect(text).not.toContain(secretPrompt);
+      expect(text).toContain('Unable to create processing flow');
     });
 
     it('should handle quota limit triggers during POST creation and return 400', async () => {
@@ -661,6 +778,99 @@ describe('API Edge Function Handler Integration Tests', () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.data.is_enabled).toBe(false);
+    });
+
+    it('should clear stored prompt data when updating a flow to predefined prompts', async () => {
+      const req = new Request(`http://localhost/functions/v1/api/flows/${validFlowId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          prompt_type: 'predefined',
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      let updatePayload: Record<string, unknown> | null = null;
+      const mockSupabase = {
+        from: () => ({
+          update: (payload: Record<string, unknown>) => {
+            updatePayload = payload;
+            return {
+              eq: () => ({
+                select: () => ({
+                  single: async () => ({
+                    data: { id: validFlowId, ...payload },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          },
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        `flows/${validFlowId}`,
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(200);
+      expect(updatePayload).toMatchObject({ prompt_type: 'predefined', prompt_template: null });
+      const json = await res.json();
+      expect(json.data.prompt_template).toBeNull();
+    });
+
+    it('should constrain service-role flow updates by the authenticated user before returning decrypted prompts', async () => {
+      const req = new Request(`http://localhost/functions/v1/api/flows/${validFlowId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ prompt_type: 'custom', prompt_template: 'Scoped update prompt' }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const eqCalls: Array<[string, string]> = [];
+      const mockSupabaseAdmin = {
+        from: () => ({
+          update: (payload: Record<string, unknown>) => ({
+            eq: (column: string, value: string) => {
+              eqCalls.push([column, value]);
+              return {
+                eq: (nextColumn: string, nextValue: string) => {
+                  eqCalls.push([nextColumn, nextValue]);
+                  return {
+                    select: () => ({
+                      single: async () => ({
+                        data: { id: validFlowId, ...payload },
+                        error: null,
+                      }),
+                    }),
+                  };
+                },
+                select: () => ({
+                  single: async () => ({ data: { id: validFlowId, ...payload }, error: null }),
+                }),
+              };
+            },
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        `flows/${validFlowId}`,
+        {},
+        mockSupabaseAdmin,
+      );
+
+      expect(res.status).toBe(200);
+      expect(eqCalls).toEqual([
+        ['id', validFlowId],
+        ['user_id', 'user-abc'],
+      ]);
+      const json = await res.json();
+      expect(json.data.prompt_template).toBe('Scoped update prompt');
     });
 
     it('should return 404 on PUT if flow does not exist or user does not own it', async () => {

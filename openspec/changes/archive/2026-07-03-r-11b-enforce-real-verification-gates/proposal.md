@@ -8,8 +8,8 @@ changes build on an unreliable baseline.
 
 ## What Changes
 
-- Add pinned, reproducible Deno check, lint, format, dependency-lock, and audit
-  gates for every Edge Function entry point and shared module.
+- Add pinned, reproducible Deno check, lint, format, dependency-lock, and
+  dependency update-check gates for every Edge Function entry point and shared module.
 - Add backend unit-test coverage with an enforced threshold for Edge Function
   code that can run without external services.
 - Add a minimal Playwright harness and deterministic browser smoke scenario
@@ -33,7 +33,7 @@ None.
 ### Modified Capabilities
 
 - `cicd-security-gates`: expand continuous verification to cover Deno Edge
-  Functions, dependency integrity/auditing, backend coverage, Playwright browser
+  Functions, dependency integrity/update checking, backend coverage, Playwright browser
   behavior, and explicit local-integration prerequisites.
 
 ## Impact

@@ -138,7 +138,7 @@ and content-integrity hashes are pinned in `skills-lock.json`; update with
   - Deno Edge Lint: `npm run deno:lint`
   - Deno Edge Format Check: `npm run deno:fmt`
   - Deno Edge Lock Integrity: `npm run deno:lock`
-  - Deno Edge Dependency Audit: `npm run deno:audit`
+  - Deno Edge Dependency Update Check: `npm run deno:outdated`
   - npm Dependency Audit: `npm audit`
   - Supabase Migration Lint: `npm run supabase:lint` (requires local Supabase)
   - Combined local non-integration gate: `npm run verify:local`
