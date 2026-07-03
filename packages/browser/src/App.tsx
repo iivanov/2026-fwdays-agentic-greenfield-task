@@ -3,11 +3,14 @@ import { supabase } from './lib/supabase.js';
 import ProfilePanel from './components/ProfilePanel.js';
 import SourcesPanel from './components/SourcesPanel.js';
 import FlowsPanel from './components/FlowsPanel.js';
+import DeliveryPanel from './components/DeliveryPanel.js';
 import { type Session } from '@supabase/supabase-js';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
-  const [activeTab, setActiveTab] = useState<'profile' | 'sources' | 'flows'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'sources' | 'flows' | 'delivery'>(
+    'profile',
+  );
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -385,6 +388,25 @@ export default function App() {
             >
               Flows
             </button>
+            <button
+              onClick={() => setActiveTab('delivery')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                background: activeTab === 'delivery' ? 'rgba(255,255,255,0.08)' : 'transparent',
+                color:
+                  activeTab === 'delivery'
+                    ? 'hsl(var(--text-primary))'
+                    : 'hsl(var(--text-secondary))',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              Delivery
+            </button>
           </nav>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -424,8 +446,10 @@ export default function App() {
           <ProfilePanel session={session} />
         ) : activeTab === 'sources' ? (
           <SourcesPanel session={session} />
-        ) : (
+        ) : activeTab === 'flows' ? (
           <FlowsPanel session={session} />
+        ) : (
+          <DeliveryPanel session={session} />
         )}
       </main>
     </div>

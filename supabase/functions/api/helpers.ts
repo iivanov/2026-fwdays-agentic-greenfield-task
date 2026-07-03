@@ -1,5 +1,6 @@
 import { z, type ZodIssue } from 'zod';
 import { validateUrlSsrf, type DnsResolver } from './ssrf.ts';
+import { encryptConfig, decryptConfig, maskConfig, getMasterKey } from './crypto.ts';
 
 // CORS allowed origins allowlist
 export const ALLOWED_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000'];
@@ -264,6 +265,118 @@ export async function handleApiRoute(
   if (rootSegment === 'flows') {
     const flowId = segments[1] || '';
 
+    if (segments[2] === 'channels') {
+      if (
+        !flowId ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(flowId)
+      ) {
+        return sendError('Invalid or missing flow ID', req, 400);
+      }
+
+      if (req.method === 'GET') {
+        const { data, error } = await supabaseClient
+          .from('flow_delivery_channels')
+          .select('channel_id, delivery_channels (*)')
+          .eq('flow_id', flowId);
+
+        if (error) {
+          return sendError(error.message, req, 500);
+        }
+
+        const secretKey = getMasterKey();
+        const formatted = await Promise.all(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (data || []).map(async (link: any) => {
+            const chan = link.delivery_channels;
+            if (chan) {
+              const rawConfig = await decryptConfig(chan.config, secretKey);
+              chan.config = maskConfig(chan.type, rawConfig);
+            }
+            return chan;
+          }),
+        );
+
+        return sendSuccess(formatted.filter(Boolean), req);
+      }
+
+      if (req.method === 'POST') {
+        const linkSchema = z.object({
+          channel_id: z.string().uuid(),
+        });
+        const validation = await validateBody(req, linkSchema);
+        if (!validation.success) {
+          return sendError(validation.error, req, 400);
+        }
+        const { channel_id } = validation.data;
+
+        // Verify that the flow exists and the user owns it
+        const flowCheck = await supabaseClient
+          .from('processing_flows')
+          .select('id')
+          .eq('id', flowId)
+          .single();
+
+        if (flowCheck.error) {
+          return sendError('Flow not found or unauthorized access', req, 404);
+        }
+
+        // Verify that the channel exists and the user owns it
+        const chanCheck = await supabaseClient
+          .from('delivery_channels')
+          .select('id')
+          .eq('id', channel_id)
+          .single();
+
+        if (chanCheck.error) {
+          return sendError('Delivery channel not found or unauthorized access', req, 404);
+        }
+
+        const { data, error } = await supabaseClient
+          .from('flow_delivery_channels')
+          .insert({
+            flow_id: flowId,
+            channel_id,
+          })
+          .select()
+          .single();
+
+        if (error) {
+          return sendError(error.message, req, 500);
+        }
+
+        return sendSuccess(data, req, 201);
+      }
+
+      if (req.method === 'DELETE') {
+        const targetChannelId = segments[3] || '';
+        if (
+          !targetChannelId ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetChannelId)
+        ) {
+          return sendError('Invalid or missing channel ID in linkage path', req, 400);
+        }
+
+        const { data, error } = await supabaseClient
+          .from('flow_delivery_channels')
+          .delete()
+          .eq('flow_id', flowId)
+          .eq('channel_id', targetChannelId)
+          .select();
+
+        if (error) {
+          return sendError(error.message, req, 500);
+        }
+
+        if (!data || data.length === 0) {
+          return sendError('Linkage mapping not found or unauthorized access', req, 404);
+        }
+
+        return sendSuccess({ unlinked: true }, req);
+      }
+
+      return sendError('Method Not Allowed', req, 405);
+    }
+
     if (req.method === 'GET') {
       const { data, error } = await supabaseClient
         .from('processing_flows')
@@ -382,14 +495,232 @@ export async function handleApiRoute(
   }
 
   if (rootSegment === 'channels') {
-    return sendSuccess(
-      {
-        message: 'Channels endpoint skeleton',
-        userId: user.id,
-        method: req.method,
-      },
-      req,
-    );
+    const channelId = segments[1] || '';
+
+    // Verify sub-route: POST /channels/:id/verify
+    if (req.method === 'POST' && segments[2] === 'verify') {
+      if (
+        !channelId ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId)
+      ) {
+        return sendError('Invalid or missing channel ID', req, 400);
+      }
+
+      const { data, error } = await supabaseClient
+        .from('delivery_channels')
+        .update({
+          status: 'active',
+          verified_at: new Date().toISOString(),
+        })
+        .eq('id', channelId)
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return sendError('Delivery channel not found or unauthorized access', req, 404);
+        }
+        return sendError(error.message, req, 500);
+      }
+
+      const secretKey = getMasterKey();
+      const rawConfig = await decryptConfig(data.config, secretKey);
+      data.config = maskConfig(data.type, rawConfig);
+
+      return sendSuccess(data, req);
+    }
+
+    if (req.method === 'GET') {
+      // If we have an ID but not verify, let's treat it as not found / method not allowed or simply return that channel if needed.
+      // But standard GET is for listing all channels. Let's return list:
+      if (channelId) {
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId)) {
+          return sendError('Invalid channel ID format', req, 400);
+        }
+        const { data, error } = await supabaseClient
+          .from('delivery_channels')
+          .select('*')
+          .eq('id', channelId)
+          .single();
+
+        if (error) {
+          if (error.code === 'PGRST116') {
+            return sendError('Delivery channel not found or unauthorized access', req, 404);
+          }
+          return sendError(error.message, req, 500);
+        }
+
+        const secretKey = getMasterKey();
+        const rawConfig = await decryptConfig(data.config, secretKey);
+        data.config = maskConfig(data.type, rawConfig);
+        return sendSuccess(data, req);
+      }
+
+      const { data, error } = await supabaseClient
+        .from('delivery_channels')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        return sendError(error.message, req, 500);
+      }
+
+      const secretKey = getMasterKey();
+      const decryptedData = await Promise.all(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (data || []).map(async (channel: any) => {
+          const rawConfig = await decryptConfig(channel.config, secretKey);
+          channel.config = maskConfig(channel.type, rawConfig);
+          return channel;
+        }),
+      );
+
+      return sendSuccess(decryptedData, req);
+    }
+
+    if (req.method === 'POST') {
+      const createSchema = z.object({
+        type: z.enum(['in-app', 'email', 'telegram', 'slack', 'webhook']),
+        config: z.record(z.any()),
+      });
+      const validation = await validateBody(req, createSchema);
+      if (!validation.success) {
+        return sendError(validation.error, req, 400);
+      }
+      const { type, config } = validation.data;
+
+      const configVal = validateChannelConfig(type, config);
+      if (!configVal.success) {
+        return sendError(configVal.error || 'Invalid config parameters', req, 400);
+      }
+
+      if (type === 'webhook') {
+        const isSafe = await validateUrlSsrf(config.webhook_url, resolveDns);
+        if (!isSafe) {
+          return sendError(
+            'Webhook URL target resolves to an unsafe private/reserved address range',
+            req,
+            400,
+          );
+        }
+        if (!config.signing_secret) {
+          config.signing_secret = generateSigningSecret();
+        }
+      }
+
+      const secretKey = getMasterKey();
+      const encryptedConfig = await encryptConfig(config, secretKey);
+
+      const { data, error } = await supabaseClient
+        .from('delivery_channels')
+        .insert({
+          user_id: user.id,
+          type,
+          config: encryptedConfig,
+          status: 'pending',
+        })
+        .select()
+        .single();
+
+      if (error) {
+        return sendError(error.message, req, 500);
+      }
+
+      const rawConfig = await decryptConfig(data.config, secretKey);
+      data.config = maskConfig(data.type, rawConfig);
+
+      return sendSuccess(data, req, 201);
+    }
+
+    if (req.method === 'PUT') {
+      if (
+        !channelId ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId)
+      ) {
+        return sendError('Invalid or missing channel ID', req, 400);
+      }
+
+      const updateSchema = z.object({
+        type: z.enum(['in-app', 'email', 'telegram', 'slack', 'webhook']),
+        config: z.record(z.any()),
+      });
+      const validation = await validateBody(req, updateSchema);
+      if (!validation.success) {
+        return sendError(validation.error, req, 400);
+      }
+      const { type, config } = validation.data;
+
+      const configVal = validateChannelConfig(type, config);
+      if (!configVal.success) {
+        return sendError(configVal.error || 'Invalid config parameters', req, 400);
+      }
+
+      if (type === 'webhook') {
+        const isSafe = await validateUrlSsrf(config.webhook_url, resolveDns);
+        if (!isSafe) {
+          return sendError(
+            'Webhook URL target resolves to an unsafe private/reserved address range',
+            req,
+            400,
+          );
+        }
+        if (!config.signing_secret) {
+          config.signing_secret = generateSigningSecret();
+        }
+      }
+
+      const secretKey = getMasterKey();
+      const encryptedConfig = await encryptConfig(config, secretKey);
+
+      const { data, error } = await supabaseClient
+        .from('delivery_channels')
+        .update({
+          type,
+          config: encryptedConfig,
+        })
+        .eq('id', channelId)
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return sendError('Delivery channel not found or unauthorized access', req, 404);
+        }
+        return sendError(error.message, req, 500);
+      }
+
+      const rawConfig = await decryptConfig(data.config, secretKey);
+      data.config = maskConfig(data.type, rawConfig);
+
+      return sendSuccess(data, req);
+    }
+
+    if (req.method === 'DELETE') {
+      if (
+        !channelId ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId)
+      ) {
+        return sendError('Invalid or missing channel ID', req, 400);
+      }
+
+      const { data, error } = await supabaseClient
+        .from('delivery_channels')
+        .delete()
+        .eq('id', channelId)
+        .select();
+
+      if (error) {
+        return sendError(error.message, req, 500);
+      }
+
+      if (!data || data.length === 0) {
+        return sendError('Delivery channel not found or unauthorized access', req, 404);
+      }
+
+      return sendSuccess({ deleted: true }, req);
+    }
+
+    return sendError('Method Not Allowed', req, 405);
   }
 
   // Route not found
@@ -438,4 +769,56 @@ export async function apiHandler(req: Request, ctx: any): Promise<Response> {
     ctx.supabaseAdmin,
     ctx.resolveDns,
   );
+}
+
+// -----------------------------------------------------------------------------
+// Delivery Channels Helper Functions
+// -----------------------------------------------------------------------------
+
+export function generateSigningSecret(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+export function validateChannelConfig(
+  type: string,
+  config: Record<string, unknown>,
+): { success: boolean; error?: string } {
+  if (!config || typeof config !== 'object') {
+    return { success: false, error: 'Config must be an object' };
+  }
+
+  if (type === 'email') {
+    const email = config.email;
+    if (!email || typeof email !== 'string' || !/^\S+@\S+\.\S+$/.test(email)) {
+      return { success: false, error: 'Config must contain a valid email address' };
+    }
+  } else if (type === 'telegram') {
+    if (!config.chat_id || typeof config.chat_id !== 'string') {
+      return { success: false, error: 'Config must contain chat_id string' };
+    }
+    if (!config.bot_token || typeof config.bot_token !== 'string') {
+      return { success: false, error: 'Config must contain bot_token string' };
+    }
+  } else if (type === 'slack') {
+    const url = config.webhook_url;
+    if (!url || typeof url !== 'string' || !/^https:\/\/hooks\.slack\.com\/services\//.test(url)) {
+      return { success: false, error: 'Config must contain a valid Slack webhook URL' };
+    }
+  } else if (type === 'webhook') {
+    const url = config.webhook_url;
+    if (!url || typeof url !== 'string') {
+      return { success: false, error: 'Config must contain webhook_url string' };
+    }
+    try {
+      new URL(url);
+    } catch {
+      return { success: false, error: 'Invalid webhook URL format' };
+    }
+  }
+
+  return { success: true };
 }

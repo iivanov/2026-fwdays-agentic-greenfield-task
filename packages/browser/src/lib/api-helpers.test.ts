@@ -8,6 +8,7 @@ import {
   getCorsHeaders,
 } from '../../../../supabase/functions/api/helpers.js';
 import { apiHandler } from '../../../../supabase/functions/api/helpers.js';
+import { encryptConfig, getMasterKey } from '../../../../supabase/functions/api/crypto.js';
 
 describe('API Edge Function Helpers & Router Unit Tests', () => {
   it('should verify CORS headers structure', () => {
@@ -804,6 +805,318 @@ describe('API Edge Function Handler Integration Tests', () => {
       expect(res.status).toBe(400);
       const json = await res.json();
       expect(json.error).toContain('Invalid or missing flow ID');
+    });
+  });
+
+  describe('/channels endpoints routing', () => {
+    const validChannelId = '8b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6e';
+    const validFlowId = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
+
+    it('should retrieve channels and mask configuration secrets on GET', async () => {
+      const req = new Request('http://localhost/functions/v1/api/channels', {
+        method: 'GET',
+      });
+
+      const secretKey = getMasterKey();
+      const encryptedConfig = await encryptConfig(
+        { webhook_url: 'https://hooks.slack.com/services/T123/B456/SECRET' },
+        secretKey,
+      );
+
+      const mockChannels = [
+        {
+          id: validChannelId,
+          type: 'slack',
+          config: encryptedConfig,
+        },
+      ];
+
+      const mockSupabase = {
+        from: () => ({
+          select: () => ({
+            order: async () => ({ data: mockChannels, error: null }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'channels',
+        'channels',
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.data[0].config.webhook_url).toBe('https://hooks.slack.com/services/*****');
+    });
+
+    it('should create delivery channel with encrypted config on POST', async () => {
+      const req = new Request('http://localhost/functions/v1/api/channels', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'email',
+          config: { email: 'john.doe@gmail.com' },
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const secretKey = getMasterKey();
+      const encryptedConfig = await encryptConfig({ email: 'john.doe@gmail.com' }, secretKey);
+
+      const mockSupabase = {
+        from: () => ({
+          insert: () => ({
+            select: () => ({
+              single: async () => ({
+                data: {
+                  id: validChannelId,
+                  type: 'email',
+                  config: encryptedConfig,
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'channels',
+        'channels',
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.data.type).toBe('email');
+      expect(json.data.config.email).toBe('j***e@gmail.com');
+    });
+
+    it('should block generic webhook target if it fails SSRF validation', async () => {
+      const req = new Request('http://localhost/functions/v1/api/channels', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'webhook',
+          config: { webhook_url: 'http://127.0.0.1/notify' },
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const res = await handleApiRoute(req, { id: 'user-abc' }, 'channels', 'channels', {}, null);
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toContain('resolves to an unsafe private/reserved address range');
+    });
+
+    it('should update channel config successfully on PUT', async () => {
+      const req = new Request(`http://localhost/functions/v1/api/channels/${validChannelId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          type: 'telegram',
+          config: { chat_id: '12345', bot_token: '123:abc' },
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const secretKey = getMasterKey();
+      const encryptedConfig = await encryptConfig(
+        { chat_id: '12345', bot_token: '123:abc' },
+        secretKey,
+      );
+
+      const mockSupabase = {
+        from: () => ({
+          update: () => ({
+            eq: () => ({
+              select: () => ({
+                single: async () => ({
+                  data: {
+                    id: validChannelId,
+                    type: 'telegram',
+                    config: encryptedConfig,
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'channels',
+        `channels/${validChannelId}`,
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.data.config.chat_id).toBe('123*****');
+      expect(json.data.config.bot_token).toBe('*****');
+    });
+
+    it('should verify channel status to active on POST verify', async () => {
+      const req = new Request(
+        `http://localhost/functions/v1/api/channels/${validChannelId}/verify`,
+        {
+          method: 'POST',
+        },
+      );
+
+      const secretKey = getMasterKey();
+      const encryptedConfig = await encryptConfig({ email: 'john.doe@gmail.com' }, secretKey);
+
+      const mockSupabase = {
+        from: () => ({
+          update: () => ({
+            eq: () => ({
+              select: () => ({
+                single: async () => ({
+                  data: {
+                    id: validChannelId,
+                    type: 'email',
+                    status: 'active',
+                    config: encryptedConfig,
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'channels',
+        `channels/${validChannelId}/verify`,
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.data.status).toBe('active');
+    });
+
+    it('should delete delivery channel successfully via DELETE', async () => {
+      const req = new Request(`http://localhost/functions/v1/api/channels/${validChannelId}`, {
+        method: 'DELETE',
+      });
+
+      const mockSupabase = {
+        from: () => ({
+          delete: () => ({
+            eq: () => ({
+              select: async () => ({ data: [{ id: validChannelId }], error: null }),
+            }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'channels',
+        `channels/${validChannelId}`,
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(200);
+    });
+
+    it('should link channel to flow on POST flows/:id/channels', async () => {
+      const req = new Request(`http://localhost/functions/v1/api/flows/${validFlowId}/channels`, {
+        method: 'POST',
+        body: JSON.stringify({ channel_id: validChannelId }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const mockSupabase = {
+        from: (table: string) => {
+          if (table === 'processing_flows') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  single: async () => ({ data: { id: validFlowId }, error: null }),
+                }),
+              }),
+            };
+          }
+          if (table === 'delivery_channels') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  single: async () => ({ data: { id: validChannelId }, error: null }),
+                }),
+              }),
+            };
+          }
+          // flow_delivery_channels
+          return {
+            insert: () => ({
+              select: () => ({
+                single: async () => ({
+                  data: { flow_id: validFlowId, channel_id: validChannelId },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        },
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        `flows/${validFlowId}/channels`,
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(201);
+    });
+
+    it('should unlink channel from flow on DELETE flows/:id/channels/:channel_id', async () => {
+      const req = new Request(
+        `http://localhost/functions/v1/api/flows/${validFlowId}/channels/${validChannelId}`,
+        {
+          method: 'DELETE',
+        },
+      );
+
+      const mockSupabase = {
+        from: () => ({
+          delete: () => ({
+            eq: () => ({
+              eq: () => ({
+                select: async () => ({
+                  data: [{ flow_id: validFlowId, channel_id: validChannelId }],
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        `flows/${validFlowId}/channels/${validChannelId}`,
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.data.unlinked).toBe(true);
     });
   });
 });
