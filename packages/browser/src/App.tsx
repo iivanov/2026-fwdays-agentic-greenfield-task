@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase.js';
 import ProfilePanel from './components/ProfilePanel.js';
 import SourcesPanel from './components/SourcesPanel.js';
+import FlowsPanel from './components/FlowsPanel.js';
 import { type Session } from '@supabase/supabase-js';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
-  const [activeTab, setActiveTab] = useState<'profile' | 'sources'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'sources' | 'flows'>('profile');
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -367,6 +368,23 @@ export default function App() {
             >
               Sources
             </button>
+            <button
+              onClick={() => setActiveTab('flows')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                background: activeTab === 'flows' ? 'rgba(255,255,255,0.08)' : 'transparent',
+                color:
+                  activeTab === 'flows' ? 'hsl(var(--text-primary))' : 'hsl(var(--text-secondary))',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              Flows
+            </button>
           </nav>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -404,8 +422,10 @@ export default function App() {
       >
         {activeTab === 'profile' ? (
           <ProfilePanel session={session} />
-        ) : (
+        ) : activeTab === 'sources' ? (
           <SourcesPanel session={session} />
+        ) : (
+          <FlowsPanel session={session} />
         )}
       </main>
     </div>

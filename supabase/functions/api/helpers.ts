@@ -72,6 +72,8 @@ export async function handleApiRoute(
   supabaseAdmin: any,
   resolveDns?: DnsResolver,
 ): Promise<Response> {
+  const segments = route.split('/').filter(Boolean);
+
   // 1. Health check route (public, does not require JWT)
   if (rootSegment === 'health' || rootSegment === '') {
     return sendSuccess({ status: 'healthy', timestamp: new Date().toISOString() }, req);
@@ -260,14 +262,123 @@ export async function handleApiRoute(
   }
 
   if (rootSegment === 'flows') {
-    return sendSuccess(
-      {
-        message: 'Flows endpoint skeleton',
-        userId: user.id,
-        method: req.method,
-      },
-      req,
-    );
+    const flowId = segments[1] || '';
+
+    if (req.method === 'GET') {
+      const { data, error } = await supabaseClient
+        .from('processing_flows')
+        .select(
+          'id, name, frequency, ai_model, prompt_type, prompt_template, is_enabled, next_run_at, last_run_at, created_at',
+        )
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        return sendError(error.message, req, 500);
+      }
+      return sendSuccess(data, req);
+    }
+
+    if (req.method === 'POST') {
+      const flowSchema = z.object({
+        name: z.string().min(1).max(100),
+        prompt_type: z.enum(['predefined', 'custom']),
+        prompt_template: z.string().nullable().optional(),
+        is_enabled: z.boolean().optional(),
+      });
+
+      const validation = await validateBody(req, flowSchema);
+      if (!validation.success) {
+        return sendError(validation.error, req, 400);
+      }
+
+      const { name, prompt_type, prompt_template, is_enabled } = validation.data;
+
+      const { data, error } = await supabaseClient
+        .from('processing_flows')
+        .insert({
+          user_id: user.id,
+          name,
+          prompt_type,
+          prompt_template: prompt_template || null,
+          is_enabled: is_enabled !== false,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        const msg = error.message || '';
+        if (msg.includes('quota') || msg.includes('maximum')) {
+          return sendError(msg, req, 400);
+        }
+        return sendError(msg, req, 500);
+      }
+
+      return sendSuccess(data, req, 201);
+    }
+
+    if (req.method === 'PUT') {
+      if (
+        !flowId ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(flowId)
+      ) {
+        return sendError('Invalid or missing flow ID', req, 400);
+      }
+
+      const updateSchema = z.object({
+        name: z.string().min(1).max(100).optional(),
+        prompt_type: z.enum(['predefined', 'custom']).optional(),
+        prompt_template: z.string().nullable().optional(),
+        is_enabled: z.boolean().optional(),
+      });
+
+      const validation = await validateBody(req, updateSchema);
+      if (!validation.success) {
+        return sendError(validation.error, req, 400);
+      }
+
+      const { data, error } = await supabaseClient
+        .from('processing_flows')
+        .update(validation.data)
+        .eq('id', flowId)
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return sendError('Flow not found or unauthorized access', req, 404);
+        }
+        return sendError(error.message, req, 500);
+      }
+
+      return sendSuccess(data, req);
+    }
+
+    if (req.method === 'DELETE') {
+      if (
+        !flowId ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(flowId)
+      ) {
+        return sendError('Invalid or missing flow ID', req, 400);
+      }
+
+      const { data, error } = await supabaseClient
+        .from('processing_flows')
+        .delete()
+        .eq('id', flowId)
+        .select();
+
+      if (error) {
+        return sendError(error.message, req, 500);
+      }
+
+      if (!data || data.length === 0) {
+        return sendError('Flow not found or unauthorized access', req, 404);
+      }
+
+      return sendSuccess({ deleted: true }, req);
+    }
+
+    return sendError('Method Not Allowed', req, 405);
   }
 
   if (rootSegment === 'channels') {

@@ -21,7 +21,7 @@ interface ProcessingFlow {
   id: string;
   name: string;
   frequency: 'daily';
-  enabled: boolean;
+  is_enabled: boolean;
 }
 
 export default function SourcesPanel({ session }: { session: Session | null }) {
@@ -43,7 +43,7 @@ export default function SourcesPanel({ session }: { session: Session | null }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('processing_flows')
-        .select('id, name, frequency, enabled')
+        .select('id, name, frequency, is_enabled')
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -90,7 +90,7 @@ export default function SourcesPanel({ session }: { session: Session | null }) {
           name: 'My Tech Daily Briefing',
           user_id: session?.user?.id,
           frequency: 'daily',
-          enabled: true,
+          is_enabled: true,
         })
         .select('id')
         .single();

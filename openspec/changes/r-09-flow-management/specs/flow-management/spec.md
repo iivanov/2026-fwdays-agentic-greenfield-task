@@ -24,3 +24,7 @@ The system SHALL support both predefined briefing formats and custom instruction
 
 ### Requirement: Flow Management Panel
 The dashboard client SHALL provide interactive forms for managing briefing flows, toggling states, configuring custom prompt templates, and displaying warnings when quota limit is reached.
+
+#### Scenario: Rendering the Ingestion Flows list
+- **WHEN** the user navigates to the Ingestion Flows dashboard tab
+- **THEN** the system lists all active flow configurations and displays action toggles
