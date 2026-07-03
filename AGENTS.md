@@ -124,7 +124,21 @@ and content-integrity hashes are pinned in `skills-lock.json`; update with
   - Strict Typecheck: `npm run typecheck`
   - Lint: `npm run lint`
   - Format Check: `npm run format`
-  - Unit/Integration Tests: `npm run test`
+  - Unit Tests: `npm run test`
+  - Backend/API Coverage: `npm run test:coverage`
+  - Supabase Integration Tests: `npm run test:integration` (requires local
+    Supabase stack: `npm run supabase:start` and `npm run supabase:reset`; fails
+    visibly when unavailable)
+  - Browser Build: `npm run build:browser`
+  - Browser Smoke E2E: `npm run test:e2e`
+  - Deno Edge Check: `npm run deno:check`
+  - Deno Edge Lint: `npm run deno:lint`
+  - Deno Edge Format Check: `npm run deno:fmt`
+  - Deno Edge Lock Integrity: `npm run deno:lock`
+  - Deno Edge Dependency Audit: `npm run deno:audit`
+  - npm Dependency Audit: `npm audit`
+  - Supabase Migration Lint: `npm run supabase:lint` (requires local Supabase)
+  - Combined local non-integration gate: `npm run verify:local`
 - Every material change requires separate verifier and reviewer passes on the
   final diff. A maker's self-review is useful but is not evidence of independent
   verification or review.

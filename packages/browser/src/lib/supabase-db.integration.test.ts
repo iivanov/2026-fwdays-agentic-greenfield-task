@@ -45,10 +45,9 @@ describe('Supabase Auth Database Triggers Integration Test', () => {
 
   it('should verify profile and channel auto-provisioning trigger if DB is running', async () => {
     if (!isDbRunning || !supabaseAdmin) {
-      console.log(
-        'Supabase emulator not running/unhealthy, skipping database trigger integration test.',
+      throw new Error(
+        'Supabase integration prerequisites were not met after setup. Run "npm run supabase:start" and "npm run supabase:reset", then rerun "npm run test:integration".',
       );
-      return;
     }
 
     const testEmail = `test-${Date.now()}@example.com`;
@@ -117,7 +116,9 @@ describe('Supabase Auth Database Triggers Integration Test', () => {
 
   it('should verify profile and channel updates on email changes and confirmations', async () => {
     if (!isDbRunning || !supabaseAdmin) {
-      return;
+      throw new Error(
+        'Supabase integration prerequisites were not met after setup. Run "npm run supabase:start" and "npm run supabase:reset", then rerun "npm run test:integration".',
+      );
     }
 
     const testEmail = `test-update-${Date.now()}@example.com`;

@@ -8,7 +8,7 @@ test-results
 package-lock.json
 .agent
 .agents
+.codex
 .claude
 docs
 openspec
-

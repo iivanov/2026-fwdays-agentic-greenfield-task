@@ -75,6 +75,36 @@ earlier prose claims as certification evidence.
 
 ## 5. Recorded Milestones
 
+### 2026-07-03 — R-11B verification-gates WIP checkpoint
+
+**Human direction**
+
+- Requested committing and pushing the current work before R-11B independent
+  verification/review was complete.
+
+**AI contribution**
+
+- Created the R-11B OpenSpec change for real Deno, Playwright, coverage,
+  integration-prerequisite, and CI gates.
+- Added partial implementation for root gate scripts, Deno lock/config,
+  Playwright smoke harness, Vitest coverage, split Supabase integration tests,
+  explicit integration prerequisite failures, CI expansion, and runnable-gate
+  documentation.
+
+**Verification performed**
+
+- `openspec validate r-11b-enforce-real-verification-gates --strict` passed.
+- `npm run test`, `npm run test:coverage`, `npm run typecheck`, and
+  `npm run build:browser` passed.
+- Deno lock generation succeeded with public registry access.
+
+**Not complete**
+
+- R-11B is not archived and has no independent verifier/reviewer artifacts.
+- Final lint/format/Deno/e2e/integration gates still require cleanup and rerun
+  on a clean R-11B diff because the live workspace also contains paused R-12
+  draft files.
+
 ### 2026-07-01 to 2026-07-02 — Architecture baseline and decision hierarchy
 
 **Human direction**
