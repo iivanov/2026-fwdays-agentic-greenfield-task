@@ -43,7 +43,7 @@ fresh independent review on its final diff before archive.
 
 ## R-11B WIP Gate Status (2026-07-03)
 
-Completed before the checkpoint:
+Completed before the first checkpoint:
 
 - `openspec validate r-11b-enforce-real-verification-gates --strict` passed.
 - `npm run test` passed: 5 files, 67 tests.
@@ -53,17 +53,26 @@ Completed before the checkpoint:
 - `npm run build:browser` passed.
 - Deno lock generation succeeded with public registry access.
 
-Known incomplete/failing items at checkpoint:
+Updated after the CI repair checkpoint:
 
-- `npm run lint` still needs final evaluation against a clean R-11B tree because
-  the live workspace contains paused R-12 changes in `supabase/functions/work/index.ts`.
-- `npm run format` still sees paused R-12/skill-generated files unless those are
-  excluded or evaluated from a clean R-11B tree.
-- `npm run deno:fmt` initially failed because the script did not pass the Deno
-  config; the script was corrected, but the final gate was not rerun before the
-  user requested commit/push.
-- `npm run test:e2e` starts the local preview with approval and Chromium is
-  installed, but the smoke assertion still fails to find the expected app shell.
+- GitHub `Lint Workflows` failure root cause was a stale pinned actionlint
+  installer URL; the workflow now downloads the pinned `v1.7.12` release
+  tarball directly.
+- GitHub `CI` failure root cause was Deno Web Crypto `BufferSource` typing in
+  `supabase/functions/api/crypto.ts`; encryption/decryption now pass
+  `ArrayBuffer` values.
+- User clarified that development should stay on `main`; `AGENTS.md` now
+  records this repository policy.
+- `npm run verify:local` passed, including typecheck, lint, Prettier, unit
+  tests, coverage, Deno check/lint/format/lock, npm audit, browser build, and
+  Playwright smoke e2e.
+- `actionlint .github/workflows/actionlint.yml .github/workflows/ci.yml`
+  passed.
+- `npm run deno:audit` exited 0; Deno reported that some package update metadata
+  could not be fetched, but no failing vulnerability result was returned.
+
+Remaining before R-11B can be archived:
+
 - `npm run test:integration` and `npm run supabase:lint` require the local
   Supabase stack and have not been rerun for final evidence.
 - No R-11B independent verifier/reviewer reports exist yet, and the change is

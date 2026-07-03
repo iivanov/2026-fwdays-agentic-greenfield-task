@@ -4,6 +4,7 @@
 
 Track your current state in the ./docs/state.md
 Commit each stage.
+Work directly on `main`; do not create feature branches unless the human asks.
 
 ## Scope
 
@@ -19,6 +20,8 @@ This file applies to the entire repository. Add a nested `AGENTS.md` only when a
 ## Working Agreement
 
 - Inspect `git status` before editing and preserve unrelated user changes.
+- Develop on `main` for this single-developer repository; avoid creating
+  feature branches unless the human explicitly requests one.
 - Use official, current sources for provider limits, pricing, security behavior, and product capabilities; record verification dates in technology documents.
 - Keep technology names out of business, data, and application architecture documents unless the name is itself an approved product constraint.
 - Never commit secrets, production data, `.env` values, provider state, database dumps, or generated private configuration.

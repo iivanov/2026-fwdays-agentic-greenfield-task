@@ -105,6 +105,40 @@ earlier prose claims as certification evidence.
   on a clean R-11B diff because the live workspace also contains paused R-12
   draft files.
 
+### 2026-07-03 — R-11B CI repair checkpoint
+
+**Human direction**
+
+- Continue development directly on `main`; no feature branches are needed for
+  this single-developer repository.
+
+**AI contribution**
+
+- Added the main-only working policy to `AGENTS.md`.
+- Fixed the actionlint workflow by replacing the stale pinned installer script
+  URL with a direct pinned `actionlint` release tarball download.
+- Fixed Deno Web Crypto typing in `supabase/functions/api/crypto.ts` by passing
+  `ArrayBuffer` values to `crypto.subtle.encrypt/decrypt`.
+- Made the browser smoke test deterministic by building the Vite app with
+  non-secret local Supabase placeholder env values and asserting the
+  unauthenticated login shell.
+- Resolved the Deno/Prettier formatter ownership conflict by letting Deno own
+  `supabase/functions` formatting and excluding that tree from Prettier.
+
+**Verification performed**
+
+- `actionlint .github/workflows/actionlint.yml .github/workflows/ci.yml`
+  passed.
+- `npm run verify:local` passed: typecheck, lint, format, unit tests, coverage,
+  Deno check/lint/fmt/lock, npm audit, browser build, and Playwright smoke e2e.
+- `npm run deno:audit` exited 0, with a non-blocking warning that some update
+  metadata could not be fetched.
+
+**Not complete**
+
+- R-11B still needs local Supabase integration/migration-lint evidence and
+  separate verifier/reviewer artifacts before archive.
+
 ### 2026-07-01 to 2026-07-02 — Architecture baseline and decision hierarchy
 
 **Human direction**
