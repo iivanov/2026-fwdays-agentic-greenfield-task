@@ -34,11 +34,11 @@ checker pass and review are retained on the final diff.
 
 ### CI evidence still required
 
-- GitHub Actions must run the Supabase-backed integration gate after the latest
-  CI patch exports `supabase status -o env` values into `$GITHUB_ENV`.
-- The first CI run for the Supabase diagnostics patch passed all gates through
-  Playwright smoke, then stayed in `Start Supabase` without exposed live logs.
-  The workflow now has explicit job and Supabase step timeouts so subsequent
-  failures are bounded and inspectable.
+- GitHub Actions run `28679753122` for commit `a66230e` passed:
+  `npm ci`, Playwright browser install, typecheck, lint, format, unit tests,
+  coverage, Deno check/lint/format, Deno dependency integrity/audit,
+  `npm audit`, browser build, Playwright smoke e2e, Supabase start, Supabase
+  database reset, Supabase local status export, Supabase migration lint,
+  Supabase integration tests, and Supabase stop.
 - A separate verifier report and separate reviewer report are still required
   before archive.

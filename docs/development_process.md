@@ -165,10 +165,13 @@ earlier prose claims as certification evidence.
 - `npm run test:integration` failed locally because this sandbox cannot connect
   to `127.0.0.1:54321` (`connect EPERM`); this is recorded as blocked local
   integration evidence, not as a product pass.
-- The first pushed CI run for this patch passed through Playwright smoke and
-  then stayed in `Start Supabase` without exposed logs. The workflow now has a
-  25-minute job timeout plus bounded Supabase start/reset/status/lint/test/stop
-  step timeouts so CI cannot hang silently.
+- The first pushed CI run for this patch passed through Playwright smoke and was
+  then cancelled by the follow-up timeout commit while in `Start Supabase`.
+- The workflow now has a 25-minute job timeout plus bounded Supabase
+  start/reset/status/lint/test/stop step timeouts so CI cannot hang silently.
+- GitHub CI run `28679753122` for commit `a66230e` passed all quality gates,
+  including Supabase start/reset/status export, migration lint, integration
+  tests, and cleanup.
 
 **Not complete**
 
