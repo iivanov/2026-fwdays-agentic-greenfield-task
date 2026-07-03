@@ -19,6 +19,12 @@ function bytesToHex(bytes: Uint8Array): string {
     .join('');
 }
 
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
 // Derive a CryptoKey from raw string key
 async function getCryptoKey(rawKey: string): Promise<CryptoKey> {
   const rawKeyUint8 = new TextEncoder().encode(rawKey);
@@ -42,7 +48,11 @@ export async function encrypt(plaintext: string, secretKey: string): Promise<Enc
   const iv = crypto.getRandomValues(new Uint8Array(12)); // 12 bytes IV is standard for GCM
 
   const data = new TextEncoder().encode(plaintext);
-  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: toArrayBuffer(iv) },
+    key,
+    toArrayBuffer(data),
+  );
 
   // The Web Crypto AES-GCM output is ciphertext appended with the 16-byte authentication tag
   const encryptedBytes = new Uint8Array(encrypted);
@@ -72,7 +82,11 @@ export async function decrypt(encrypted: EncryptedPayload, secretKey: string): P
   data.set(ciphertext);
   data.set(tag, ciphertext.length);
 
-  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: toArrayBuffer(iv) },
+    key,
+    toArrayBuffer(data),
+  );
 
   return new TextDecoder().decode(decrypted);
 }
@@ -189,8 +203,7 @@ export function getMasterKey(): string {
 
   if (!key) {
     const globalRecord = globalThis as Record<string, unknown>;
-    const isTest =
-      typeof globalRecord.vitest !== 'undefined' ||
+    const isTest = typeof globalRecord.vitest !== 'undefined' ||
       (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test');
     if (isTest) {
       return 'default-fallback-master-key-for-local-testing-only-vitest-mock';

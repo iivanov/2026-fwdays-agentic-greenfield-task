@@ -26,5 +26,6 @@ jobs:
 
       - name: Download and run actionlint
         run: |
-          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/914e7df6504626154388147d33d9990e1f728c7f/scripts/download-actionlint.bash) 1.7.12
+          curl -sSfL https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz -o actionlint.tar.gz
+          tar -xzf actionlint.tar.gz actionlint
           ./actionlint
