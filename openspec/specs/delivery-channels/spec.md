@@ -1,7 +1,7 @@
 # delivery-channels Specification
 
 ## Purpose
-TBD - created by archiving change r-10-delivery-channels. Update Purpose after archive.
+Define secure delivery-channel configuration, verification, flow-channel mapping, and dashboard management behavior for in-app, email, Telegram, Slack, and generic signed webhook outputs.
 ## Requirements
 ### Requirement: Delivery Credentials Encryption at Rest
 The system SHALL encrypt sensitive config parameters (like webhook URLs, bot tokens, Slack endpoints, and destination targets) at rest using AES-256-GCM (satisfies NFR-SEC-03).
@@ -18,11 +18,36 @@ The system SHALL validate the hostname and IP of any target URL provided for gen
 - **THEN** the system blocks registration returning a `400 Bad Request`
 
 ### Requirement: HMAC-SHA256 Payload Signing Secrets
-The system SHALL automatically generate a cryptographically secure 32-byte signing secret for generic webhooks to support HMAC-SHA256 delivery verification (satisfies NFR-SEC-04).
+The system SHALL automatically generate a cryptographically secure 32-byte signing secret for generic webhooks to support HMAC-SHA256 delivery verification, SHALL encrypt it at rest, and SHALL expose it only in the create/update response that first generates the secret (satisfies NFR-SEC-04).
 
 #### Scenario: Generating signing secret for generic webhooks
-- **WHEN** user registers a generic webhook delivery channel
-- **THEN** the system generates a signing secret and exposes it in the configuration body
+- **WHEN** user registers a generic webhook delivery channel without an existing signing secret
+- **THEN** the system generates a signing secret, stores it encrypted, and exposes it in that mutation response
+- **AND** subsequent list, get, and flow-link responses mask the signing secret
+
+#### Scenario: Preserving an existing webhook signing secret
+- **WHEN** user updates a generic webhook channel URL without explicitly rotating credentials
+- **THEN** the system preserves the existing signing secret and keeps it masked in the response
+
+### Requirement: Delivery Channel Identity and Functional Verification
+Delivery channels SHALL be bound to approved identities and SHALL only become active after type-appropriate verification (satisfies BR-DEL-02..05, A-05, A-06, NFR-SEC-03, NFR-SEC-04, NFR-SEC-06).
+
+#### Scenario: Email destination is the verified account email
+- **WHEN** an authenticated user creates or updates an email channel
+- **THEN** the stored destination is derived from the user's verified identity email, not the request body
+- **AND** unverified account email identities are rejected
+
+#### Scenario: Telegram uses the application bot
+- **WHEN** an authenticated user creates or updates a Telegram channel
+- **THEN** the API rejects any user-supplied bot token and stores only the chat identifier
+
+#### Scenario: Verification fails closed
+- **WHEN** a user verifies a Telegram, Slack, or generic webhook channel and the provider or challenge check fails
+- **THEN** the channel remains pending and the API returns a safe verification error
+
+#### Scenario: Verification activates after proof
+- **WHEN** a channel target passes its type-specific verification check
+- **THEN** the API marks that user-owned channel active using a constrained server-side status transition
 
 ### Requirement: Flow to Channel Mappings
 The system SHALL support mapping multiple delivery channels to a processing flow in the `flow_delivery_channels` table (satisfies BR-DEL-06).

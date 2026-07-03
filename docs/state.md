@@ -2,9 +2,9 @@
 
 ## Current Position
 
-- **Last completed stage**: R-11C (`r-11c-encrypt-custom-prompts`)
-- **Active implementation slice**: R-11D (delivery identity/secrets repair)
-- **Current checkpoint**: R-11C is archived with retained verifier/reviewer reports; R-11D is next.
+- **Last completed stage**: R-11E (`r-11e-restrict-shared-source-article-rls`)
+- **Active implementation slice**: R-11F (queue transactional acknowledgement repair)
+- **Current checkpoint**: R-11E is archived locally with retained verifier/reviewer reports; R-11F is next.
 - **Paused draft**: R-12 ingestion worker; existing uncommitted maker output is preserved but fails current gates and requires a revised spec.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
@@ -131,3 +131,41 @@ See `docs/roadmap.md` for the ordered corrective backlog.
 - Custom prompts are encrypted with shared AES-256-GCM helpers before storage; direct authenticated Data API grants exclude `prompt_template`; service-role API reads/updates are constrained by JWT-derived `user.id` before decryption.
 - The greenfield migration nulls pre-R-11C local/dev plaintext custom prompts because no production data exists in this repository; a deployed product with real data would need a human-controlled runtime backfill before applying the column restriction.
 - Independent verifier PASS and reviewer APPROVE reports are retained in the archived change. R-11D is next.
+
+
+## R-11D Maker Implementation Status (2026-07-03)
+
+- Created OpenSpec change `r-11d-repair-delivery-identity-secrets` for delivery identity and secret handling repairs.
+- Email delivery channel create/update now derives the destination from the authenticated user's verified identity email and rejects unverified email identities.
+- Telegram channel create/update now rejects user-supplied bot tokens; Telegram verification uses the application-owned runtime bot token.
+- Channel verification now performs type-specific checks before activation instead of blindly setting `status = active`.
+- Generic webhook signing secrets remain encrypted at rest and are returned in plaintext only in the mutation response that generated them; ordinary reads still mask the secret.
+- Browser Telegram setup no longer collects bot tokens.
+- Maker self-checks, independent verifier PASS, and independent reviewer disposition are retained before archive.
+
+
+## R-11D Archived Status (2026-07-03)
+
+- Archived OpenSpec change `r-11d-repair-delivery-identity-secrets` at `openspec/changes/archive/2026-07-03-r-11d-repair-delivery-identity-secrets/`.
+- Email channels derive destinations from verified authenticated identity emails; unverified email identities are rejected.
+- Telegram channels reject user-supplied bot tokens and use the app-owned runtime bot for verification.
+- Channel verification is type-specific and fails closed before constrained activation.
+- Generic webhook signing secrets are encrypted, disclosed only when generated, masked on ordinary reads, and preserved on URL updates.
+- Independent verifier PASS and reviewer APPROVE reports are retained in the archived change. R-11E is next.
+
+
+## R-11E Maker Implementation Status (2026-07-03)
+
+- Created OpenSpec change `r-11e-restrict-shared-source-article-rls`.
+- Added a migration to replace broad authenticated reads on `global_sources` and `ingested_articles` with owned-flow-link policies.
+- Added policy-shape tests for the R-11E migration and synced the canonical `core-schema-rls` spec.
+- Independent verifier PASS and reviewer APPROVE reports are retained in the archived change.
+
+
+## R-11E Archived Status (2026-07-03)
+
+- Archived OpenSpec change `r-11e-restrict-shared-source-article-rls` at `openspec/changes/archive/2026-07-03-r-11e-restrict-shared-source-article-rls/`.
+- `global_sources` no longer has broad authenticated read access; users can read only sources linked to their owned flows.
+- `ingested_articles` no longer has broad authenticated read access; users can read only articles claimed by their owned flows.
+- Existing service-role access remains the worker path for shared cache operations.
+- Independent verifier PASS and reviewer APPROVE reports are retained in the archived change. R-11F is next.
