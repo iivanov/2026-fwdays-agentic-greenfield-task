@@ -6,7 +6,7 @@
 ## 2. Deno Edge Function gates
 
 - [x] 2.1 Add committed Deno configuration/lock support covering `supabase/functions/**`.
-- [x] 2.2 Add root scripts for Deno check, lint, format check, lock validation, and dependency audit.
+- [x] 2.2 Add root scripts for Deno check, lint, format check, lock validation, and dependency update check.
 - [x] 2.3 Ensure Deno gates do not rely on paused R-12 draft files.
 
 ## 3. Node, coverage, and integration gates
@@ -27,6 +27,6 @@
 
 ## 6. Independent checks
 
-- [ ] 6.1 Run applicable local gates and retain `verification.md` with exact evidence.
-- [ ] 6.2 Run independent review and retain `review.md` with final disposition.
-- [ ] 6.3 Sync/archive the OpenSpec change and commit the completed stage.
+- [x] 6.1 Run applicable local gates and retain `verification.md` with exact evidence.
+- [x] 6.2 Run independent review and retain `review.md` with final disposition.
+- [x] 6.3 Sync/archive the OpenSpec change and commit the completed stage.

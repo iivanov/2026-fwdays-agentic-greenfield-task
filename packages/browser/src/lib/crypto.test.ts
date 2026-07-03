@@ -4,6 +4,8 @@ import {
   decrypt,
   encryptConfig,
   decryptConfig,
+  encryptPromptTemplate,
+  decryptPromptTemplate,
   maskConfig,
 } from '../../../../supabase/functions/api/crypto.js';
 
@@ -49,6 +51,18 @@ describe('AES-256-GCM Encryption Module', () => {
     const plaintextConfig = { email: 'user@example.com' };
     const result = await decryptConfig(plaintextConfig, secretKey);
     expect(result).toEqual(plaintextConfig);
+  });
+
+  it('should encrypt prompt templates and refuse legacy plaintext prompt values', async () => {
+    const encryptedPrompt = await encryptPromptTemplate('Prioritize security news', secretKey);
+    expect(encryptedPrompt).not.toContain('Prioritize security news');
+    expect(await decryptPromptTemplate(encryptedPrompt, secretKey)).toBe(
+      'Prioritize security news',
+    );
+    await expect(
+      decrypt(encryptedPrompt ? JSON.parse(encryptedPrompt) : {}, alternativeKey),
+    ).rejects.toThrow();
+    expect(await decryptPromptTemplate('Prioritize security news', secretKey)).toBeNull();
   });
 
   describe('Config Masking Utilities', () => {

@@ -112,6 +112,51 @@ export async function encryptConfig(config: any, secretKey: string): Promise<Enc
   return await encrypt(plaintext, secretKey);
 }
 
+function isEncryptedPayload(value: unknown): value is EncryptedPayload {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      'version' in value &&
+      'iv' in value &&
+      'ciphertext' in value &&
+      'tag' in value,
+  );
+}
+
+export async function encryptPromptTemplate(
+  promptTemplate: string | null | undefined,
+  secretKey = getMasterKey(),
+): Promise<string | null> {
+  if (!promptTemplate) return null;
+  const encrypted = await encryptConfig({ prompt_template: promptTemplate }, secretKey);
+  return JSON.stringify(encrypted);
+}
+
+export async function decryptPromptTemplate(
+  promptTemplate: string | null | undefined,
+  secretKey = getMasterKey(),
+): Promise<string | null> {
+  if (!promptTemplate) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(promptTemplate);
+    if (!isEncryptedPayload(parsed)) return null;
+    const decrypted = await decryptConfig(parsed, secretKey);
+    if (
+      decrypted &&
+      typeof decrypted === 'object' &&
+      'prompt_template' in decrypted &&
+      typeof decrypted.prompt_template === 'string'
+    ) {
+      return decrypted.prompt_template;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 // Helper to mask secret value strings in frontend context
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function maskSecretValue(type: string, key: string, value: any): any {

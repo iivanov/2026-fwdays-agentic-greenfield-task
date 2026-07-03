@@ -6,7 +6,7 @@ ESLint, Prettier, and Vitest, but the independent audit found four release
 blockers in the verification surface:
 
 - Supabase Edge Functions are Deno programs, yet no committed gate checks Deno
-  type resolution, linting, formatting, lock integrity, or dependency audit.
+  type resolution, linting, formatting, lock integrity, or dependency update check.
 - Browser behavior is not exercised by Playwright even though T-12 requires it.
 - Backend coverage is not enforced, so worker/API regressions can merge while
   tests remain green.
@@ -23,7 +23,7 @@ that unrelated dirty worktree state.
 
 - Make every documented verification family executable through root scripts and
   CI: Node static gates, Deno gates, browser build/smoke behavior, backend
-  coverage, dependency auditing, migration linting, and local integration.
+  coverage, dependency update checking, migration linting, and local integration.
 - Ensure integration prerequisites are explicit and fail visibly instead of
   silently skipping tests.
 - Keep all gates reproducible with pinned or lockfile-backed dependencies.
