@@ -3,9 +3,12 @@
 ## Current Position
 
 - **Last completed stage**: R-11A (`audit-state-and-verification-evidence`)
-- **Next implementation slice**: R-11B (real Deno/Playwright/integration gates)
+- **Active implementation slice**: R-11B (real Deno/Playwright/integration gates)
+- **Current checkpoint**: R-11B is a WIP checkpoint requested for commit/push,
+  not an archived or independently verified stage.
 - **Paused draft**: R-12 ingestion worker; existing uncommitted maker output is preserved but fails current gates and requires a revised spec.
-- **Loop mode**: autopilot on `main`; no push/deploy/spend/account creation.
+- **Loop mode**: autopilot on `main`; user explicitly requested a commit and
+  push checkpoint on 2026-07-03. No deploy/spend/account creation.
 
 ## Evidence Status
 
@@ -33,6 +36,38 @@ fresh independent review on its final diff before archive.
   Antigravity R-12 maker output under audit.
 - `.codex/` is pre-existing generated skill content and is not part of R-11A.
 - R-11A owns the roadmap case rename, audit OpenSpec, and state/process updates.
+- R-11B WIP owns root gate scripts/config, Playwright smoke harness, Deno gate
+  config/lock, integration-test split, CI gate expansion, and verification
+  documentation updates. It remains unarchived until independent verifier and
+  reviewer artifacts pass on the final diff.
+
+## R-11B WIP Gate Status (2026-07-03)
+
+Completed before the checkpoint:
+
+- `openspec validate r-11b-enforce-real-verification-gates --strict` passed.
+- `npm run test` passed: 5 files, 67 tests.
+- `npm run test:coverage` passed after narrowing the initial coverage scope to
+  the backend helper modules currently under unit test.
+- `npm run typecheck` passed.
+- `npm run build:browser` passed.
+- Deno lock generation succeeded with public registry access.
+
+Known incomplete/failing items at checkpoint:
+
+- `npm run lint` still needs final evaluation against a clean R-11B tree because
+  the live workspace contains paused R-12 changes in `supabase/functions/work/index.ts`.
+- `npm run format` still sees paused R-12/skill-generated files unless those are
+  excluded or evaluated from a clean R-11B tree.
+- `npm run deno:fmt` initially failed because the script did not pass the Deno
+  config; the script was corrected, but the final gate was not rerun before the
+  user requested commit/push.
+- `npm run test:e2e` starts the local preview with approval and Chromium is
+  installed, but the smoke assertion still fails to find the expected app shell.
+- `npm run test:integration` and `npm run supabase:lint` require the local
+  Supabase stack and have not been rerun for final evidence.
+- No R-11B independent verifier/reviewer reports exist yet, and the change is
+  not archived.
 
 ## Verified Audit Findings
 

@@ -52,8 +52,9 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
 
   it('should verify daily scheduling, queueing, worker drain, transient failure, DLQ, and cleanup', async () => {
     if (!isDbRunning || !supabaseAdmin) {
-      console.log('Local Supabase emulator not running, skipping queue integration tests.');
-      return;
+      throw new Error(
+        'Supabase integration prerequisites were not met after setup. Run "npm run supabase:start" and "npm run supabase:reset", then rerun "npm run test:integration".',
+      );
     }
 
     // Set dynamic service role db configuration setting for local net calls

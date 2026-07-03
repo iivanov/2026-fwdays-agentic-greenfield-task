@@ -27,6 +27,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -38,3 +41,46 @@ jobs:
 
       - name: Test
         run: npm run test
+
+      - name: Coverage
+        run: npm run test:coverage
+
+      - name: Deno check
+        run: npm run deno:check
+
+      - name: Deno lint
+        run: npm run deno:lint
+
+      - name: Deno format
+        run: npm run deno:fmt
+
+      - name: Deno dependency integrity
+        run: npm run deno:lock
+
+      - name: Deno dependency audit
+        run: npm run deno:audit
+
+      - name: npm audit
+        run: npm audit
+
+      - name: Browser build
+        run: npm run build:browser
+
+      - name: Browser smoke e2e
+        run: npm run test:e2e
+
+      - name: Start Supabase
+        run: npm run supabase:start
+
+      - name: Reset Supabase database
+        run: npm run supabase:reset
+
+      - name: Supabase migration lint
+        run: npm run supabase:lint
+
+      - name: Supabase integration tests
+        run: npm run test:integration
+
+      - name: Stop Supabase
+        if: always()
+        run: npm run supabase:stop

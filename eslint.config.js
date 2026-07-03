@@ -9,6 +9,10 @@ export default tseslint.config(eslint.configs.recommended, ...tseslint.configs.r
     'playwright-report/**',
     'test-results/**',
     '.playwright/**',
+    '.agent/**',
+    '.agents/**',
+    '.codex/**',
+    'coverage/**',
     'eslint.config.js',
   ],
 });
