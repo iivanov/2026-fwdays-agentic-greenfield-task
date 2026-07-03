@@ -492,6 +492,35 @@ Current evidence is limited: the architecture work received iterative self-revie
 
 - Delivery channels CRUD (R-10) and Daily scheduler edge function trigger (R-11).
 
+### 2026-07-03 — R-10 Delivery Channels Configuration
+
+**AI contribution**
+
+- Implemented GET, POST, PUT, DELETE, and POST verify endpoints for `/channels` in Deno edge helper router.
+- Supported mapping, linking, and unlinking channels to processing flows via `/flows/:id/channels` routing paths.
+- Built AES-256-GCM configurations encryption/decryption module using standard Web Crypto API globally compatible across Node.js/Deno.
+- Added credential masking filters hiding sensitive target details (tokens, secrets, URLs) on read APIs before responding to client interfaces.
+- Enforced generic webhooks SSRF resolution checks matching segment-based safety rules.
+- Cryptographically generated per-channel HMAC-SHA256 signing secret keys for webhook delivery targets.
+- Created `DeliveryPanel.tsx` React view supporting connection forms, toggle maps, active status verification, and deletion flows.
+- Connected the Delivery tab navigation controls to the dashboard layout.
+- Wrote unit tests in `crypto.test.ts` verifying AES symmetric loops, tampered cipher block decryptions, and masking results.
+- Added integration tests in `api-helpers.test.ts` verifying endpoints.
+
+**Design decisions**
+
+- Leveraged standard Web Crypto `crypto.subtle` APIs to keep core packages self-contained and run unit tests natively in Node without Node crypto polyfills.
+- Ensured `getMasterKey()` fails closed by throwing an Error if no master key is supplied in production, while permitting fallback Vitest keys for local tests.
+
+**Verification performed**
+
+- 2 rounds of independent Verifier + Reviewer checkers (maker != checker).
+- All 69 Vitest tests pass cleanly. Format, lints, TS compilation, Vite production build, and database schema are green.
+
+**Not yet implemented**
+
+- Queue/scheduler background worker polling infrastructure (R-11).
+
 ## 6. Definition of Done for Future Changes
 
 A change is complete only when:
