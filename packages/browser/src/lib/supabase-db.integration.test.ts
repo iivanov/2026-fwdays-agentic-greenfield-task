@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-
-// Standard Supabase local emulator credentials
-const LOCAL_SUPABASE_URL = 'http://127.0.0.1:54321';
-const LOCAL_SERVICE_KEY =
-  'local-service-role-fixture';
+import { LOCAL_SERVICE_KEY, LOCAL_SUPABASE_URL } from '../../../../tests/setup/supabase-local';
 
 interface Profile {
   id: string;
@@ -21,35 +17,18 @@ interface DeliveryChannel {
 }
 
 describe('Supabase Auth Database Triggers Integration Test', () => {
-  let supabaseAdmin: ReturnType<typeof createClient> | null = null;
-  let isDbRunning = false;
+  let supabaseAdmin: ReturnType<typeof createClient>;
 
-  beforeAll(async () => {
-    // Check if the local Supabase auth emulator is healthy
-    try {
-      const res = await fetch(`${LOCAL_SUPABASE_URL}/auth/v1/health`);
-      if (res.ok) {
-        supabaseAdmin = createClient(LOCAL_SUPABASE_URL, LOCAL_SERVICE_KEY, {
-          auth: {
-            persistSession: false,
-            autoRefreshToken: false,
-          },
-        });
-        isDbRunning = true;
-      }
-    } catch {
-      // Supabase auth is not running/healthy, skip tests
-      isDbRunning = false;
-    }
+  beforeAll(() => {
+    supabaseAdmin = createClient(LOCAL_SUPABASE_URL, LOCAL_SERVICE_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
   });
 
-  it('should verify profile and channel auto-provisioning trigger if DB is running', async () => {
-    if (!isDbRunning || !supabaseAdmin) {
-      throw new Error(
-        'Supabase integration prerequisites were not met after setup. Run "npm run supabase:start" and "npm run supabase:reset", then rerun "npm run test:integration".',
-      );
-    }
-
+  it('should verify profile and channel auto-provisioning trigger', async () => {
     const testEmail = `test-${Date.now()}@example.com`;
     const testPassword = 'super-secure-password-123';
 
@@ -115,12 +94,6 @@ describe('Supabase Auth Database Triggers Integration Test', () => {
   });
 
   it('should verify profile and channel updates on email changes and confirmations', async () => {
-    if (!isDbRunning || !supabaseAdmin) {
-      throw new Error(
-        'Supabase integration prerequisites were not met after setup. Run "npm run supabase:start" and "npm run supabase:reset", then rerun "npm run test:integration".',
-      );
-    }
-
     const testEmail = `test-update-${Date.now()}@example.com`;
     const updatedEmail = `test-new-${Date.now()}@example.com`;
     const testPassword = 'super-secure-password-123';

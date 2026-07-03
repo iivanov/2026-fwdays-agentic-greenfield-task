@@ -139,6 +139,39 @@ earlier prose claims as certification evidence.
 - R-11B still needs local Supabase integration/migration-lint evidence and
   separate verifier/reviewer artifacts before archive.
 
+### 2026-07-03 — R-11B Supabase integration CI diagnostics
+
+**AI contribution**
+
+- Updated Supabase integration tests to use shared local Supabase connection
+  settings from `SUPABASE_URL`/`API_URL` and
+  `SUPABASE_SERVICE_ROLE_KEY`/`SERVICE_ROLE_KEY`/`SECRET_KEY`, with the legacy
+  local service-role JWT only as a fallback.
+- Replaced a single health probe with a 60-second Auth health wait.
+- Removed broad `catch` blocks that hid Supabase auth/admin/API setup failures
+  behind a generic “DB not running” message.
+- Updated CI to export `npx supabase status -o env` values after database reset
+  and to use Node 22, matching current `@supabase/supabase-js` support guidance.
+
+**Verification performed**
+
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run format` passed.
+- `npm run test` passed: 5 files, 67 tests.
+- `actionlint .github/workflows/actionlint.yml .github/workflows/ci.yml`
+  passed.
+- `git diff --check` passed.
+- `npm run test:integration` failed locally because this sandbox cannot connect
+  to `127.0.0.1:54321` (`connect EPERM`); this is recorded as blocked local
+  integration evidence, not as a product pass.
+
+**Not complete**
+
+- GitHub CI must rerun the Supabase-backed integration gate and provide the next
+  authoritative result.
+- R-11B still requires separate verifier and reviewer artifacts before archive.
+
 ### 2026-07-01 to 2026-07-02 — Architecture baseline and decision hierarchy
 
 **Human direction**
