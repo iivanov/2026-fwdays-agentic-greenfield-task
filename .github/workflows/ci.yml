@@ -17,6 +17,7 @@ jobs:
   quality:
     name: Quality Gates
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
@@ -70,20 +71,26 @@ jobs:
         run: npm run test:e2e
 
       - name: Start Supabase
+        timeout-minutes: 10
         run: npm run supabase:start
 
       - name: Reset Supabase database
+        timeout-minutes: 6
         run: npm run supabase:reset
 
       - name: Export Supabase local status
+        timeout-minutes: 1
         run: npx supabase status -o env | grep '^[A-Z0-9_]*=' | sed 's/^\([^=]*\)="\(.*\)"$/\1=\2/' >> "$GITHUB_ENV"
 
       - name: Supabase migration lint
+        timeout-minutes: 2
         run: npm run supabase:lint
 
       - name: Supabase integration tests
+        timeout-minutes: 3
         run: npm run test:integration
 
       - name: Stop Supabase
         if: always()
+        timeout-minutes: 2
         run: npm run supabase:stop

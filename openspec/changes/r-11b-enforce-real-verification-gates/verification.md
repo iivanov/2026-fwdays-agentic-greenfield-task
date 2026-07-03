@@ -36,5 +36,9 @@ checker pass and review are retained on the final diff.
 
 - GitHub Actions must run the Supabase-backed integration gate after the latest
   CI patch exports `supabase status -o env` values into `$GITHUB_ENV`.
+- The first CI run for the Supabase diagnostics patch passed all gates through
+  Playwright smoke, then stayed in `Start Supabase` without exposed live logs.
+  The workflow now has explicit job and Supabase step timeouts so subsequent
+  failures are bounded and inspectable.
 - A separate verifier report and separate reviewer report are still required
   before archive.
