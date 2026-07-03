@@ -519,7 +519,27 @@ Current evidence is limited: the architecture work received iterative self-revie
 
 **Not yet implemented**
 
-- Queue/scheduler background worker polling infrastructure (R-11).
+### 2026-07-03 — R-11 Queue and Scheduler Infrastructure
+
+**AI contribution**
+- Created database migration file `supabase/migrations/20260703000000_scheduler_queue.sql` configuring `pgmq` message queues (`ingestion-queue`, `processing-queue`, `delivery-queue`) and `pg_cron` jobs.
+- Implemented edge functions under `supabase/functions/`:
+  - `schedule-daily`: scans active processing flows, registers run cycles, and enqueues ingestion jobs.
+  - `work`: consumes claimed queue messages, processes task stub skeletons, handles DLQ limits (5 failures), and writes failure logs to `operational_events`.
+  - `cleanup`: reclaims expired visibility leases and prunes database records older than 7 days.
+- Revoked execution privileges on all 8 RPC helper functions from `public` role and granted exclusively to `postgres` and `service_role`.
+- Secured edge handlers by failing closed when `SUPABASE_SERVICE_ROLE_KEY` is missing or empty.
+- Configured local pg_cron tasks to route requests through internal container URL `http://kong:8000/functions/v1/`.
+- Created integration tests in `packages/browser/src/lib/queue-runner.test.ts` verifying scheduling execution, worker drain, DLQ transitions, and database cleanups.
+
+**Design decisions**
+- Used database-native PGMQ queues and pg_cron scheduling to fit Supabase free tier parameters.
+- Overwrote expired scheduling targets with database updates bypass logic on trigger handlers to support fast local developer verification loops.
+- Asserted `reclaimed_delivery_runs` from `digest_delivery_attempts` table prunes inside cleanup operations.
+
+**Verification performed**
+- 3 rounds of independent Verifier + Reviewer checks (maker != checker).
+- All 70 Vitest tests pass cleanly. Lints, Prettier formatting style, and TypeScript compiler are 100% green.
 
 ## 6. Definition of Done for Future Changes
 
