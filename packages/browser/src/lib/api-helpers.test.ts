@@ -520,4 +520,290 @@ describe('API Edge Function Handler Integration Tests', () => {
     const json = await res.json();
     expect(json.data.id).toBe('user-abc');
   });
+
+  describe('/flows endpoints routing', () => {
+    const validFlowId = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
+
+    it('should retrieve flows for user successfully', async () => {
+      const req = new Request('http://localhost/functions/v1/api/flows', {
+        method: 'GET',
+      });
+
+      const mockFlows = [{ id: validFlowId, name: 'Briefing' }];
+      const mockSupabase = {
+        from: () => ({
+          select: () => ({
+            order: async () => ({ data: mockFlows, error: null }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        'flows',
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.data).toEqual(mockFlows);
+    });
+
+    it('should create new flow successfully', async () => {
+      const req = new Request('http://localhost/functions/v1/api/flows', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Tech Briefing',
+          prompt_type: 'custom',
+          prompt_template: 'Focus on TypeScript',
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const mockSupabase = {
+        from: () => ({
+          insert: () => ({
+            select: () => ({
+              single: async () => ({
+                data: { id: validFlowId, name: 'Tech Briefing' },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        'flows',
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.data.id).toBe(validFlowId);
+    });
+
+    it('should handle quota limit triggers during POST creation and return 400', async () => {
+      const req = new Request('http://localhost/functions/v1/api/flows', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Exceeding Flow',
+          prompt_type: 'predefined',
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const mockSupabase = {
+        from: () => ({
+          insert: () => ({
+            select: () => ({
+              single: async () => ({
+                data: null,
+                error: { message: 'User exceeds the maximum quota of 5 processing flows' },
+              }),
+            }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        'flows',
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toContain('maximum quota');
+    });
+
+    it('should update flow settings successfully via PUT', async () => {
+      const req = new Request(`http://localhost/functions/v1/api/flows/${validFlowId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: 'Updated Name',
+          is_enabled: false,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const mockSupabase = {
+        from: () => ({
+          update: () => ({
+            eq: () => ({
+              select: () => ({
+                single: async () => ({
+                  data: { id: validFlowId, name: 'Updated Name', is_enabled: false },
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        `flows/${validFlowId}`,
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.data.is_enabled).toBe(false);
+    });
+
+    it('should return 404 on PUT if flow does not exist or user does not own it', async () => {
+      const req = new Request(`http://localhost/functions/v1/api/flows/${validFlowId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: 'Missing Flow',
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const mockSupabase = {
+        from: () => ({
+          update: () => ({
+            eq: () => ({
+              select: () => ({
+                single: async () => ({ data: null, error: { code: 'PGRST116' } }),
+              }),
+            }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        `flows/${validFlowId}`,
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it('should delete flow successfully via DELETE', async () => {
+      const req = new Request(`http://localhost/functions/v1/api/flows/${validFlowId}`, {
+        method: 'DELETE',
+      });
+
+      const mockSupabase = {
+        from: () => ({
+          delete: () => ({
+            eq: () => ({
+              select: async () => ({ data: [{ id: validFlowId }], error: null }),
+            }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        `flows/${validFlowId}`,
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.data.deleted).toBe(true);
+    });
+
+    it('should return 404 on DELETE if flow does not exist or user does not own it', async () => {
+      const req = new Request(`http://localhost/functions/v1/api/flows/${validFlowId}`, {
+        method: 'DELETE',
+      });
+
+      const mockSupabase = {
+        from: () => ({
+          delete: () => ({
+            eq: () => ({
+              select: async () => ({ data: [], error: null }),
+            }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        `flows/${validFlowId}`,
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it('should return 400 on PUT if flow ID parameter is not a valid UUID', async () => {
+      const req = new Request('http://localhost/functions/v1/api/flows/invalid-uuid-format', {
+        method: 'PUT',
+        body: JSON.stringify({ name: 'Valid Name' }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        'flows/invalid-uuid-format',
+        {},
+        null,
+      );
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toContain('Invalid or missing flow ID');
+    });
+
+    it('should return 400 on PUT if request body schema is malformed', async () => {
+      const req = new Request(`http://localhost/functions/v1/api/flows/${validFlowId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_enabled: 'not-a-boolean' }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        `flows/${validFlowId}`,
+        {},
+        null,
+      );
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toContain('is_enabled:');
+    });
+
+    it('should return 400 on DELETE if flow ID parameter is not a valid UUID', async () => {
+      const req = new Request('http://localhost/functions/v1/api/flows/invalid-uuid-format', {
+        method: 'DELETE',
+      });
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'flows',
+        'flows/invalid-uuid-format',
+        {},
+        null,
+      );
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toContain('Invalid or missing flow ID');
+    });
+  });
 });
