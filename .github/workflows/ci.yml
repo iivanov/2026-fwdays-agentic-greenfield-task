@@ -58,8 +58,8 @@ jobs:
       - name: Deno dependency integrity
         run: npm run deno:lock
 
-      - name: Deno dependency audit
-        run: npm run deno:audit
+      - name: Deno dependency update check
+        run: npm run deno:outdated
 
       - name: npm audit
         run: npm audit

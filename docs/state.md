@@ -2,10 +2,9 @@
 
 ## Current Position
 
-- **Last completed stage**: R-11A (`audit-state-and-verification-evidence`)
-- **Active implementation slice**: R-11B (real Deno/Playwright/integration gates)
-- **Current checkpoint**: R-11B is a WIP checkpoint requested for commit/push,
-  not an archived or independently verified stage.
+- **Last completed stage**: R-11C (`r-11c-encrypt-custom-prompts`)
+- **Active implementation slice**: R-11D (delivery identity/secrets repair)
+- **Current checkpoint**: R-11C is archived with retained verifier/reviewer reports; R-11D is next.
 - **Paused draft**: R-12 ingestion worker; existing uncommitted maker output is preserved but fails current gates and requires a revised spec.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
@@ -36,12 +35,9 @@ fresh independent review on its final diff before archive.
   Antigravity R-12 maker output under audit.
 - `.codex/` is pre-existing generated skill content and is not part of R-11A.
 - R-11A owns the roadmap case rename, audit OpenSpec, and state/process updates.
-- R-11B WIP owns root gate scripts/config, Playwright smoke harness, Deno gate
-  config/lock, integration-test split, CI gate expansion, and verification
-  documentation updates. It remains unarchived until independent verifier and
-  reviewer artifacts pass on the final diff.
+- R-11B is archived at `openspec/changes/archive/2026-07-03-r-11b-enforce-real-verification-gates/` and owns root gate scripts/config, Playwright smoke harness, Deno gate config/lock/update-check, integration-test split, CI gate expansion, and verification documentation updates.
 
-## R-11B WIP Gate Status (2026-07-03)
+## R-11B Archived Gate Status (2026-07-03)
 
 Completed before the first checkpoint:
 
@@ -68,8 +64,8 @@ Updated after the CI repair checkpoint:
   Playwright smoke e2e.
 - `actionlint .github/workflows/actionlint.yml .github/workflows/ci.yml`
   passed.
-- `npm run deno:audit` exited 0; Deno reported that some package update metadata
-  could not be fetched, but no failing vulnerability result was returned.
+- `npm run deno:outdated` exited 0; Deno reported that some package update metadata
+  could not be fetched; this confirmed the command is an update-compatibility check rather than a security advisory scanner.
 - GitHub `CI` later failed only in `npm run test:integration`. The failure was
   not actionable because the tests swallowed Supabase health/client/setup errors
   and rethrew a generic prerequisite message.
@@ -88,19 +84,21 @@ Updated after the CI repair checkpoint:
   push while in `Start Supabase`. The workflow now bounds the job and Supabase
   runtime steps with explicit timeouts so future CI failures are visible instead
   of silently hanging.
-- GitHub CI run `28679753122` for commit `a66230e` passed all R-11B gates:
+- GitHub CI run `28681035556` for final R-11B documentation commit `f1d7354` passed all R-11B gates:
   npm install, typecheck, lint, format, unit tests, coverage, Deno
-  check/lint/fmt/lock/audit, npm audit, browser build, Playwright smoke,
+  check/lint/fmt/lock/update-check, npm audit, browser build, Playwright smoke,
   Supabase start/reset/status export, migration lint, integration tests, and
-  Supabase stop.
+  Supabase stop. This supersedes earlier run `28679753122` for `a66230e`.
+- `npm run deno:outdated` has been reclassified as a Deno dependency
+  update/compatibility check, because `deno outdated --compatible` does not
+  provide a security advisory scan.
 
-Remaining before R-11B can be archived:
+Archive notes:
 
 - `npm run test:integration` and `npm run supabase:lint` require a reachable
   local Supabase stack. GitHub CI has passed both; this sandbox still blocks
   localhost network access for local reruns.
-- No R-11B independent verifier/reviewer reports exist yet, and the change is
-  not archived.
+- R-11B retained independent verifier PASS and independent reviewer APPROVE reports before archive.
 
 ## Verified Audit Findings
 
@@ -126,3 +124,10 @@ See `docs/roadmap.md` for the ordered corrective backlog.
 - The latest independent reviewer report records the final finding disposition.
 - Durable `verification.md` and `review.md` reports live in the R-11A OpenSpec
   change directory and are retained when the change is archived.
+
+## R-11C Archived Status (2026-07-03)
+
+- Archived OpenSpec change `r-11c-encrypt-custom-prompts` at `openspec/changes/archive/2026-07-03-r-11c-encrypt-custom-prompts/`.
+- Custom prompts are encrypted with shared AES-256-GCM helpers before storage; direct authenticated Data API grants exclude `prompt_template`; service-role API reads/updates are constrained by JWT-derived `user.id` before decryption.
+- The greenfield migration nulls pre-R-11C local/dev plaintext custom prompts because no production data exists in this repository; a deployed product with real data would need a human-controlled runtime backfill before applying the column restriction.
+- Independent verifier PASS and reviewer APPROVE reports are retained in the archived change. R-11D is next.

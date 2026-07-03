@@ -1,6 +1,13 @@
 import { z, type ZodIssue } from 'zod';
 import { type DnsResolver, validateUrlSsrf } from './ssrf.ts';
-import { decryptConfig, encryptConfig, getMasterKey, maskConfig } from './crypto.ts';
+import {
+  decryptConfig,
+  decryptPromptTemplate,
+  encryptConfig,
+  encryptPromptTemplate,
+  getMasterKey,
+  maskConfig,
+} from './crypto.ts';
 
 // CORS allowed origins allowlist
 export const ALLOWED_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000'];
@@ -36,6 +43,36 @@ export function sendError(message: string, req: Request, status = 400): Response
     status,
     headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
   });
+}
+
+type ProcessingFlowRecord = {
+  prompt_type?: 'predefined' | 'custom' | string | null;
+  prompt_template?: string | null;
+  [key: string]: unknown;
+};
+
+async function decryptFlowPrompt<T extends ProcessingFlowRecord>(flow: T): Promise<T> {
+  if (flow.prompt_type !== 'custom') {
+    return { ...flow, prompt_template: null };
+  }
+  return { ...flow, prompt_template: await decryptPromptTemplate(flow.prompt_template) };
+}
+
+async function decryptFlowPrompts<T extends ProcessingFlowRecord>(
+  flows: T[] | null,
+): Promise<T[] | null> {
+  if (!flows) return flows;
+  return await Promise.all(flows.map((flow) => decryptFlowPrompt(flow)));
+}
+
+async function buildPromptTemplateForStorage(
+  promptType: 'predefined' | 'custom' | undefined,
+  promptTemplate: string | null | undefined,
+): Promise<string | null | undefined> {
+  if (promptType === 'predefined') return null;
+  if (promptTemplate === undefined) return undefined;
+  if (promptTemplate === null) return null;
+  return await encryptPromptTemplate(promptTemplate);
 }
 
 // Zod validation helper
@@ -378,17 +415,21 @@ export async function handleApiRoute(
     }
 
     if (req.method === 'GET') {
-      const { data, error } = await supabaseClient
+      const flowReader = supabaseAdmin ?? supabaseClient;
+      let flowQuery = flowReader
         .from('processing_flows')
         .select(
           'id, name, frequency, ai_model, prompt_type, prompt_template, is_enabled, next_run_at, last_run_at, created_at',
-        )
-        .order('created_at', { ascending: true });
+        );
+      if (supabaseAdmin) {
+        flowQuery = flowQuery.eq('user_id', user.id);
+      }
+      const { data, error } = await flowQuery.order('created_at', { ascending: true });
 
       if (error) {
         return sendError(error.message, req, 500);
       }
-      return sendSuccess(data, req);
+      return sendSuccess(await decryptFlowPrompts(data), req);
     }
 
     if (req.method === 'POST') {
@@ -405,14 +446,19 @@ export async function handleApiRoute(
       }
 
       const { name, prompt_type, prompt_template, is_enabled } = validation.data;
+      const promptTemplateForStorage = await buildPromptTemplateForStorage(
+        prompt_type,
+        prompt_template,
+      );
 
-      const { data, error } = await supabaseClient
+      const flowWriter = supabaseAdmin ?? supabaseClient;
+      const { data, error } = await flowWriter
         .from('processing_flows')
         .insert({
           user_id: user.id,
           name,
           prompt_type,
-          prompt_template: prompt_template || null,
+          prompt_template: promptTemplateForStorage ?? null,
           is_enabled: is_enabled !== false,
         })
         .select()
@@ -423,10 +469,10 @@ export async function handleApiRoute(
         if (msg.includes('quota') || msg.includes('maximum')) {
           return sendError(msg, req, 400);
         }
-        return sendError(msg, req, 500);
+        return sendError('Unable to create processing flow', req, 500);
       }
 
-      return sendSuccess(data, req, 201);
+      return sendSuccess(data ? await decryptFlowPrompt(data) : data, req, 201);
     }
 
     if (req.method === 'PUT') {
@@ -449,21 +495,32 @@ export async function handleApiRoute(
         return sendError(validation.error, req, 400);
       }
 
-      const { data, error } = await supabaseClient
-        .from('processing_flows')
-        .update(validation.data)
-        .eq('id', flowId)
-        .select()
-        .single();
+      const updatePayload: Record<string, unknown> = { ...validation.data };
+      if ('prompt_type' in validation.data || 'prompt_template' in validation.data) {
+        const promptTemplateForStorage = await buildPromptTemplateForStorage(
+          validation.data.prompt_type,
+          validation.data.prompt_template,
+        );
+        if (promptTemplateForStorage !== undefined) {
+          updatePayload.prompt_template = promptTemplateForStorage;
+        }
+      }
+
+      const flowWriter = supabaseAdmin ?? supabaseClient;
+      let updateQuery = flowWriter.from('processing_flows').update(updatePayload).eq('id', flowId);
+      if (supabaseAdmin) {
+        updateQuery = updateQuery.eq('user_id', user.id);
+      }
+      const { data, error } = await updateQuery.select().single();
 
       if (error) {
         if (error.code === 'PGRST116') {
           return sendError('Flow not found or unauthorized access', req, 404);
         }
-        return sendError(error.message, req, 500);
+        return sendError('Unable to update processing flow', req, 500);
       }
 
-      return sendSuccess(data, req);
+      return sendSuccess(data ? await decryptFlowPrompt(data) : data, req);
     }
 
     if (req.method === 'DELETE') {
