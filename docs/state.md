@@ -84,6 +84,11 @@ Updated after the CI repair checkpoint:
 - Local `npm run test:integration` failed in this sandbox with
   `connect EPERM 127.0.0.1:54321`; GitHub CI remains the required evidence for
   the Supabase-backed integration run.
+- The first follow-up CI run for the diagnostics patch passed all non-Supabase
+  gates through Playwright smoke, then remained in `Start Supabase` for several
+  minutes without logs. The workflow now bounds the job and Supabase runtime
+  steps with explicit timeouts so future CI failures are visible instead of
+  silently hanging.
 
 Remaining before R-11B can be archived:
 
