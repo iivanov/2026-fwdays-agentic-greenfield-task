@@ -70,11 +70,26 @@ Updated after the CI repair checkpoint:
   passed.
 - `npm run deno:audit` exited 0; Deno reported that some package update metadata
   could not be fetched, but no failing vulnerability result was returned.
+- GitHub `CI` later failed only in `npm run test:integration`. The failure was
+  not actionable because the tests swallowed Supabase health/client/setup errors
+  and rethrew a generic prerequisite message.
+- The follow-up CI diagnostics patch now exports actual local Supabase status
+  values into the CI environment, accepts `API_URL`/`SERVICE_ROLE_KEY`, waits up
+  to 60 seconds for Auth health, and lets integration setup/admin errors fail
+  with their real messages. CI also moved to Node 22 to match the current
+  `@supabase/supabase-js` support warning.
+- After that patch, local `npm run typecheck`, `npm run lint`, `npm run format`,
+  `npm run test`, `actionlint .github/workflows/actionlint.yml
+  .github/workflows/ci.yml`, and `git diff --check` passed.
+- Local `npm run test:integration` failed in this sandbox with
+  `connect EPERM 127.0.0.1:54321`; GitHub CI remains the required evidence for
+  the Supabase-backed integration run.
 
 Remaining before R-11B can be archived:
 
-- `npm run test:integration` and `npm run supabase:lint` require the local
-  Supabase stack and have not been rerun for final evidence.
+- `npm run test:integration` and `npm run supabase:lint` require a reachable
+  local Supabase stack. GitHub CI is expected to provide the next authoritative
+  result because this sandbox blocks localhost network access.
 - No R-11B independent verifier/reviewer reports exist yet, and the change is
   not archived.
 

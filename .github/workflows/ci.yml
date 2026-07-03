@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - run: npm ci
@@ -74,6 +74,9 @@ jobs:
 
       - name: Reset Supabase database
         run: npm run supabase:reset
+
+      - name: Export Supabase local status
+        run: npx supabase status -o env | grep '^[A-Z0-9_]*=' | sed 's/^\([^=]*\)="\(.*\)"$/\1=\2/' >> "$GITHUB_ENV"
 
       - name: Supabase migration lint
         run: npm run supabase:lint

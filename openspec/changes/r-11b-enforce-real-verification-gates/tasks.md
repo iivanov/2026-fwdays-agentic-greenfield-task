@@ -7,7 +7,7 @@
 
 - [x] 2.1 Add committed Deno configuration/lock support covering `supabase/functions/**`.
 - [x] 2.2 Add root scripts for Deno check, lint, format check, lock validation, and dependency audit.
-- [ ] 2.3 Ensure Deno gates do not rely on paused R-12 draft files.
+- [x] 2.3 Ensure Deno gates do not rely on paused R-12 draft files.
 
 ## 3. Node, coverage, and integration gates
 
@@ -23,7 +23,7 @@
 ## 5. CI and documentation
 
 - [x] 5.1 Update GitHub Actions to run the new local-equivalent gates with pinned setup actions.
-- [ ] 5.2 Update AGENTS.md, development process, roadmap status, and state records after gates are proven runnable.
+- [x] 5.2 Update AGENTS.md, development process, roadmap status, and state records after gates are proven runnable.
 
 ## 6. Independent checks
 

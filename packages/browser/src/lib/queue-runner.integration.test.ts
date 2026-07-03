@@ -3,60 +3,55 @@ import { createClient } from '@supabase/supabase-js';
 import { scheduleDailyHandler } from '../../../../supabase/functions/schedule-daily/index.ts';
 import { workHandler } from '../../../../supabase/functions/work/index.ts';
 import { cleanupHandler } from '../../../../supabase/functions/cleanup/index.ts';
-
-const LOCAL_SUPABASE_URL = 'http://127.0.0.1:54321';
-const LOCAL_SERVICE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
+import { LOCAL_SERVICE_KEY, LOCAL_SUPABASE_URL } from '../../../../tests/setup/supabase-local';
 
 describe('Scheduler and Queue Infrastructure Integration Tests', () => {
-  let supabaseAdmin: ReturnType<typeof createClient> | null = null;
-  let isDbRunning = false;
+  let supabaseAdmin: ReturnType<typeof createClient>;
   let testUserId = '';
 
   beforeAll(async () => {
-    try {
-      const res = await fetch(`${LOCAL_SUPABASE_URL}/auth/v1/health`);
-      if (res.ok) {
-        supabaseAdmin = createClient(LOCAL_SUPABASE_URL, LOCAL_SERVICE_KEY, {
-          auth: {
-            persistSession: false,
-            autoRefreshToken: false,
-          },
-        });
-        isDbRunning = true;
+    supabaseAdmin = createClient(LOCAL_SUPABASE_URL, LOCAL_SERVICE_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
 
-        // Clean up queue-test users
-        const { data: list } = await supabaseAdmin.auth.admin.listUsers();
-        if (list?.users) {
-          for (const u of list.users) {
-            if (u.email?.startsWith('queue-test-')) {
-              await supabaseAdmin.auth.admin.deleteUser(u.id);
-            }
+    // Clean up queue-test users
+    const { data: list, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listError) {
+      throw new Error(
+        `Failed to list Supabase auth users during integration setup: ${listError.message}`,
+      );
+    }
+    if (list?.users) {
+      for (const u of list.users) {
+        if (u.email?.startsWith('queue-test-')) {
+          const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(u.id);
+          if (deleteError) {
+            throw new Error(
+              `Failed to delete stale queue-test user ${u.id}: ${deleteError.message}`,
+            );
           }
         }
-
-        // Create a fresh test user which auto provisions profile
-        const { data: newUser } = await supabaseAdmin.auth.admin.createUser({
-          email: `queue-test-${Date.now()}@example.com`,
-          password: 'password123',
-          email_confirm: true,
-        });
-        if (newUser?.user) {
-          testUserId = newUser.user.id;
-        }
       }
-    } catch {
-      isDbRunning = false;
     }
+
+    // Create a fresh test user which auto provisions profile
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email: `queue-test-${Date.now()}@example.com`,
+      password: 'password123',
+      email_confirm: true,
+    });
+    if (createError || !newUser?.user) {
+      throw new Error(
+        `Failed to create queue integration test user: ${createError?.message ?? 'no user returned'}`,
+      );
+    }
+    testUserId = newUser.user.id;
   });
 
   it('should verify daily scheduling, queueing, worker drain, transient failure, DLQ, and cleanup', async () => {
-    if (!isDbRunning || !supabaseAdmin) {
-      throw new Error(
-        'Supabase integration prerequisites were not met after setup. Run "npm run supabase:start" and "npm run supabase:reset", then rerun "npm run test:integration".',
-      );
-    }
-
     // Set dynamic service role db configuration setting for local net calls
     await supabaseAdmin.rpc('claim_job', { queue_name: 'ingestion-queue', lease_seconds: 1 }); // warm up pgmq
     await supabaseAdmin.rpc('set_app_setting', {
