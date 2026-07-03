@@ -48,7 +48,7 @@ e2e + artifact) → review (sub-agent) → archive → next`.
 
 | ID | Slice | Depends on | Upstream IDs | Status |
 | --- | --- | --- | --- | --- |
-| R-11 | Queue + scheduler infra: `pgmq` queues, `pg_cron` schedules, `schedule-daily`/`work`/`cleanup` functions, claim + lease + dead-letter | R-04 | BR-FLOW-02, A-03/04, T-05, NFR-REL-01..05, NFR-CON-02 | pending |
+| R-11 | Queue + scheduler infra: `pgmq` queues, `pg_cron` schedules, `schedule-daily`/`work`/`cleanup` functions, claim + lease + dead-letter | R-04 | BR-FLOW-02, A-03/04, T-05, NFR-REL-01..05, NFR-CON-02 | done |
 | R-12 | Ingestion worker: shared fetch, SSRF revalidate on redirect, feed parse + readability extraction, dedupe, source-health pause after 5 fails | R-11, R-08 | BR-SRC-04..06, T-07, NFR-PERF-01, NFR-PERF-04, NFR-SEC-05 | pending |
 | R-13 | AI processing worker: batch, near-dup grouping (n-gram Jaccard), truncation budget, OpenAI Responses API strict structured output, usage recording, `no_content` | R-11, R-09, R-12 | BR-FLOW-02..06, T-08, T-11, NFR-PERF-03, NFR-CON-02..03 | pending |
 | R-14 | Delivery workers: in-app, Brevo email, Telegram bot, Slack webhook, generic signed webhook; bounded retries + backoff + circuit breaker | R-11, R-10, R-13 | BR-DEL-02..05, T-10, NFR-REL-02..04, NFR-PERF-04, NFR-SEC-04..05 | pending |
