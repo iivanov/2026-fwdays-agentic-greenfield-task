@@ -25,9 +25,12 @@ other rules (spec-driven, maker≠checker, verification-gates, security-and-secr
 
 Even unattended: implement with one sub-agent, verify with a separate sub-agent,
 review with a third. Autonomy changes *who decides*, never *whether it is
-checked*. The verification gate is hard — a slice is not `done` until static
-gates pass, the Playwright e2e verification artifact is green, and the reviewer
-sub-agent has no unresolved blocking findings.
+checked*. The verification gate is hard — a slice is not `done` until all
+applicable static and behavioral gates pass, a durable `verification.md` records
+the evidence, and the reviewer sub-agent has no unresolved blocking findings.
+UI/API/runtime behavior requires a green Playwright e2e pass. Documentation-only
+changes use the documentation gates in `30-verification-gates` and record
+Playwright as not applicable rather than fabricating a browser run.
 
 ## Safety rails (never cross without an explicit human go-ahead)
 
