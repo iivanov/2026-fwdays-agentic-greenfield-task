@@ -45,6 +45,15 @@ export function sendError(message: string, req: Request, status = 400): Response
   });
 }
 
+type ChannelType = 'in-app' | 'email' | 'telegram' | 'slack' | 'webhook';
+
+type AuthenticatedApiUser = {
+  id: string;
+  email?: string | null;
+  email_confirmed_at?: string | null;
+  confirmed_at?: string | null;
+};
+
 type ProcessingFlowRecord = {
   prompt_type?: 'predefined' | 'custom' | string | null;
   prompt_template?: string | null;
@@ -75,6 +84,192 @@ async function buildPromptTemplateForStorage(
   return await encryptPromptTemplate(promptTemplate);
 }
 
+function isVerifiedEmailUser(user: AuthenticatedApiUser): user is AuthenticatedApiUser & {
+  email: string;
+} {
+  return Boolean(user.email && (user.email_confirmed_at || user.confirmed_at));
+}
+
+function bindDeliveryConfigToIdentity(
+  type: ChannelType,
+  config: Record<string, unknown>,
+  user: AuthenticatedApiUser,
+): { success: true; config: Record<string, unknown> } | { success: false; error: string } {
+  if (type === 'email') {
+    if (!isVerifiedEmailUser(user)) {
+      return {
+        success: false,
+        error: 'Email delivery requires a verified authenticated account email',
+      };
+    }
+    return { success: true, config: { email: user.email } };
+  }
+
+  if (type === 'telegram') {
+    if ('bot_token' in config) {
+      return {
+        success: false,
+        error: 'Telegram channels use the application-owned bot; do not submit bot tokens',
+      };
+    }
+  }
+
+  return { success: true, config };
+}
+
+function getEnv(name: string): string {
+  try {
+    const globalRecord = globalThis as Record<string, unknown>;
+    const anyDeno = globalRecord.Deno as Record<string, unknown> | undefined;
+    if (anyDeno && typeof anyDeno.env === 'object' && anyDeno.env !== null) {
+      const envRecord = anyDeno.env as Record<string, unknown>;
+      if (typeof envRecord.get === 'function') {
+        return (envRecord.get(name) as string) || '';
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env[name] || '';
+    }
+  } catch {
+    // ignore
+  }
+
+  return '';
+}
+
+async function fetchWithVerificationTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = 5000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal, redirect: 'error' });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function signWebhookChallenge(
+  secret: string,
+  body: string,
+  timestamp: string,
+): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(`${timestamp}.${body}`),
+  );
+  return toHex(new Uint8Array(signature));
+}
+
+export async function verifyDeliveryChannelTarget(
+  type: ChannelType,
+  config: Record<string, unknown>,
+  resolveDns?: DnsResolver,
+): Promise<{ success: true } | { success: false; error: string }> {
+  if (type === 'in-app' || type === 'email') {
+    return { success: true };
+  }
+
+  if (type === 'telegram') {
+    const botToken = getEnv('TELEGRAM_BOT_TOKEN');
+    const chatId = config.chat_id;
+    if (!botToken) {
+      return { success: false, error: 'Telegram verification is unavailable' };
+    }
+    if (!chatId || typeof chatId !== 'string') {
+      return { success: false, error: 'Telegram chat ID is missing' };
+    }
+    const response = await fetchWithVerificationTimeout(
+      `https://api.telegram.org/bot${encodeURIComponent(botToken)}/getChat?chat_id=${
+        encodeURIComponent(chatId)
+      }`,
+      { method: 'GET' },
+    );
+    if (!response.ok) {
+      return { success: false, error: 'Telegram chat verification failed' };
+    }
+    return { success: true };
+  }
+
+  if (type === 'slack') {
+    const webhookUrl = config.webhook_url;
+    if (!webhookUrl || typeof webhookUrl !== 'string') {
+      return { success: false, error: 'Slack webhook URL is missing' };
+    }
+    const isSafe = await validateUrlSsrf(webhookUrl, resolveDns);
+    if (!isSafe) {
+      return { success: false, error: 'Slack webhook URL failed outbound safety validation' };
+    }
+    const response = await fetchWithVerificationTimeout(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'AI News Aggregator delivery channel verification.' }),
+    });
+    if (!response.ok) {
+      return { success: false, error: 'Slack webhook verification failed' };
+    }
+    return { success: true };
+  }
+
+  if (type === 'webhook') {
+    const webhookUrl = config.webhook_url;
+    const signingSecret = config.signing_secret;
+    if (!webhookUrl || typeof webhookUrl !== 'string') {
+      return { success: false, error: 'Webhook URL is missing' };
+    }
+    if (!signingSecret || typeof signingSecret !== 'string') {
+      return { success: false, error: 'Webhook signing secret is missing' };
+    }
+    const isSafe = await validateUrlSsrf(webhookUrl, resolveDns);
+    if (!isSafe) {
+      return { success: false, error: 'Webhook URL failed outbound safety validation' };
+    }
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const body = JSON.stringify({
+      type: 'delivery_channel.verify',
+      timestamp,
+    });
+    const signature = await signWebhookChallenge(signingSecret, body, timestamp);
+    const response = await fetchWithVerificationTimeout(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-News-Aggregator-Event': 'delivery_channel.verify',
+        'X-News-Aggregator-Timestamp': timestamp,
+        'X-News-Aggregator-Signature': `sha256=${signature}`,
+      },
+      body,
+    });
+    if (!response.ok) {
+      return { success: false, error: 'Webhook challenge verification failed' };
+    }
+    return { success: true };
+  }
+
+  return { success: false, error: 'Unsupported delivery channel type' };
+}
+
 // Zod validation helper
 export async function validateBody<T extends z.ZodTypeAny>(
   req: Request,
@@ -101,7 +296,7 @@ export async function validateBody<T extends z.ZodTypeAny>(
 // Route mapping handler
 export async function handleApiRoute(
   req: Request,
-  user: { id: string } | null,
+  user: AuthenticatedApiUser | null,
   rootSegment: string,
   route: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -563,15 +758,42 @@ export async function handleApiRoute(
         return sendError('Invalid or missing channel ID', req, 400);
       }
 
-      const { data, error } = await supabaseClient
+      const channelRead = await supabaseClient
+        .from('delivery_channels')
+        .select('*')
+        .eq('id', channelId)
+        .single();
+
+      if (channelRead.error) {
+        if (channelRead.error.code === 'PGRST116') {
+          return sendError('Delivery channel not found or unauthorized access', req, 404);
+        }
+        return sendError(channelRead.error.message, req, 500);
+      }
+
+      const secretKey = getMasterKey();
+      const rawConfig = await decryptConfig(channelRead.data.config, secretKey);
+      const verification = await verifyDeliveryChannelTarget(
+        channelRead.data.type,
+        rawConfig,
+        resolveDns,
+      );
+      if (!verification.success) {
+        return sendError(verification.error, req, 400);
+      }
+
+      const channelActivator = supabaseAdmin ?? supabaseClient;
+      let activationQuery = channelActivator
         .from('delivery_channels')
         .update({
           status: 'active',
           verified_at: new Date().toISOString(),
         })
-        .eq('id', channelId)
-        .select()
-        .single();
+        .eq('id', channelId);
+      if (supabaseAdmin) {
+        activationQuery = activationQuery.eq('user_id', user.id);
+      }
+      const { data, error } = await activationQuery.select().single();
 
       if (error) {
         if (error.code === 'PGRST116') {
@@ -580,8 +802,6 @@ export async function handleApiRoute(
         return sendError(error.message, req, 500);
       }
 
-      const secretKey = getMasterKey();
-      const rawConfig = await decryptConfig(data.config, secretKey);
       data.config = maskConfig(data.type, rawConfig);
 
       return sendSuccess(data, req);
@@ -644,15 +864,28 @@ export async function handleApiRoute(
       if (!validation.success) {
         return sendError(validation.error, req, 400);
       }
-      const { type, config } = validation.data;
+      const { type, config: submittedConfig } = validation.data as {
+        type: ChannelType;
+        config: Record<string, unknown>;
+      };
+      const boundConfig = bindDeliveryConfigToIdentity(type, submittedConfig, user);
+      if (!boundConfig.success) {
+        return sendError(boundConfig.error, req, 400);
+      }
+      const config = boundConfig.config;
 
       const configVal = validateChannelConfig(type, config);
       if (!configVal.success) {
         return sendError(configVal.error || 'Invalid config parameters', req, 400);
       }
 
+      let revealGeneratedSigningSecret = false;
       if (type === 'webhook') {
-        const isSafe = await validateUrlSsrf(config.webhook_url, resolveDns);
+        const webhookUrl = config.webhook_url;
+        if (typeof webhookUrl !== 'string') {
+          return sendError('Config must contain webhook_url string', req, 400);
+        }
+        const isSafe = await validateUrlSsrf(webhookUrl, resolveDns);
         if (!isSafe) {
           return sendError(
             'Webhook URL target resolves to an unsafe private/reserved address range',
@@ -662,6 +895,7 @@ export async function handleApiRoute(
         }
         if (!config.signing_secret) {
           config.signing_secret = generateSigningSecret();
+          revealGeneratedSigningSecret = true;
         }
       }
 
@@ -684,7 +918,9 @@ export async function handleApiRoute(
       }
 
       const rawConfig = await decryptConfig(data.config, secretKey);
-      data.config = maskConfig(data.type, rawConfig);
+      data.config = revealGeneratedSigningSecret && data.type === 'webhook'
+        ? { ...maskConfig(data.type, rawConfig), signing_secret: rawConfig.signing_secret }
+        : maskConfig(data.type, rawConfig);
 
       return sendSuccess(data, req, 201);
     }
@@ -705,15 +941,50 @@ export async function handleApiRoute(
       if (!validation.success) {
         return sendError(validation.error, req, 400);
       }
-      const { type, config } = validation.data;
+      const { type, config: submittedConfig } = validation.data as {
+        type: ChannelType;
+        config: Record<string, unknown>;
+      };
+      const boundConfig = bindDeliveryConfigToIdentity(type, submittedConfig, user);
+      if (!boundConfig.success) {
+        return sendError(boundConfig.error, req, 400);
+      }
+      const config = boundConfig.config;
 
       const configVal = validateChannelConfig(type, config);
       if (!configVal.success) {
         return sendError(configVal.error || 'Invalid config parameters', req, 400);
       }
 
+      let revealGeneratedSigningSecret = false;
       if (type === 'webhook') {
-        const isSafe = await validateUrlSsrf(config.webhook_url, resolveDns);
+        const existingChannel = await supabaseClient
+          .from('delivery_channels')
+          .select('config')
+          .eq('id', channelId)
+          .single();
+        if (existingChannel.error) {
+          if (existingChannel.error.code === 'PGRST116') {
+            return sendError('Delivery channel not found or unauthorized access', req, 404);
+          }
+          return sendError(existingChannel.error.message, req, 500);
+        }
+
+        const existingConfig = await decryptConfig(existingChannel.data.config, getMasterKey());
+        if (
+          !config.signing_secret &&
+          existingConfig &&
+          typeof existingConfig === 'object' &&
+          typeof existingConfig.signing_secret === 'string'
+        ) {
+          config.signing_secret = existingConfig.signing_secret;
+        }
+
+        const webhookUrl = config.webhook_url;
+        if (typeof webhookUrl !== 'string') {
+          return sendError('Config must contain webhook_url string', req, 400);
+        }
+        const isSafe = await validateUrlSsrf(webhookUrl, resolveDns);
         if (!isSafe) {
           return sendError(
             'Webhook URL target resolves to an unsafe private/reserved address range',
@@ -723,6 +994,7 @@ export async function handleApiRoute(
         }
         if (!config.signing_secret) {
           config.signing_secret = generateSigningSecret();
+          revealGeneratedSigningSecret = true;
         }
       }
 
@@ -747,7 +1019,9 @@ export async function handleApiRoute(
       }
 
       const rawConfig = await decryptConfig(data.config, secretKey);
-      data.config = maskConfig(data.type, rawConfig);
+      data.config = revealGeneratedSigningSecret && data.type === 'webhook'
+        ? { ...maskConfig(data.type, rawConfig), signing_secret: rawConfig.signing_secret }
+        : maskConfig(data.type, rawConfig);
 
       return sendSuccess(data, req);
     }
@@ -807,11 +1081,16 @@ export async function apiHandler(req: Request, ctx: any): Promise<Response> {
   }
 
   // Authenticate request using user JWT
-  let user: { id: string } | null = null;
+  let user: AuthenticatedApiUser | null = null;
   try {
     const { data, error } = await ctx.supabase.auth.getUser();
     if (!error && data?.user) {
-      user = { id: data.user.id };
+      user = {
+        id: data.user.id,
+        email: data.user.email,
+        email_confirmed_at: data.user.email_confirmed_at,
+        confirmed_at: data.user.confirmed_at,
+      };
     }
   } catch {
     // Auth client failed or parsed invalid token
@@ -857,8 +1136,11 @@ export function validateChannelConfig(
     if (!config.chat_id || typeof config.chat_id !== 'string') {
       return { success: false, error: 'Config must contain chat_id string' };
     }
-    if (!config.bot_token || typeof config.bot_token !== 'string') {
-      return { success: false, error: 'Config must contain bot_token string' };
+    if ('bot_token' in config) {
+      return {
+        success: false,
+        error: 'Config must not contain bot_token; Telegram uses the application-owned bot',
+      };
     }
   } else if (type === 'slack') {
     const url = config.webhook_url;

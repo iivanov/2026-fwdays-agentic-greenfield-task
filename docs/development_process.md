@@ -738,3 +738,72 @@ A change is complete only when:
 **Closure**
 
 - R-11C is marked done in `docs/roadmap.md`; R-11D is the next remediation slice.
+
+
+### 2026-07-03 — R-11D delivery identity/secrets maker implementation
+
+**Human direction**
+
+- Continue implementation according to the autonomous roadmap plan.
+
+**AI contribution**
+
+- Selected R-11D as the next pending remediation slice after archived R-11C.
+- Created the R-11D OpenSpec change and implemented delivery identity/secret repairs in the Edge API and browser delivery panel.
+- Added unit coverage for verified email binding, Telegram bot-token rejection, webhook one-time secret exposure, and fail-closed webhook verification.
+
+**Verification performed by maker**
+
+- `npm run typecheck` passed.
+- `npm run test -- packages/browser/src/lib/api-helpers.test.ts` passed.
+
+**Not complete**
+
+- Independent verifier PASS and reviewer APPROVE disposition are retained in the R-11D change artifacts.
+- No production provider credentials or external Telegram/Slack/webhook accounts were created or used.
+
+
+### 2026-07-03 — R-11D closure
+
+**Closure**
+
+- R-11D retained independent verifier PASS and independent reviewer APPROVE reports.
+- Synchronized the delivery-channel OpenSpec with verified email binding, app-owned Telegram bot configuration, functional channel verification, and one-time/preserved webhook signing-secret behavior.
+- Archived the change as `openspec/changes/archive/2026-07-03-r-11d-repair-delivery-identity-secrets/` and marked R-11D done in the roadmap. R-11E is the next remediation slice.
+
+
+### 2026-07-03 — R-11E shared source/article RLS maker implementation
+
+**Human direction**
+
+- Continue autonomous implementation through Phase 4.
+
+**AI contribution**
+
+- Selected R-11E as the next pending remediation slice after archived R-11D.
+- Created the R-11E OpenSpec change.
+- Added a Supabase migration replacing broad authenticated shared-source/article read policies with owned-flow-link policies.
+- Added Vitest policy-shape coverage and synced the canonical core schema/RLS spec.
+
+**Verification performed by maker**
+
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run format` passed.
+- `npm run test -- packages/browser/src/lib/rls-policy.test.ts` passed: 1 file, 3 tests.
+- `npx -y @fission-ai/openspec@1.5.0 validate --all --strict` passed.
+- `git diff --check` passed as part of the combined gate.
+- `npm run supabase:lint` failed locally because the Supabase database was not reachable (`LegacyDbConnectError`); this is recorded as not-run integration evidence, not a product pass.
+
+**Not complete**
+
+- Independent verifier PASS and reviewer APPROVE reports are retained in the R-11E change artifacts.
+
+
+### 2026-07-03 — R-11E closure
+
+**Closure**
+
+- R-11E retained independent verifier PASS and independent reviewer APPROVE reports.
+- Synchronized the `core-schema-rls` spec with shared source/article visibility through owned flow links.
+- Archived the change as `openspec/changes/archive/2026-07-03-r-11e-restrict-shared-source-article-rls/` and marked R-11E done in the roadmap. R-11F is the next remediation slice.
