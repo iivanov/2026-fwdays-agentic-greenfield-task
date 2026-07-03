@@ -1051,7 +1051,11 @@ describe('API Edge Function Handler Integration Tests', () => {
 
       const res = await handleApiRoute(
         req,
-        { id: 'user-abc' },
+        {
+          id: 'user-abc',
+          email: 'verified@example.com',
+          email_confirmed_at: '2026-07-03T00:00:00Z',
+        },
         'channels',
         'channels',
         mockSupabase,
@@ -1062,18 +1066,18 @@ describe('API Edge Function Handler Integration Tests', () => {
       expect(json.data[0].config.webhook_url).toBe('https://hooks.slack.com/services/*****');
     });
 
-    it('should create delivery channel with encrypted config on POST', async () => {
+    it('should create email delivery channel from verified identity on POST', async () => {
       const req = new Request('http://localhost/functions/v1/api/channels', {
         method: 'POST',
         body: JSON.stringify({
           type: 'email',
-          config: { email: 'john.doe@gmail.com' },
+          config: { email: 'attacker@example.test' },
         }),
         headers: { 'Content-Type': 'application/json' },
       });
 
       const secretKey = getMasterKey();
-      const encryptedConfig = await encryptConfig({ email: 'john.doe@gmail.com' }, secretKey);
+      const encryptedConfig = await encryptConfig({ email: 'verified@example.com' }, secretKey);
 
       const mockSupabase = {
         from: () => ({
@@ -1094,7 +1098,11 @@ describe('API Edge Function Handler Integration Tests', () => {
 
       const res = await handleApiRoute(
         req,
-        { id: 'user-abc' },
+        {
+          id: 'user-abc',
+          email: 'verified@example.com',
+          email_confirmed_at: '2026-07-03T00:00:00Z',
+        },
         'channels',
         'channels',
         mockSupabase,
@@ -1103,7 +1111,30 @@ describe('API Edge Function Handler Integration Tests', () => {
       expect(res.status).toBe(201);
       const json = await res.json();
       expect(json.data.type).toBe('email');
-      expect(json.data.config.email).toBe('j***e@gmail.com');
+      expect(json.data.config.email).toBe('v***d@example.com');
+    });
+
+    it('should reject email delivery channel creation for unverified identities', async () => {
+      const req = new Request('http://localhost/functions/v1/api/channels', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'email',
+          config: {},
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc', email: 'verified@example.com' },
+        'channels',
+        'channels',
+        {},
+        null,
+      );
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toContain('verified authenticated account email');
     });
 
     it('should block generic webhook target if it fails SSRF validation', async () => {
@@ -1122,7 +1153,7 @@ describe('API Edge Function Handler Integration Tests', () => {
       expect(json.error).toContain('resolves to an unsafe private/reserved address range');
     });
 
-    it('should update channel config successfully on PUT', async () => {
+    it('should reject user-supplied Telegram bot tokens on PUT', async () => {
       const req = new Request(`http://localhost/functions/v1/api/channels/${validChannelId}`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -1132,43 +1163,17 @@ describe('API Edge Function Handler Integration Tests', () => {
         headers: { 'Content-Type': 'application/json' },
       });
 
-      const secretKey = getMasterKey();
-      const encryptedConfig = await encryptConfig(
-        { chat_id: '12345', bot_token: '123:abc' },
-        secretKey,
-      );
-
-      const mockSupabase = {
-        from: () => ({
-          update: () => ({
-            eq: () => ({
-              select: () => ({
-                single: async () => ({
-                  data: {
-                    id: validChannelId,
-                    type: 'telegram',
-                    config: encryptedConfig,
-                  },
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        }),
-      };
-
       const res = await handleApiRoute(
         req,
         { id: 'user-abc' },
         'channels',
         `channels/${validChannelId}`,
-        mockSupabase,
+        {},
         null,
       );
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.data.config.chat_id).toBe('123*****');
-      expect(json.data.config.bot_token).toBe('*****');
+      expect(json.error).toContain('application-owned bot');
     });
 
     it('should verify channel status to active on POST verify', async () => {
@@ -1184,6 +1189,19 @@ describe('API Edge Function Handler Integration Tests', () => {
 
       const mockSupabase = {
         from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: {
+                  id: validChannelId,
+                  type: 'email',
+                  status: 'pending',
+                  config: encryptedConfig,
+                },
+                error: null,
+              }),
+            }),
+          }),
           update: () => ({
             eq: () => ({
               select: () => ({
@@ -1213,6 +1231,429 @@ describe('API Edge Function Handler Integration Tests', () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.data.status).toBe('active');
+    });
+
+    it('should reveal generated webhook signing secret only on mutation response', async () => {
+      const req = new Request('http://localhost/functions/v1/api/channels', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'webhook',
+          config: { webhook_url: 'https://example.com/notify' },
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      let persistedConfig: unknown;
+      const mockSupabase = {
+        from: () => ({
+          insert: (payload: { config: unknown }) => {
+            persistedConfig = payload.config;
+            return {
+              select: () => ({
+                single: async () => ({
+                  data: {
+                    id: validChannelId,
+                    type: 'webhook',
+                    config: persistedConfig,
+                  },
+                  error: null,
+                }),
+              }),
+            };
+          },
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'channels',
+        'channels',
+        mockSupabase,
+        null,
+        async () => ['93.184.216.34'],
+      );
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.data.config.signing_secret).toMatch(/^[a-f0-9]{64}$/);
+      expect(json.data.config.webhook_url).toBe('https://example.com/notify');
+
+      const rawConfig = await decryptConfig(persistedConfig, getMasterKey());
+      expect(rawConfig.signing_secret).toBe(json.data.config.signing_secret);
+    });
+
+    it('should fail external webhook verification closed when challenge request fails', async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValue(new Response('no', { status: 500 }));
+      const req = new Request(
+        `http://localhost/functions/v1/api/channels/${validChannelId}/verify`,
+        { method: 'POST' },
+      );
+      const secretKey = getMasterKey();
+      const encryptedConfig = await encryptConfig(
+        { webhook_url: 'https://example.com/notify', signing_secret: 'a'.repeat(64) },
+        secretKey,
+      );
+      const mockSupabase = {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: {
+                  id: validChannelId,
+                  type: 'webhook',
+                  status: 'pending',
+                  config: encryptedConfig,
+                },
+                error: null,
+              }),
+            }),
+          }),
+          update: () => {
+            throw new Error('verification failure must not activate channel');
+          },
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'channels',
+        `channels/${validChannelId}/verify`,
+        mockSupabase,
+        null,
+        async () => ['93.184.216.34'],
+      );
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toContain('Webhook challenge verification failed');
+      fetchSpy.mockRestore();
+    });
+
+    it('should activate verified channels through a constrained admin update when user grants cannot update status', async () => {
+      const req = new Request(
+        `http://localhost/functions/v1/api/channels/${validChannelId}/verify`,
+        { method: 'POST' },
+      );
+      const secretKey = getMasterKey();
+      const encryptedConfig = await encryptConfig({ email: 'verified@example.com' }, secretKey);
+      const userClient = {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: {
+                  id: validChannelId,
+                  user_id: 'user-abc',
+                  type: 'email',
+                  status: 'pending',
+                  config: encryptedConfig,
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+      const predicates: Array<[string, string]> = [];
+      const adminClient = {
+        from: () => ({
+          update: () => ({
+            eq: (column: string, value: string) => {
+              predicates.push([column, value]);
+              return {
+                eq: (nextColumn: string, nextValue: string) => {
+                  predicates.push([nextColumn, nextValue]);
+                  return {
+                    select: () => ({
+                      single: async () => ({
+                        data: {
+                          id: validChannelId,
+                          type: 'email',
+                          status: 'active',
+                          config: encryptedConfig,
+                        },
+                        error: null,
+                      }),
+                    }),
+                  };
+                },
+              };
+            },
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'channels',
+        `channels/${validChannelId}/verify`,
+        userClient,
+        adminClient,
+      );
+      expect(res.status).toBe(200);
+      expect(predicates).toEqual([
+        ['id', validChannelId],
+        ['user_id', 'user-abc'],
+      ]);
+    });
+
+    it('should fail Telegram verification closed when app bot token is unavailable', async () => {
+      const req = new Request(
+        `http://localhost/functions/v1/api/channels/${validChannelId}/verify`,
+        { method: 'POST' },
+      );
+      const secretKey = getMasterKey();
+      const encryptedConfig = await encryptConfig({ chat_id: '12345' }, secretKey);
+      const mockSupabase = {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: {
+                  id: validChannelId,
+                  type: 'telegram',
+                  status: 'pending',
+                  config: encryptedConfig,
+                },
+                error: null,
+              }),
+            }),
+          }),
+          update: () => {
+            throw new Error('telegram verification failure must not activate channel');
+          },
+        }),
+      };
+
+      const oldToken = process.env.TELEGRAM_BOT_TOKEN;
+      delete process.env.TELEGRAM_BOT_TOKEN;
+      try {
+        const res = await handleApiRoute(
+          req,
+          { id: 'user-abc' },
+          'channels',
+          `channels/${validChannelId}/verify`,
+          mockSupabase,
+          null,
+        );
+        expect(res.status).toBe(400);
+        const json = await res.json();
+        expect(json.error).toContain('Telegram verification is unavailable');
+      } finally {
+        if (oldToken) process.env.TELEGRAM_BOT_TOKEN = oldToken;
+      }
+    });
+
+    it('should verify Telegram with the app-owned bot token and activate after provider success', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok'));
+      const req = new Request(
+        `http://localhost/functions/v1/api/channels/${validChannelId}/verify`,
+        { method: 'POST' },
+      );
+      const secretKey = getMasterKey();
+      const encryptedConfig = await encryptConfig({ chat_id: '12345' }, secretKey);
+      const mockSupabase = {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: { id: validChannelId, type: 'telegram', config: encryptedConfig },
+                error: null,
+              }),
+            }),
+          }),
+          update: () => ({
+            eq: () => ({
+              select: () => ({
+                single: async () => ({
+                  data: {
+                    id: validChannelId,
+                    type: 'telegram',
+                    status: 'active',
+                    config: encryptedConfig,
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+
+      const oldToken = process.env.TELEGRAM_BOT_TOKEN;
+      process.env.TELEGRAM_BOT_TOKEN = '123456:app-owned-token';
+      try {
+        const res = await handleApiRoute(
+          req,
+          { id: 'user-abc' },
+          'channels',
+          `channels/${validChannelId}/verify`,
+          mockSupabase,
+          null,
+        );
+        expect(res.status).toBe(200);
+        expect(fetchSpy).toHaveBeenCalledWith(
+          expect.stringContaining('/getChat?chat_id=12345'),
+          expect.any(Object),
+        );
+      } finally {
+        fetchSpy.mockRestore();
+        if (oldToken) process.env.TELEGRAM_BOT_TOKEN = oldToken;
+        else delete process.env.TELEGRAM_BOT_TOKEN;
+      }
+    });
+
+    it('should verify Slack only after outbound safety validation and provider success', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok'));
+      const req = new Request(
+        `http://localhost/functions/v1/api/channels/${validChannelId}/verify`,
+        { method: 'POST' },
+      );
+      const secretKey = getMasterKey();
+      const encryptedConfig = await encryptConfig(
+        { webhook_url: 'https://hooks.slack.com/services/T/B/C' },
+        secretKey,
+      );
+      const mockSupabase = {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: { id: validChannelId, type: 'slack', config: encryptedConfig },
+                error: null,
+              }),
+            }),
+          }),
+          update: () => ({
+            eq: () => ({
+              select: () => ({
+                single: async () => ({
+                  data: {
+                    id: validChannelId,
+                    type: 'slack',
+                    status: 'active',
+                    config: encryptedConfig,
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+
+      try {
+        const res = await handleApiRoute(
+          req,
+          { id: 'user-abc' },
+          'channels',
+          `channels/${validChannelId}/verify`,
+          mockSupabase,
+          null,
+          async () => ['54.192.10.1'],
+        );
+        expect(res.status).toBe(200);
+        expect(fetchSpy).toHaveBeenCalledWith(
+          'https://hooks.slack.com/services/T/B/C',
+          expect.objectContaining({ method: 'POST' }),
+        );
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+
+    it('should mask webhook signing secrets on ordinary GET after one-time disclosure', async () => {
+      const req = new Request(`http://localhost/functions/v1/api/channels/${validChannelId}`, {
+        method: 'GET',
+      });
+      const secretKey = getMasterKey();
+      const encryptedConfig = await encryptConfig(
+        { webhook_url: 'https://example.com/notify', signing_secret: 'b'.repeat(64) },
+        secretKey,
+      );
+      const mockSupabase = {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: { id: validChannelId, type: 'webhook', config: encryptedConfig },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'channels',
+        `channels/${validChannelId}`,
+        mockSupabase,
+        null,
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.data.config.signing_secret).toBe('*****');
+    });
+
+    it('should preserve existing webhook signing secret on URL update without rotation', async () => {
+      const req = new Request(`http://localhost/functions/v1/api/channels/${validChannelId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          type: 'webhook',
+          config: { webhook_url: 'https://example.com/new' },
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const secretKey = getMasterKey();
+      const existingSecret = 'c'.repeat(64);
+      const existingEncryptedConfig = await encryptConfig(
+        { webhook_url: 'https://example.com/old', signing_secret: existingSecret },
+        secretKey,
+      );
+      let storedConfig: unknown;
+      const mockSupabase = {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: async () => ({ data: { config: existingEncryptedConfig }, error: null }),
+            }),
+          }),
+          update: (payload: { config: unknown }) => {
+            storedConfig = payload.config;
+            return {
+              eq: () => ({
+                select: () => ({
+                  single: async () => ({
+                    data: { id: validChannelId, type: 'webhook', config: storedConfig },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          },
+        }),
+      };
+
+      const res = await handleApiRoute(
+        req,
+        { id: 'user-abc' },
+        'channels',
+        `channels/${validChannelId}`,
+        mockSupabase,
+        null,
+        async () => ['93.184.216.34'],
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.data.config.signing_secret).toBe('*****');
+      const decrypted = await decryptConfig(storedConfig, getMasterKey());
+      expect(decrypted.signing_secret).toBe(existingSecret);
+      expect(decrypted.webhook_url).toBe('https://example.com/new');
     });
 
     it('should delete delivery channel successfully via DELETE', async () => {
