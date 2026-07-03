@@ -84,17 +84,21 @@ Updated after the CI repair checkpoint:
 - Local `npm run test:integration` failed in this sandbox with
   `connect EPERM 127.0.0.1:54321`; GitHub CI remains the required evidence for
   the Supabase-backed integration run.
-- The first follow-up CI run for the diagnostics patch passed all non-Supabase
-  gates through Playwright smoke, then remained in `Start Supabase` for several
-  minutes without logs. The workflow now bounds the job and Supabase runtime
-  steps with explicit timeouts so future CI failures are visible instead of
-  silently hanging.
+- The first follow-up CI run for the diagnostics patch was cancelled by the next
+  push while in `Start Supabase`. The workflow now bounds the job and Supabase
+  runtime steps with explicit timeouts so future CI failures are visible instead
+  of silently hanging.
+- GitHub CI run `28679753122` for commit `a66230e` passed all R-11B gates:
+  npm install, typecheck, lint, format, unit tests, coverage, Deno
+  check/lint/fmt/lock/audit, npm audit, browser build, Playwright smoke,
+  Supabase start/reset/status export, migration lint, integration tests, and
+  Supabase stop.
 
 Remaining before R-11B can be archived:
 
 - `npm run test:integration` and `npm run supabase:lint` require a reachable
-  local Supabase stack. GitHub CI is expected to provide the next authoritative
-  result because this sandbox blocks localhost network access.
+  local Supabase stack. GitHub CI has passed both; this sandbox still blocks
+  localhost network access for local reruns.
 - No R-11B independent verifier/reviewer reports exist yet, and the change is
   not archived.
 
