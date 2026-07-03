@@ -466,6 +466,32 @@ Current evidence is limited: the architecture work received iterative self-revie
 
 - Flow management settings panel (R-09) and delivery channels (R-10).
 
+### 2026-07-03 — R-09 Flow Management CRUD
+
+**AI contribution**
+
+- Implemented GET, POST, PUT, DELETE `/flows` REST endpoints inside the Deno edge helper router.
+- Supported route path segment parameter parsing to cleanly extract target resource UUIDs (e.g. `/flows/:id`).
+- Handled Postgres database trigger quota check exceptions, mapping them safely to `400 Bad Request` at the API boundaries.
+- Created `FlowsPanel.tsx` in React to manage channel settings, toggle active status, configure custom prompts, and visually surface quota limit warnings.
+- Linked the Flows tab to the dashboard layout in `App.tsx`.
+- Corrected database query column name selection inside `SourcesPanel.tsx` (migrated from `enabled` to `is_enabled`).
+- Added robust validation tests in `api-helpers.test.ts` ensuring bad parameters, bad schemas, and quota exhausts fail closed with 400/404s.
+
+**Design decisions**
+
+- Leveraged standard Deno path segment parameters for update/delete actions.
+- Relied on user-bound JWT contexts (`supabaseClient`) to verify flow ownership at RLS database layer.
+
+**Verification performed**
+
+- 2 rounds of independent Verifier + Reviewer checkers (maker != checker).
+- All 52 Vitest tests pass cleanly. Lints, TypeScript compiler, and Vite builds are 100% green.
+
+**Not yet implemented**
+
+- Delivery channels CRUD (R-10) and Daily scheduler edge function trigger (R-11).
+
 ## 6. Definition of Done for Future Changes
 
 A change is complete only when:
