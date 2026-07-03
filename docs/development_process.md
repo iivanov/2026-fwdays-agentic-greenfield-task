@@ -131,7 +131,7 @@ earlier prose claims as certification evidence.
   passed.
 - `npm run verify:local` passed: typecheck, lint, format, unit tests, coverage,
   Deno check/lint/fmt/lock, npm audit, browser build, and Playwright smoke e2e.
-- `npm run deno:audit` exited 0, with a non-blocking warning that some update
+- `npm run deno:outdated` exited 0, with a non-blocking warning that some update
   metadata could not be fetched.
 
 **Not complete**
@@ -169,15 +169,17 @@ earlier prose claims as certification evidence.
   then cancelled by the follow-up timeout commit while in `Start Supabase`.
 - The workflow now has a 25-minute job timeout plus bounded Supabase
   start/reset/status/lint/test/stop step timeouts so CI cannot hang silently.
-- GitHub CI run `28679753122` for commit `a66230e` passed all quality gates,
-  including Supabase start/reset/status export, migration lint, integration
-  tests, and cleanup.
+- GitHub CI run `28681035556` for final R-11B documentation commit `f1d7354`
+  passed all quality gates, including Supabase start/reset/status export,
+  migration lint, integration tests, and cleanup; it supersedes earlier run
+  `28679753122` for `a66230e`.
+- Follow-up review found that `deno outdated --compatible` is an update check,
+  not a security advisory scanner, so the Deno gate was renamed to
+  `deno:outdated` and the CI/spec/docs terminology was corrected.
 
-**Not complete**
+**Closure**
 
-- GitHub CI must rerun the Supabase-backed integration gate and provide the next
-  authoritative result.
-- R-11B still requires separate verifier and reviewer artifacts before archive.
+- R-11B retained independent verifier PASS and independent reviewer APPROVE reports, synced the `cicd-security-gates` spec, archived the change as `openspec/changes/archive/2026-07-03-r-11b-enforce-real-verification-gates/`, and marked R-11B done in the roadmap. R-11C is the next slice; R-11C was not started in this stage.
 
 ### 2026-07-01 to 2026-07-02 — Architecture baseline and decision hierarchy
 
@@ -718,3 +720,21 @@ A change is complete only when:
   and workflow. Attempt 2 passed the substantive diff. Later administrative
   status updates are tracked by subsequent checker attempts in the durable
   reports retained with the OpenSpec change.
+
+
+### 2026-07-03 — R-11C custom prompt encryption archived
+
+**AI contribution**
+
+- Proposed, implemented, verified, reviewed, and archived `r-11c-encrypt-custom-prompts`.
+- Added shared prompt encryption/decryption helpers, encrypted custom prompt storage in the flow API, owner-filtered service-role read/update paths, direct Data API column restrictions for `prompt_template`, local/dev plaintext prompt nulling for this no-production greenfield repo, and no-leak persistence-error coverage.
+
+**Verification performed**
+
+- Independent verifier PASS retained in the archived OpenSpec change.
+- Independent reviewer APPROVE retained in the archived OpenSpec change after the reviewer-requested fixes.
+- Local gates passed: `npm run typecheck`, `npm run lint`, `npm run deno:check`, `npm run deno:fmt`, `npm run test`, `npx -y @fission-ai/openspec@1.5.0 validate r-11c-encrypt-custom-prompts --strict`, and `git diff --check`.
+
+**Closure**
+
+- R-11C is marked done in `docs/roadmap.md`; R-11D is the next remediation slice.
