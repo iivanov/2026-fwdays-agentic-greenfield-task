@@ -4,7 +4,12 @@
 
 This is the factual process record required by the repository's root `AGENTS.md`. It captures how the human and AI collaborate, which decisions were made, what evidence was checked, and what remains unimplemented.
 
-The project is currently in the **architecture and implementation-readiness phase**. Product, data, application, technology, hosting, quality, and IaC decisions exist under `docs/architecture/`; application code, CI workflows, infrastructure files, tests, and deployments have not yet been scaffolded. The documentation is a reviewed specification, not evidence that the system is running.
+The project is in the **implementation audit and remediation phase**. Product,
+data, application, technology, hosting, quality, and IaC decisions exist under
+`docs/architecture/`; R-01..R-11 produced application code, migrations, local
+infrastructure, CI configuration, and tests. Independent audit findings in
+`docs/state.md` and `docs/roadmap.md` must be resolved before those commits can
+be treated as a verified release. No production deployment is evidenced.
 
 ## 2. Collaboration Model
 
@@ -44,20 +49,29 @@ Use this loop for each material change:
 4. **Evidence:** Verify unstable external claims with primary/official sources; record verification dates in technology documentation.
 5. **Maker pass:** Apply the smallest coherent change from upstream to downstream.
 6. **Mechanical verification:** Run formatting/diff checks, link/path checks, traceability checks, and relevant code/test/security/IaC checks when those artifacts exist.
-7. **Checker pass:** Use a separate reviewer or review invocation for material changes when available; resolve findings or record accepted risk.
+7. **Checker passes:** Separate verifier and reviewer agents check the final
+   material diff; resolve blocking findings and rerun both after maker fixes.
 8. **Human acceptance:** Present trade-offs and remaining risks for confirmation when the decision changes scope or operational guarantees.
 9. **Process update:** Update this file with the milestone, evidence, and unresolved work.
 
 ## 4. Maker ≠ Checker Policy
 
-Maker and checker should be separate for material code, migration, security, and deployment changes.
+Maker, verifier, and reviewer MUST be separate agents for every material
+change, including code, migration, security, deployment, and cross-cutting
+governance changes.
 
 - A maker creates the change and supplies verification evidence.
 - A checker reviews requirements, diff, tests, security, and operational consequences without assuming the maker is correct.
 - CodeRabbit is available as an external pull-request reviewer through the repository configuration.
-- Planned GitHub checks include CodeQL, Dependency Review, Dependabot, secret scanning, workflow linting, type/lint/format gates, migration validation, and tests.
+- Repository workflows configure CodeQL, Dependency Review, and npm quality
+  gates, and Dependabot configuration exists. Hosted results, branch protection,
+  secret scanning/push protection, Deno checks, Playwright, and complete
+  migration enforcement remain unverified or missing as recorded in R-11B.
 
-Current evidence is limited: the architecture work received iterative self-review and mechanical checks, but no separate checker result is recorded in this repository yet. Do not describe maker/checker separation as completed until a distinct review artifact exists.
+Current evidence is limited: R-01..R-11 archives contain no durable checker
+reports even where milestone text claims independent rounds. R-11A is the first
+change required to retain separate verifier and reviewer artifacts; do not use
+earlier prose claims as certification evidence.
 
 ## 5. Recorded Milestones
 
@@ -549,6 +563,54 @@ A change is complete only when:
 - downstream data, architecture, tactics, technology, hosting, and quality impacts are updated;
 - implementation and tests exist when the task includes implementation;
 - relevant formatter, lint, type, test, security, migration, and IaC checks pass;
-- a separate checker reviews material risk when available;
+- separate verifier and reviewer agents retain their final reports and have no
+  unresolved blocking findings;
 - remaining risks and unimplemented work are stated;
 - this process record is updated when the change is material.
+
+### 2026-07-03 — Independent implementation audit and autonomous-loop recovery
+
+**Human direction**
+
+- Verify and audit the Antigravity implementation, repair findings, add missing
+  OpenSpecs, and continue autonomously to completion with a commit per stage.
+
+**Independent evidence**
+
+- A verifier ran the committed baseline separately from the implementation
+  agent: npm typecheck/lint/format/test, browser build, actionlint, npm audit,
+  strict OpenSpec validation, local database lint, and the R-11 Supabase
+  integration scenario. Existing committed code gates were green, while the
+  active R-12 snapshot failed lint, format, and dependency resolution.
+- A separate reviewer audited requirements, schema, RLS, API/worker code, active
+  R-12, and archived artifacts. It reported blocking prompt-encryption,
+  delivery-identity, shared-data authorization, queue-acknowledgement,
+  retention, DNS-rebinding, and ingestion defects.
+- Evidence audit found 0 verifier/reviewer artifacts across 11 archived changes,
+  unchecked R-11 tasks, placeholder canonical spec purposes, no Deno gate, no
+  Playwright harness, and integration tests that can silently avoid execution.
+
+**Changes in this stage**
+
+- Canonicalized `docs/ROADMAP.md` to `docs/roadmap.md` so case-sensitive
+  autonomous workflows can locate it.
+- Added R-11A..R-11I remediation slices plus missing R-20 browser-auth coverage.
+- Replaced optimistic state claims with observed evidence and preserved the
+  uncommitted R-12 maker output for later repair.
+- Added OpenSpec change `audit-state-and-verification-evidence` defining
+  truthful completion state and durable checker evidence.
+
+**Unresolved work**
+
+- R-11B..R-11I and R-12..R-20 remain planned, not implemented or certified.
+- Hosted GitHub controls, accounts, secrets, paid OpenAI use, and deployment
+  remain human-bootstrap items and are not claimed as verified.
+
+**R-11A verification and review**
+
+- Attempt 1 failed on two governance contradictions: conditional checker
+  language and unconditional Playwright for documentation-only changes.
+- The maker aligned root guidance, autonomous-operation rule, autopilot skill,
+  and workflow. Attempt 2 passed the substantive diff. Later administrative
+  status updates are tracked by subsequent checker attempts in the durable
+  reports retained with the OpenSpec change.

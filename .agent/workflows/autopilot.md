@@ -55,15 +55,16 @@ Spawn separate sub-agents (fresh contexts), passing only acceptance criteria +
 1. **Static gate — verify-change:** run the real gates that exist
    (`tsc`/`deno check`, lint, format, Vitest, migration validate, `npm audit`,
    `actionlint`). Returns a gate table + PASS/FAIL.
-2. **Behavioral gate — verify-e2e:** drive the app with the **Playwright CLI**
-   against the change's scenarios and emit the verification artifact
-   (`openspec/changes/<name>/verification.md` + report/screenshots). Returns
-   PASS/FAIL. (Skip only for changes with no runnable behavior yet, e.g. pure
-   scaffold — say so explicitly.)
+2. **Behavioral gate — verify-e2e (when applicable):** for UI/API/runtime
+   behavior, drive the app with the **Playwright CLI** against the change's
+   scenarios and emit the verification artifact
+   (`openspec/changes/<name>/verification.md` + report/screenshots). For a
+   documentation-only change, the static verifier emits `verification.md` and
+   records Playwright as not applicable. Never report a skipped run as passed.
 
-If either gate FAILS → return findings to the maker (step 3), fix, and re-run
-**both** gates on the new diff. After 3 failed full attempts on the same slice,
-mark it `blocked` with the reason and move on.
+If any applicable gate FAILS → return findings to the maker (step 3), fix, and
+re-run **all applicable** gates on the new diff. After 3 failed full attempts on
+the same slice, mark it `blocked` with the reason and move on.
 
 ## 5. Review (SUB-AGENT, separate from maker and verifiers)
 
@@ -74,7 +75,8 @@ mark it `blocked` with the reason and move on.
 
 ## 6. Archive, record, commit
 
-Only when both gates are green AND review has no unresolved blocking findings:
+Only when all applicable gates are green AND review has no unresolved blocking
+findings:
 
 - `openspec validate <name> --strict`, then `/opsx:archive`.
 - Mark the slice `done` in `docs/roadmap.md` and link the archived change.

@@ -1,6 +1,6 @@
 ---
 name: autopilot
-description: Autonomously build the entire project end to end without human intervention - decompose requirements into a backlog, then run the spec-driven maker/checker loop per slice (propose, implement, verify with static gates + Playwright, independent review), pass the verification gate, and continue to the next slice until done. Use to start or resume the unattended build. CLI-friendly alias of the /autopilot workflow.
+description: Autonomously build the entire project end to end without human intervention - decompose requirements into a backlog, then run the spec-driven maker/checker loop per slice (propose, implement, verify with static and applicable behavioral gates, independent review), pass the verification gate, and continue to the next slice until done. Use to start or resume the unattended build. CLI-friendly alias of the /autopilot workflow.
 metadata:
   role: orchestrator
   version: "1.0"
@@ -45,13 +45,15 @@ at a time, keeping every quality bar. This is the skill form of
    `supabase-postgres-best-practices`, `frontend-design` skills and context7 MCP.
    Produce a maker handoff summary; do not self-verify or self-approve.
 5. **Verify gate (separate sub-agents).** Spawn a sub-agent for `verify-change`
-   (static gates that exist) and a sub-agent for `verify-e2e` (Playwright CLI +
-   committed `openspec/changes/<name>/verification.md` artifact). Either FAIL ->
-   return findings to the maker, fix, re-run both on the new diff. After 3 failed
-   full attempts on a slice, mark it `blocked` and move on.
+   (static/documentation gates that exist). For UI/API/runtime behavior, also
+   spawn a sub-agent for `verify-e2e` (Playwright CLI). The verifier always
+   retains `openspec/changes/<name>/verification.md`; for documentation-only
+   changes it records Playwright as not applicable. Any applicable FAIL -> return
+   findings to the maker, fix, and re-run every applicable checker on the new
+   diff. After 3 failed full attempts on a slice, mark it `blocked` and move on.
 6. **Review (separate sub-agent).** Run `review-change`. Blocking findings ->
    back to the maker, then re-run verify AND review on the final diff.
-7. **Archive + record.** Only when both gates are green and review has no
+7. **Archive + record.** Only when all applicable gates are green and review has no
    unresolved blocking findings: `openspec validate <name> --strict`,
    `/opsx:archive`, mark the slice `done` in `docs/roadmap.md`, update
    `docs/development_process.md`, commit on `main` citing requirement

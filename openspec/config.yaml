@@ -65,11 +65,14 @@ context: |
   verify (real gates only) and a separate sub-agent runs review. See /dev-loop.
 
   TOOLCHAIN REALITY
-  The application has NOT been scaffolded yet - no runnable app code, tests,
-  migrations, or CI exist. Do not invent executable project commands. The first
-  changes scaffold the workspace (npm workspaces, Vitest, ESLint, tsc,
-  supabase init); each gate is added to the AGENTS.md Verification section only
-  after it runs green. Verifiers run only checks that exist and report which.
+  R-01..R-11 scaffolded npm workspaces, React/Vite code, Supabase migrations and
+  Edge Functions, CI configuration, and Vitest tests. The runnable root gates
+  are typecheck, lint, format, and test; local Supabase reset/lint exists.
+  Independent audit found no Deno check/lint/fmt gate, no Deno dependency lock,
+  no Playwright harness, no backend coverage enforcement, and integration tests
+  that can silently avoid execution. Do not claim those missing gates. Add each
+  gate to AGENTS.md only after it runs green, and report not-run prerequisites
+  explicitly.
 
 # Additive rules applied when generating each artifact type.
 rules:

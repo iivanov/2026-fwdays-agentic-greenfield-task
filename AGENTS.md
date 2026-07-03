@@ -65,10 +65,13 @@ that writes a change never certifies its own work.
 `/autopilot` runs the whole loop unattended: it decomposes requirements into an
 ordered backlog (`docs/roadmap.md`), then builds each slice with the same
 spec-driven, maker≠checker cycle — including a hard verification gate of static
-checks (`verify-change`) **plus** a Playwright e2e pass that emits a committed
-verification artifact (`verify-e2e` → `openspec/changes/<name>/verification.md`)
-— and moves to the next slice until the project is done. It decides from the
-architecture docs instead of prompting (`.agent/rules/50-autonomous-operation`).
+checks (`verify-change`) plus applicable behavioral verification. UI/API/runtime
+changes use Playwright (`verify-e2e`); documentation-only changes use their
+documentation gates and record behavioral verification as not applicable. Every
+change retains `openspec/changes/<name>/verification.md` and an independent
+review report before archive. The loop then moves to the next slice until the
+project is done and decides from the architecture docs instead of prompting
+(`.agent/rules/50-autonomous-operation`).
 
 What it does **not** do without an explicit human go-ahead (by design): push to origin, deploy, spend money, or create external accounts. It works directly on the `main` branch, commits locally, and collects
 account/secret/deploy needs under "Human bootstrap required" in
@@ -122,7 +125,9 @@ and content-integrity hashes are pinned in `skills-lock.json`; update with
   - Lint: `npm run lint`
   - Format Check: `npm run format`
   - Unit/Integration Tests: `npm run test`
-- Use a separate checker pass for material changes when available. A maker's self-review is useful but is not evidence of independent review.
+- Every material change requires separate verifier and reviewer passes on the
+  final diff. A maker's self-review is useful but is not evidence of independent
+  verification or review.
 
 ## Change Handoff
 
