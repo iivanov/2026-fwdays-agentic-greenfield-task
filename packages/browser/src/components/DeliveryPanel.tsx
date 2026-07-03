@@ -23,10 +23,8 @@ export default function DeliveryPanel({ session }: { session: Session | null }) 
   );
 
   // Form states
-  const [emailAddress, setEmailAddress] = useState('');
   const [slackUrl, setSlackUrl] = useState('');
   const [telegramChatId, setTelegramChatId] = useState('');
-  const [telegramBotToken, setTelegramBotToken] = useState('');
   const [genericWebhookUrl, setGenericWebhookUrl] = useState('');
 
   const [linkingChannelId, setLinkingChannelId] = useState<string | null>(null);
@@ -108,9 +106,7 @@ export default function DeliveryPanel({ session }: { session: Session | null }) 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['delivery-channels'] });
       // Reset form states
-      setEmailAddress('');
       setSlackUrl('');
-      setTelegramBotToken('');
       setTelegramChatId('');
       setGenericWebhookUrl('');
       showNotification('success', 'Delivery channel registered successfully.');
@@ -178,13 +174,10 @@ export default function DeliveryPanel({ session }: { session: Session | null }) 
     e.preventDefault();
     const config: Record<string, string> = {};
 
-    if (selectedType === 'email') {
-      config.email = emailAddress.trim();
-    } else if (selectedType === 'slack') {
+    if (selectedType === 'slack') {
       config.webhook_url = slackUrl.trim();
     } else if (selectedType === 'telegram') {
       config.chat_id = telegramChatId.trim();
-      config.bot_token = telegramBotToken.trim();
     } else if (selectedType === 'webhook') {
       config.webhook_url = genericWebhookUrl.trim();
     }
@@ -280,32 +273,19 @@ export default function DeliveryPanel({ session }: { session: Session | null }) 
             </div>
 
             {selectedType === 'email' && (
-              <div>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '0.85rem',
-                    color: 'hsl(var(--text-secondary))',
-                    marginBottom: '6px',
-                  }}
-                >
-                  Destination Email Address
-                </label>
-                <input
-                  type="email"
-                  placeholder="e.g. digest@example.com"
-                  required
-                  value={emailAddress}
-                  onChange={(e) => setEmailAddress(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid hsl(var(--border-color))',
-                    background: 'hsl(var(--bg-secondary))',
-                    fontSize: '0.9rem',
-                  }}
-                />
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid hsl(var(--border-color))',
+                  background: 'hsl(var(--bg-secondary))',
+                  fontSize: '0.85rem',
+                  color: 'hsl(var(--text-secondary))',
+                }}
+              >
+                Email delivery always uses your verified account email
+                {session?.user.email ? ` (${session.user.email})` : ''}. The API rejects unverified
+                account emails and ignores caller-supplied destinations.
               </div>
             )}
 
@@ -368,33 +348,15 @@ export default function DeliveryPanel({ session }: { session: Session | null }) 
                     }}
                   />
                 </div>
-                <div>
-                  <label
-                    style={{
-                      display: 'block',
-                      fontSize: '0.85rem',
-                      color: 'hsl(var(--text-secondary))',
-                      marginBottom: '6px',
-                    }}
-                  >
-                    Bot Authorization Token
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="e.g. 123456:ABC-DEF"
-                    required
-                    value={telegramBotToken}
-                    onChange={(e) => setTelegramBotToken(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid hsl(var(--border-color))',
-                      background: 'hsl(var(--bg-secondary))',
-                      fontSize: '0.9rem',
-                    }}
-                  />
-                </div>
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'hsl(var(--text-secondary))',
+                  }}
+                >
+                  Telegram delivery uses the application-owned bot. Start the bot chat, then paste
+                  only the chat ID here.
+                </span>
               </div>
             )}
 
@@ -526,9 +488,7 @@ export default function DeliveryPanel({ session }: { session: Session | null }) 
                             <span>Webhook: {channel.config.webhook_url}</span>
                           )}
                           {channel.type === 'telegram' && (
-                            <span>
-                              Chat ID: {channel.config.chat_id} (Token: {channel.config.bot_token})
-                            </span>
+                            <span>Chat ID: {channel.config.chat_id}</span>
                           )}
                           {channel.type === 'webhook' && (
                             <div>
