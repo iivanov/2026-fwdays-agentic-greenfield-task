@@ -169,3 +169,11 @@ See `docs/roadmap.md` for the ordered corrective backlog.
 - `ingested_articles` no longer has broad authenticated read access; users can read only articles claimed by their owned flows.
 - Existing service-role access remains the worker path for shared cache operations.
 - Independent verifier PASS and reviewer APPROVE reports are retained in the archived change. R-11F is next.
+
+## R-11F Maker Implementation Status (2026-07-03)
+
+- Created OpenSpec change `r-11f-repair-queue-ack` for queue acknowledgement repairs.
+- Added transactional service-role RPCs so worker success commits domain state and queue acknowledgement together, with fail-closed claim/ack/archive error handling.
+- Updated the `work` Edge Function to use schema-correct delivery attempt states (`sending`, `delivered`, `failed`) and `error_message`.
+- Added worker regression tests for transactional completion, claim RPC failure, and DLQ ordering.
+- Maker checks, independent review approval, and independent verification with environment-limited Supabase gates are retained in the active change. R-11F is not archived because Supabase-backed migration/integration evidence could not run in this environment.
