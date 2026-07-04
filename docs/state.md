@@ -2,10 +2,10 @@
 
 ## Current Position
 
-- **Last completed stage**: R-11I (`r-11i-reconstruct-openspec-hygiene`)
-- **Active implementation slice**: R-12 (ingestion worker revision)
-- **Current checkpoint**: R-11I repaired canonical OpenSpec purpose/traceability and archive-evidence hygiene, retained independent verifier/reviewer reports, and is archived locally. R-12 is next.
-- **Paused draft**: R-12 ingestion worker; existing uncommitted maker output is preserved but fails current gates and requires a revised spec.
+- **Last completed stage**: R-12 (`r-12-ingestion-worker`)
+- **Active implementation slice**: R-13 (AI processing worker)
+- **Current checkpoint**: R-12 ingestion worker parses feeds/pages, uses SSRF-safe manual redirects, streams bounded bodies with timeout coverage, deduplicates by URL/GUID hashes, updates source health, retained independent verifier/reviewer reports, and is archived locally. R-13 is next.
+- **Paused draft**: none. The previous R-12 draft has been replaced by the active R-12 implementation.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
 

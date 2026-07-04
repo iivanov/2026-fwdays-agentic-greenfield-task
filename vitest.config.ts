@@ -8,8 +8,6 @@ export default defineConfig({
       '**/node_modules/**',
       '**/dist/**',
       '**/*.integration.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
-      // R-12 ingestion-worker is an active draft and must not affect R-11B unit gates.
-      'packages/browser/src/lib/ingestion-worker.test.ts',
     ],
     coverage: {
       provider: 'v8',

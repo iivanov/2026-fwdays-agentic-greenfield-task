@@ -1,7 +1,7 @@
 import { z, type ZodIssue } from 'zod';
 import {
-  fetchWithSsrfProtection,
   type DnsResolver,
+  fetchWithSsrfProtection,
   SsrfProtectionError,
   validateUrlSsrf,
 } from './ssrf.ts';

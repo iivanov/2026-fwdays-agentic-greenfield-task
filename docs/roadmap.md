@@ -74,7 +74,7 @@ unchanged evidence; these small OpenSpec slices supersede the defective parts.
 
 | ID | Slice | Depends on | Upstream IDs | Status |
 | --- | --- | --- | --- | --- |
-| R-12 | Ingestion worker: shared fetch, SSRF revalidate on redirect, bounded feed/page extraction, transactional hashed dedupe, source-health pause after 5 failed cycles (uncommitted draft exists) | R-11B..R-11I, R-08 | BR-SRC-04..06, D-02, AT-03..07, T-07, NFR-PERF-01/04, NFR-SEC-05 | pending |
+| R-12 | Ingestion worker: shared fetch, SSRF revalidate on redirect, bounded feed/page extraction, transactional hashed dedupe, source-health pause after 5 failed cycles (uncommitted draft exists) | R-11B..R-11I, R-08 | BR-SRC-04..06, D-02, AT-03..07, T-07, NFR-PERF-01/04, NFR-SEC-05 | done |
 | R-13 | AI processing worker: batch, near-dup grouping (n-gram Jaccard), truncation budget, OpenAI Responses API strict structured output, usage recording, `no_content` | R-11, R-09, R-12 | BR-FLOW-02..06, T-08, T-11, NFR-PERF-03, NFR-CON-02..03 | pending |
 | R-14 | Delivery workers: in-app, Brevo email, Telegram bot, Slack webhook, generic signed webhook; bounded retries + backoff + circuit breaker | R-11, R-10, R-13 | BR-DEL-02..05, T-10, NFR-REL-02..04, NFR-PERF-04, NFR-SEC-04..05 | pending |
 | R-15 | Feedback: thumbs up/down capture + reporting (no auto prompt change) | R-13 | BR-FLOW-08 | pending |
