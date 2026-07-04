@@ -1,7 +1,12 @@
 # ai-processing-worker Specification
 
 ## Purpose
-TBD - created by archiving change r-13-ai-processing-worker. Update Purpose after archive.
+Define the AI processing worker behavior for daily flow runs: claim only new
+articles, group near-duplicates, bound model input/output, request strict
+structured OpenAI output with one repair attempt, persist digest usage
+transactionally, and record no-content outcomes without generating empty
+digests.
+
 ## Requirements
 ### Requirement: Flow processing claims only new articles
 
@@ -76,4 +81,3 @@ Upstream: `BR-FLOW-05`, `BR-FLOW-06`, `T-11`, `NFR-CON-03`
 - **THEN** it records a sanitized worker failure
 - **AND** the error does not include article content, prompts, API keys, or
   provider response bodies
-

@@ -199,6 +199,140 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
       msg_id: processingJobs![0].msg_id,
     });
 
+    // 3b. Persisting a digest creates active-channel delivery attempts and
+    // ID-only delivery queue messages.
+    const { data: channel } = await supabaseAdmin
+      .from('delivery_channels')
+      .select('id')
+      .eq('user_id', testUserId)
+      .eq('type', 'in-app')
+      .single();
+    expect(channel).not.toBeNull();
+
+    const digestCycleDate = '2031-02-03';
+    const { data: processingRun } = await supabaseAdmin
+      .from('processing_runs')
+      .insert({ flow_id: flow!.id, cycle_date: digestCycleDate, status: 'processing' })
+      .select('id')
+      .single();
+    expect(processingRun).not.toBeNull();
+
+    const { data: digestArticle } = await supabaseAdmin
+      .from('ingested_articles')
+      .insert({
+        source_id: source!.id,
+        title: 'Delivery article',
+        url: `https://example.com/article-${Date.now()}`,
+        content: 'Article content for delivery integration.',
+      })
+      .select('id')
+      .single();
+    expect(digestArticle).not.toBeNull();
+
+    await supabaseAdmin.from('flow_articles').insert({
+      flow_id: flow!.id,
+      article_id: digestArticle!.id,
+      processing_run_id: processingRun!.id,
+      status: 'claimed',
+    });
+    await supabaseAdmin.from('flow_delivery_channels').insert({
+      flow_id: flow!.id,
+      channel_id: channel!.id,
+    });
+
+    const digestId = crypto.randomUUID();
+    const { data: persistedDigestId, error: persistError } = await supabaseAdmin.rpc(
+      'persist_processing_digest',
+      {
+        p_digest_id: digestId,
+        p_flow_id: flow!.id,
+        p_processing_run_id: processingRun!.id,
+        p_content: {
+          title: 'Integration Digest',
+          language: 'en',
+          sections: [
+            {
+              heading: 'Delivery',
+              items: [
+                {
+                  title: 'Attempt creation',
+                  summary: 'Digest persistence creates delivery attempts.',
+                  source_urls: ['https://example.com/article'],
+                },
+              ],
+            },
+          ],
+        },
+        p_token_usage: 42,
+        p_provider_request_id: 'req-delivery-integration',
+        p_model: 'gpt-5.4-mini',
+      },
+    );
+    expect(persistError).toBeNull();
+    expect(persistedDigestId).toBe(digestId);
+
+    const { data: attempts } = await supabaseAdmin
+      .from('digest_delivery_attempts')
+      .select('id,digest_id,channel_id,status')
+      .eq('digest_id', digestId);
+    expect(attempts).toHaveLength(1);
+    expect(attempts![0]).toMatchObject({
+      digest_id: digestId,
+      channel_id: channel!.id,
+      status: 'pending',
+    });
+
+    const { data: deliveryJobs } = await supabaseAdmin.rpc('claim_job', {
+      queue_name: 'delivery-queue',
+      lease_seconds: 1,
+    });
+    expect(deliveryJobs?.length).toBe(1);
+    expect(deliveryJobs![0].message).toEqual({
+      type: 'delivery',
+      attempt_id: attempts![0].id,
+    });
+
+    const circuitScopeKey = `integration-origin-${Date.now()}`;
+    const { error: retryError } = await supabaseAdmin.rpc('record_delivery_failure_worker_job', {
+      p_queue_name: 'delivery-queue',
+      p_msg_id: deliveryJobs![0].msg_id,
+      p_attempt_id: attempts![0].id,
+      p_error_message: 'webhook_http_429',
+      p_retryable: true,
+      p_retry_after_seconds: 600,
+      p_circuit_scope_type: 'webhook_origin',
+      p_circuit_scope_key: circuitScopeKey,
+    });
+    expect(retryError).toBeNull();
+
+    const { data: failedAttempt } = await supabaseAdmin
+      .from('digest_delivery_attempts')
+      .select('status,retry_count,next_attempt_at')
+      .eq('id', attempts![0].id)
+      .single();
+    expect(failedAttempt!.status).toBe('failed');
+    expect(failedAttempt!.retry_count).toBe(1);
+    expect(new Date(failedAttempt!.next_attempt_at).getTime()).toBeGreaterThan(
+      Date.now() + 500_000,
+    );
+
+    const { data: circuit } = await supabaseAdmin
+      .from('integration_circuits')
+      .select('scope_type,scope_key,consecutive_failure_count,state')
+      .eq('scope_type', 'webhook_origin')
+      .eq('scope_key', circuitScopeKey)
+      .single();
+    expect(circuit).toMatchObject({
+      scope_type: 'webhook_origin',
+      scope_key: circuitScopeKey,
+      consecutive_failure_count: 1,
+      state: 'closed',
+    });
+    await supabaseAdmin.rpc('delete_job', {
+      queue_name: 'delivery-queue',
+      msg_id: deliveryJobs![0].msg_id,
+    });
+
     // 4. Test simulated transient failure
     // Enqueue job with simulate_failure: true
     await supabaseAdmin.rpc('claim_job', { queue_name: 'ingestion-queue', lease_seconds: 1 }); // ensure clean

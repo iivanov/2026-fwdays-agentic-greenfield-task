@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { XMLParser } from 'fast-xml-parser';
 import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
-import { decryptPromptTemplate } from '../api/crypto.ts';
+import { decryptConfig, decryptPromptTemplate, getMasterKey } from '../api/crypto.ts';
 import { type DnsResolver, type FetchLike, fetchWithSsrfProtection } from '../api/ssrf.ts';
 
 interface JobPayload {
@@ -121,6 +121,17 @@ type ProcessingOptions = {
   timeoutMs?: number;
 };
 
+type DeliveryOptions = {
+  fetchImpl?: FetchLike;
+  resolveDns?: DnsResolver;
+  timeoutMs?: number;
+  brevoApiKey?: string;
+  brevoSenderEmail?: string;
+  telegramBotToken?: string;
+  masterCryptoKey?: string;
+  now?: () => Date;
+};
+
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_BYTES = 2 * 1024 * 1024;
 const DEFAULT_MAX_REDIRECTS = 5;
@@ -148,6 +159,32 @@ class ProcessingWorkerError extends Error {
   ) {
     super(message);
     this.name = 'ProcessingWorkerError';
+  }
+}
+
+class DeliveryWorkerError extends Error {
+  public circuitScopeType: string | null = null;
+  public circuitScopeKey: string | null = null;
+
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly retryable: boolean,
+    public readonly retryAfterSeconds: number | null = null,
+  ) {
+    super(message);
+    this.name = 'DeliveryWorkerError';
+  }
+}
+
+class DeliveryWorkerSkip extends Error {
+  constructor(
+    public readonly code: string,
+    public readonly action: 'ack' | 'requeue',
+    public readonly delaySeconds: number | null = null,
+  ) {
+    super(code);
+    this.name = 'DeliveryWorkerSkip';
   }
 }
 
@@ -376,6 +413,529 @@ const sha256Hex = async (value: string): Promise<string> => {
     .join('');
 };
 
+const hexToBytes = (hex: string): Uint8Array => {
+  if (!/^[0-9a-f]+$/i.test(hex) || hex.length % 2 !== 0) {
+    return new TextEncoder().encode(hex);
+  }
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let index = 0; index < bytes.length; index += 1) {
+    bytes[index] = parseInt(hex.slice(index * 2, index * 2 + 2), 16);
+  }
+  return bytes;
+};
+
+const toPlainArrayBuffer = (bytes: Uint8Array): ArrayBuffer => {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+};
+
+const hmacSha256Hex = async (secret: string, value: string): Promise<string> => {
+  const encodedValue = new TextEncoder().encode(value);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    toPlainArrayBuffer(hexToBytes(secret)),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, toPlainArrayBuffer(encodedValue));
+  return Array.from(new Uint8Array(signature))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const renderDigestPlainText = (digest: StructuredDigest, flowName: string): string => {
+  const lines = [`${digest.title}`, `Flow: ${flowName}`, `Language: ${digest.language}`];
+  for (const section of digest.sections) {
+    lines.push('', section.heading);
+    for (const item of section.items) {
+      lines.push(`- ${item.title}`, item.summary);
+      if (item.source_urls.length > 0) {
+        lines.push(`  Sources: ${item.source_urls.join(', ')}`);
+      }
+    }
+  }
+  return lines.join('\n').trim();
+};
+
+const renderDigestHtml = (digest: StructuredDigest, flowName: string): string => {
+  const sections = digest.sections
+    .map((section) => {
+      const items = section.items
+        .map((item) => {
+          const sources = item.source_urls
+            .map((url) => `<li><a href="${escapeHtml(url)}">${escapeHtml(url)}</a></li>`)
+            .join('');
+          return `<li><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.summary)}</p>${
+            sources ? `<ul>${sources}</ul>` : ''
+          }</li>`;
+        })
+        .join('');
+      return `<h2>${escapeHtml(section.heading)}</h2><ul>${items}</ul>`;
+    })
+    .join('');
+
+  return `<!doctype html><html><body><h1>${escapeHtml(digest.title)}</h1><p>Flow: ${
+    escapeHtml(flowName)
+  }</p>${sections}</body></html>`;
+};
+
+const splitMessage = (text: string, limit: number): string[] => {
+  if (text.length <= limit) return [text];
+  const chunks: string[] = [];
+  let remaining = text;
+  while (remaining.length > limit) {
+    const paragraphBreak = remaining.lastIndexOf('\n\n', limit);
+    const lineBreak = remaining.lastIndexOf('\n', limit);
+    const splitAt = paragraphBreak > limit * 0.5
+      ? paragraphBreak
+      : lineBreak > 0
+      ? lineBreak
+      : limit;
+    chunks.push(remaining.slice(0, splitAt).trim());
+    remaining = remaining.slice(splitAt).trim();
+  }
+  if (remaining) chunks.push(remaining);
+  return chunks;
+};
+
+const parseRetryAfterSeconds = (value: string | null): number | null => {
+  if (!value) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(Math.ceil(seconds), 3600);
+  const dateMs = new Date(value).getTime();
+  if (Number.isNaN(dateMs)) return null;
+  return Math.min(Math.max(Math.ceil((dateMs - Date.now()) / 1000), 0), 3600);
+};
+
+const isRetryableDeliveryStatus = (status: number): boolean =>
+  status === 408 || status === 425 || status === 429 || status >= 500;
+
+const classifyDeliveryResponse = (response: Response, adapter: string): void => {
+  if (response.ok) return;
+  const retryable = isRetryableDeliveryStatus(response.status);
+  throw new DeliveryWorkerError(
+    `${adapter}_http_${response.status}`,
+    `${adapter}_http_${response.status}`,
+    retryable,
+    parseRetryAfterSeconds(response.headers.get('retry-after')),
+  );
+};
+
+const fetchJsonWithTimeout = async (
+  url: string,
+  body: Record<string, unknown>,
+  options: DeliveryOptions,
+  headers: Record<string, string> = {},
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 10_000);
+  try {
+    const fetchImpl = options.fetchImpl ?? fetch;
+    return await fetchImpl(url, {
+      method: 'POST',
+      signal: controller.signal,
+      redirect: 'manual',
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      body: JSON.stringify(body),
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const fetchJsonWithSsrfTimeout = async (
+  url: string,
+  body: Record<string, unknown>,
+  options: DeliveryOptions,
+  headers: Record<string, string> = {},
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 10_000);
+  try {
+    return await fetchWithSsrfProtection(
+      url,
+      {
+        method: 'POST',
+        signal: controller.signal,
+        redirect: 'manual',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        body: JSON.stringify(body),
+      },
+      {
+        fetchImpl: options.fetchImpl,
+        resolveDns: options.resolveDns,
+        followRedirects: false,
+      },
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const getStringConfig = (
+  config: Record<string, unknown>,
+  key: string,
+  errorCode: string,
+): string => {
+  const value = config[key];
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new DeliveryWorkerError(errorCode, errorCode, false);
+  }
+  return value;
+};
+
+const getWebhookOriginScopeKey = async (url: string): Promise<string> => {
+  const origin = new URL(url).origin.toLowerCase();
+  return await sha256Hex(origin);
+};
+
+const getDeliveryConfig = async (
+  channel: DeliveryChannelRecord,
+  options: DeliveryOptions,
+): Promise<Record<string, unknown>> => {
+  const masterKey = options.masterCryptoKey ?? getMasterKey();
+  const decrypted = await decryptConfig(channel.config, masterKey);
+  return decrypted && typeof decrypted === 'object' ? decrypted as Record<string, unknown> : {};
+};
+
+const loadDeliveryAttemptBundle = async (
+  supabaseAdmin: SupabaseAdmin,
+  attemptId: string,
+): Promise<{
+  attempt: DeliveryAttemptRecord;
+  channel: DeliveryChannelRecord;
+  digest: ProcessedDigestRecord;
+  flow: Pick<ProcessingFlowRecord, 'id' | 'name'>;
+}> => {
+  const attempt = await selectSingle<DeliveryAttemptRecord>(
+    supabaseAdmin,
+    'digest_delivery_attempts',
+    'id,digest_id,channel_id,status',
+    { id: attemptId },
+  );
+  if (!attempt) {
+    throw new DeliveryWorkerError('delivery_attempt_not_found', 'delivery_not_found', false);
+  }
+  if (!attempt.channel_id) {
+    throw new DeliveryWorkerError('delivery_channel_missing', 'delivery_channel_missing', false);
+  }
+
+  const channel = await selectSingle<DeliveryChannelRecord>(
+    supabaseAdmin,
+    'delivery_channels',
+    'id,user_id,type,status,config',
+    { id: attempt.channel_id },
+  );
+  if (!channel) {
+    throw new DeliveryWorkerError('delivery_channel_not_found', 'delivery_channel_missing', false);
+  }
+  if (channel.status !== 'active') {
+    throw new DeliveryWorkerError(
+      'delivery_channel_not_active',
+      'delivery_channel_not_active',
+      false,
+    );
+  }
+
+  const digest = await selectSingle<ProcessedDigestRecord>(
+    supabaseAdmin,
+    'processed_digests',
+    'id,flow_id,content',
+    { id: attempt.digest_id },
+  );
+  if (!digest) throw new DeliveryWorkerError('digest_not_found', 'digest_not_found', false);
+
+  const flow = await selectSingle<Pick<ProcessingFlowRecord, 'id' | 'name'>>(
+    supabaseAdmin,
+    'processing_flows',
+    'id,name',
+    { id: digest.flow_id },
+  );
+  if (!flow) throw new DeliveryWorkerError('flow_not_found', 'flow_not_found', false);
+
+  return { attempt, channel, digest, flow };
+};
+
+const claimDeliveryAttempt = async (supabaseAdmin: SupabaseAdmin, attemptId: string) => {
+  const result = assertRpcOk(
+    await supabaseAdmin.rpc('claim_delivery_attempt', { p_attempt_id: attemptId }),
+    'claim delivery attempt failed',
+  ) as ClaimDeliveryResult;
+
+  if (!result.claimed) {
+    if (result.status === 'delivered') {
+      throw new DeliveryWorkerSkip('delivery_already_completed', 'ack');
+    }
+    if (result.status === 'pending' || result.status === 'failed' || result.status === 'sending') {
+      throw new DeliveryWorkerSkip(
+        'delivery_not_due',
+        'requeue',
+        secondsUntil(result.next_attempt_at),
+      );
+    }
+    throw new DeliveryWorkerError('delivery_not_claimable', 'delivery_not_claimable', false);
+  }
+};
+
+const assertCircuitAllowsDelivery = async (
+  supabaseAdmin: SupabaseAdmin,
+  scopeType: string | null,
+  scopeKey: string | null,
+) => {
+  if (!scopeType || !scopeKey) return;
+  const result = assertRpcOk(
+    await supabaseAdmin.rpc('claim_integration_circuit_probe', {
+      p_scope_type: scopeType,
+      p_scope_key: scopeKey,
+    }),
+    'claim integration circuit probe failed',
+  ) as { allowed?: boolean };
+
+  if (result.allowed === false) {
+    throw new DeliveryWorkerError('delivery_circuit_open', 'delivery_circuit_open', true);
+  }
+};
+
+const annotateDeliveryError = (error: DeliveryWorkerError, circuit: DeliveryResult) => {
+  error.circuitScopeType = circuit.circuitScopeType;
+  error.circuitScopeKey = circuit.circuitScopeKey;
+  return error;
+};
+
+const normalizeDeliveryAdapterError = (
+  error: unknown,
+  circuit: DeliveryResult,
+): DeliveryWorkerError => {
+  if (error instanceof DeliveryWorkerError) return annotateDeliveryError(error, circuit);
+  const errorName = getErrorName(error);
+  if (errorName === 'AbortError') {
+    return annotateDeliveryError(
+      new DeliveryWorkerError('delivery_timeout', 'delivery_timeout', true),
+      circuit,
+    );
+  }
+  if (errorName === 'SsrfProtectionError') {
+    return annotateDeliveryError(
+      new DeliveryWorkerError('ssrf_blocked', 'ssrf_blocked', false),
+      circuit,
+    );
+  }
+  if (error instanceof TypeError) {
+    return annotateDeliveryError(
+      new DeliveryWorkerError('delivery_transport_failed', 'delivery_transport_failed', true),
+      circuit,
+    );
+  }
+  return annotateDeliveryError(
+    new DeliveryWorkerError('delivery_adapter_failed', 'delivery_adapter_failed', false),
+    circuit,
+  );
+};
+
+const resolveCircuitScope = async (
+  channel: DeliveryChannelRecord,
+  config: Record<string, unknown>,
+): Promise<DeliveryResult> => {
+  if (channel.type === 'email') {
+    return { circuitScopeType: 'email_provider', circuitScopeKey: 'brevo' };
+  }
+  if (channel.type === 'telegram') {
+    return { circuitScopeType: 'telegram', circuitScopeKey: 'bot_api' };
+  }
+  if (channel.type === 'slack') {
+    const url = getStringConfig(config, 'webhook_url', 'slack_url_missing');
+    return { circuitScopeType: 'slack', circuitScopeKey: await getWebhookOriginScopeKey(url) };
+  }
+  if (channel.type === 'webhook') {
+    const url = getStringConfig(config, 'webhook_url', 'webhook_url_missing');
+    return {
+      circuitScopeType: 'webhook_origin',
+      circuitScopeKey: await getWebhookOriginScopeKey(url),
+    };
+  }
+  return { circuitScopeType: null, circuitScopeKey: null };
+};
+
+const deliverEmail = async (
+  bundle: Awaited<ReturnType<typeof loadDeliveryAttemptBundle>>,
+  config: Record<string, unknown>,
+  options: DeliveryOptions,
+) => {
+  const apiKey = options.brevoApiKey;
+  const senderEmail = options.brevoSenderEmail;
+  if (!apiKey || !senderEmail) {
+    throw new DeliveryWorkerError('brevo_not_configured', 'brevo_not_configured', true);
+  }
+  const recipient = getStringConfig(config, 'email', 'email_recipient_missing');
+  const text = renderDigestPlainText(bundle.digest.content, bundle.flow.name);
+  const html = renderDigestHtml(bundle.digest.content, bundle.flow.name);
+  const response = await fetchJsonWithTimeout(
+    'https://api.brevo.com/v3/smtp/email',
+    {
+      sender: { email: senderEmail, name: 'News Aggregator' },
+      to: [{ email: recipient }],
+      subject: bundle.digest.content.title,
+      htmlContent: html,
+      textContent: text,
+    },
+    options,
+    {
+      'api-key': apiKey,
+      Accept: 'application/json',
+    },
+  );
+  await classifyDeliveryResponse(response, 'brevo');
+};
+
+const deliverTelegram = async (
+  bundle: Awaited<ReturnType<typeof loadDeliveryAttemptBundle>>,
+  config: Record<string, unknown>,
+  options: DeliveryOptions,
+) => {
+  const botToken = options.telegramBotToken;
+  if (!botToken) {
+    throw new DeliveryWorkerError(
+      'telegram_bot_not_configured',
+      'telegram_bot_not_configured',
+      true,
+    );
+  }
+  const chatId = getStringConfig(config, 'chat_id', 'telegram_chat_missing');
+  const text = renderDigestPlainText(bundle.digest.content, bundle.flow.name);
+  for (const chunk of splitMessage(text, 3900)) {
+    const response = await fetchJsonWithTimeout(
+      `https://api.telegram.org/bot${encodeURIComponent(botToken)}/sendMessage`,
+      { chat_id: chatId, text: chunk, disable_web_page_preview: true },
+      options,
+    );
+    await classifyDeliveryResponse(response, 'telegram');
+  }
+};
+
+const deliverSlack = async (
+  bundle: Awaited<ReturnType<typeof loadDeliveryAttemptBundle>>,
+  config: Record<string, unknown>,
+  options: DeliveryOptions,
+) => {
+  const webhookUrl = getStringConfig(config, 'webhook_url', 'slack_url_missing');
+  const text = renderDigestPlainText(bundle.digest.content, bundle.flow.name);
+  for (const chunk of splitMessage(text, 3500)) {
+    const response = await fetchJsonWithSsrfTimeout(webhookUrl, { text: chunk }, options);
+    if (response.status >= 300 && response.status < 400) {
+      throw new DeliveryWorkerError('slack_redirect_blocked', 'slack_redirect_blocked', false);
+    }
+    await classifyDeliveryResponse(response, 'slack');
+  }
+};
+
+const buildWebhookPayload = (
+  bundle: Awaited<ReturnType<typeof loadDeliveryAttemptBundle>>,
+  timestamp: number,
+) => ({
+  schema_version: 1,
+  event_type: 'digest.delivered',
+  event_id: bundle.attempt.id,
+  timestamp,
+  flow: {
+    id: bundle.flow.id,
+    name: bundle.flow.name,
+  },
+  digest: {
+    id: bundle.digest.id,
+    content: bundle.digest.content,
+  },
+});
+
+const deliverWebhook = async (
+  bundle: Awaited<ReturnType<typeof loadDeliveryAttemptBundle>>,
+  config: Record<string, unknown>,
+  options: DeliveryOptions,
+) => {
+  const webhookUrl = getStringConfig(config, 'webhook_url', 'webhook_url_missing');
+  const parsedUrl = new URL(webhookUrl);
+  if (parsedUrl.protocol !== 'https:') {
+    throw new DeliveryWorkerError('webhook_https_required', 'webhook_https_required', false);
+  }
+  const signingSecret = getStringConfig(config, 'signing_secret', 'webhook_secret_missing');
+  const timestamp = Math.floor((options.now?.() ?? new Date()).getTime() / 1000);
+  const payload = buildWebhookPayload(bundle, timestamp);
+  const rawBody = JSON.stringify(payload);
+  const signature = await hmacSha256Hex(signingSecret, `${timestamp}.${rawBody}`);
+  const response = await fetchJsonWithSsrfTimeout(
+    webhookUrl,
+    payload,
+    options,
+    {
+      'X-News-Event-Id': bundle.attempt.id,
+      'X-News-Timestamp': String(timestamp),
+      'X-News-Signature': `v1=${signature}`,
+    },
+  );
+  if (response.status >= 300 && response.status < 400) {
+    throw new DeliveryWorkerError('webhook_redirect_blocked', 'webhook_redirect_blocked', false);
+  }
+  await classifyDeliveryResponse(response, 'webhook');
+};
+
+export async function deliverAttempt(
+  supabaseAdmin: SupabaseAdmin,
+  attemptId: string,
+  options: DeliveryOptions = {},
+): Promise<DeliveryResult> {
+  await claimDeliveryAttempt(supabaseAdmin, attemptId);
+  const bundle = await loadDeliveryAttemptBundle(supabaseAdmin, attemptId);
+  const config = await getDeliveryConfig(bundle.channel, options);
+  const circuit = await resolveCircuitScope(bundle.channel, config);
+  try {
+    await assertCircuitAllowsDelivery(
+      supabaseAdmin,
+      circuit.circuitScopeType,
+      circuit.circuitScopeKey,
+    );
+  } catch (error: unknown) {
+    if (error instanceof DeliveryWorkerError) {
+      error.circuitScopeType = circuit.circuitScopeType;
+      error.circuitScopeKey = circuit.circuitScopeKey;
+    }
+    throw error;
+  }
+
+  try {
+    if (bundle.channel.type === 'in-app') return circuit;
+    if (bundle.channel.type === 'email') await deliverEmail(bundle, config, options);
+    else if (bundle.channel.type === 'telegram') await deliverTelegram(bundle, config, options);
+    else if (bundle.channel.type === 'slack') await deliverSlack(bundle, config, options);
+    else if (bundle.channel.type === 'webhook') await deliverWebhook(bundle, config, options);
+    else {
+      throw new DeliveryWorkerError(
+        'delivery_channel_unsupported',
+        'delivery_channel_unsupported',
+        false,
+      );
+    }
+  } catch (error: unknown) {
+    throw normalizeDeliveryAdapterError(error, circuit);
+  }
+
+  return circuit;
+}
+
 const selectSingle = async <T>(
   supabaseAdmin: SupabaseAdmin,
   table: string,
@@ -473,6 +1033,7 @@ const getErrorName = (error: unknown): string =>
 const safeErrorCode = (error: unknown): string => {
   if (error instanceof IngestionWorkerError) return error.code;
   if (error instanceof ProcessingWorkerError) return error.code;
+  if (error instanceof DeliveryWorkerError) return error.code;
   if (getErrorName(error) === 'AbortError') return 'fetch_timeout';
   if (getErrorName(error) === 'SsrfProtectionError') return 'ssrf_blocked';
   return 'ingestion_failed';
@@ -705,6 +1266,47 @@ type OpenAiResponseBody = {
     input_tokens?: unknown;
     output_tokens?: unknown;
   };
+};
+
+type DeliveryChannelType = 'in-app' | 'email' | 'telegram' | 'slack' | 'webhook';
+
+type DeliveryAttemptRecord = {
+  id: string;
+  digest_id: string;
+  channel_id: string | null;
+  status: string;
+};
+
+type DeliveryChannelRecord = {
+  id: string;
+  user_id: string;
+  type: DeliveryChannelType;
+  status: string;
+  config: unknown;
+};
+
+type ProcessedDigestRecord = {
+  id: string;
+  flow_id: string;
+  content: StructuredDigest;
+};
+
+type DeliveryResult = {
+  circuitScopeType: string | null;
+  circuitScopeKey: string | null;
+};
+
+type ClaimDeliveryResult = {
+  claimed?: boolean;
+  status?: string;
+  next_attempt_at?: string | null;
+};
+
+const secondsUntil = (isoDate: string | null | undefined): number => {
+  if (!isoDate) return 300;
+  const ms = new Date(isoDate).getTime();
+  if (Number.isNaN(ms)) return 300;
+  return Math.min(Math.max(Math.ceil((ms - Date.now()) / 1000), 1), 3600);
 };
 
 const normalizeWords = (text: string): string[] =>
@@ -1301,16 +1903,6 @@ const markProcessing = async (
       .eq('flow_id', message.flow_id)
       .eq('cycle_date', cycleDate);
     if (error) throw new Error(`mark processing run failed: ${error.message}`);
-  } else if (kind === 'delivery' && message.attempt_id) {
-    const { error } = await supabaseAdmin
-      .from('digest_delivery_attempts')
-      .update({
-        status: 'sending',
-        locked_at: new Date().toISOString(),
-        attempted_at: new Date().toISOString(),
-      })
-      .eq('id', message.attempt_id);
-    if (error) throw new Error(`mark delivery sending failed: ${error.message}`);
   }
 };
 
@@ -1321,7 +1913,22 @@ const completeJob = async (
   kind: WorkerKind,
   message: JobPayload,
   cycleDate: string,
+  deliveryResult: DeliveryResult | null = null,
 ) => {
+  if (kind === 'delivery') {
+    assertRpcOk(
+      await supabaseAdmin.rpc('complete_delivery_worker_job', {
+        p_queue_name: activeQueue,
+        p_msg_id: msgId,
+        p_attempt_id: message.attempt_id ?? null,
+        p_circuit_scope_type: deliveryResult?.circuitScopeType ?? null,
+        p_circuit_scope_key: deliveryResult?.circuitScopeKey ?? null,
+      }),
+      'complete delivery worker job failed',
+    );
+    return;
+  }
+
   assertRpcOk(
     await supabaseAdmin.rpc('complete_worker_job', {
       p_queue_name: activeQueue,
@@ -1333,6 +1940,67 @@ const completeJob = async (
       p_cycle_date: cycleDate,
     }),
     'complete worker job failed',
+  );
+};
+
+const toDeliveryWorkerError = (error: unknown): DeliveryWorkerError => {
+  if (error instanceof DeliveryWorkerError) return error;
+  const code = safeErrorCode(error);
+  const retryable = code === 'fetch_timeout' || code === 'delivery_not_due';
+  return new DeliveryWorkerError(code, code, retryable);
+};
+
+const recordDeliveryFailure = async (
+  supabaseAdmin: SupabaseAdmin,
+  activeQueue: string,
+  msgId: string | number,
+  attemptId: string,
+  error: DeliveryWorkerError,
+) => {
+  assertRpcOk(
+    await supabaseAdmin.rpc('record_delivery_failure_worker_job', {
+      p_queue_name: activeQueue,
+      p_msg_id: msgId,
+      p_attempt_id: attemptId,
+      p_error_message: error.code,
+      p_retryable: error.retryable,
+      p_retry_after_seconds: error.retryAfterSeconds,
+      p_circuit_scope_type: error.circuitScopeType,
+      p_circuit_scope_key: error.circuitScopeKey,
+    }),
+    'record delivery failure failed',
+  );
+};
+
+const acknowledgeDeliveryJob = async (
+  supabaseAdmin: SupabaseAdmin,
+  activeQueue: string,
+  msgId: string | number,
+) => {
+  assertRpcOk(
+    await supabaseAdmin.rpc('acknowledge_delivery_worker_job', {
+      p_queue_name: activeQueue,
+      p_msg_id: msgId,
+    }),
+    'acknowledge delivery worker job failed',
+  );
+};
+
+const requeueDeliveryJob = async (
+  supabaseAdmin: SupabaseAdmin,
+  activeQueue: string,
+  msgId: string | number,
+  attemptId: string,
+  delaySeconds: number,
+) => {
+  assertRpcOk(
+    await supabaseAdmin.rpc('requeue_delivery_worker_job', {
+      p_queue_name: activeQueue,
+      p_msg_id: msgId,
+      p_attempt_id: attemptId,
+      p_delay_seconds: delaySeconds,
+    }),
+    'requeue delivery worker job failed',
   );
 };
 
@@ -1360,6 +2028,7 @@ type CreateAdminClient = (url: string, serviceKey: string) => SupabaseAdmin;
 type WorkHandlerOptions = {
   ingestion?: IngestionOptions;
   processing?: ProcessingOptions;
+  delivery?: DeliveryOptions;
 };
 
 export const createWorkHandler =
@@ -1416,10 +2085,13 @@ export const createWorkHandler =
       return json({ status: 'dlq_archived', msg_id: msgId, reason: 'Retry count exceeded 5' });
     }
 
+    let deliveryProviderAccepted = false;
+
     try {
       await markProcessing(supabaseAdmin, kind, message, cycleDate);
 
       if (message.simulate_failure) throw new Error('Simulated worker execution failure');
+      let deliveryResult: DeliveryResult | null = null;
       if (kind === 'ingestion') {
         if (!message.source_id) throw new Error('Ingestion job missing source_id');
         await ingestSource(supabaseAdmin, message.source_id, options.ingestion);
@@ -1429,12 +2101,99 @@ export const createWorkHandler =
           ...options.processing,
           openAiApiKey: options.processing?.openAiApiKey ?? envs.OPENAI_API_KEY,
         });
+      } else if (kind === 'delivery') {
+        if (!message.attempt_id) throw new Error('Delivery job missing attempt_id');
+        deliveryResult = await deliverAttempt(supabaseAdmin, message.attempt_id, {
+          ...options.delivery,
+          brevoApiKey: options.delivery?.brevoApiKey ?? envs.BREVO_API_KEY,
+          brevoSenderEmail: options.delivery?.brevoSenderEmail ?? envs.BREVO_SENDER_EMAIL,
+          telegramBotToken: options.delivery?.telegramBotToken ?? envs.TELEGRAM_BOT_TOKEN,
+          masterCryptoKey: options.delivery?.masterCryptoKey ?? envs.MASTER_CRYPTO_KEY,
+        });
+        deliveryProviderAccepted = true;
       }
 
-      await completeJob(supabaseAdmin, activeQueue, msgId, kind, message, cycleDate);
+      await completeJob(
+        supabaseAdmin,
+        activeQueue,
+        msgId,
+        kind,
+        message,
+        cycleDate,
+        deliveryResult,
+      );
 
       return json({ status: 'completed', msg_id: msgId });
     } catch (err: unknown) {
+      if (kind === 'delivery' && message.attempt_id) {
+        if (deliveryProviderAccepted && !(err instanceof DeliveryWorkerError)) {
+          const completionError = err instanceof Error ? err.message : 'Unknown execution failure';
+          return json({ status: 'failed', msg_id: msgId, error: completionError }, 500);
+        }
+
+        if (err instanceof DeliveryWorkerSkip) {
+          try {
+            if (err.action === 'ack') {
+              await acknowledgeDeliveryJob(supabaseAdmin, activeQueue, msgId);
+            } else {
+              await requeueDeliveryJob(
+                supabaseAdmin,
+                activeQueue,
+                msgId,
+                message.attempt_id,
+                err.delaySeconds ?? 300,
+              );
+            }
+          } catch (skipRecordErr: unknown) {
+            const recordError = skipRecordErr instanceof Error
+              ? skipRecordErr.message
+              : 'Unknown delivery skip recording error';
+            return json({
+              status: 'failed',
+              msg_id: msgId,
+              error: err.code,
+              failure_record_error: recordError,
+            }, 500);
+          }
+
+          return json({
+            status: err.action === 'ack' ? 'completed' : 'delivery_requeued',
+            msg_id: msgId,
+            error: err.code,
+          });
+        }
+
+        const deliveryError = toDeliveryWorkerError(err);
+        try {
+          await recordDeliveryFailure(
+            supabaseAdmin,
+            activeQueue,
+            msgId,
+            message.attempt_id,
+            deliveryError,
+          );
+        } catch (failureRecordErr: unknown) {
+          const recordError = failureRecordErr instanceof Error
+            ? failureRecordErr.message
+            : 'Unknown failure recording error';
+          return json({
+            status: 'failed',
+            msg_id: msgId,
+            error: deliveryError.code,
+            failure_record_error: recordError,
+          }, 500);
+        }
+
+        return json(
+          {
+            status: deliveryError.retryable ? 'failed' : 'delivery_failed_permanent',
+            msg_id: msgId,
+            error: deliveryError.code,
+          },
+          deliveryError.retryable ? 500 : 200,
+        );
+      }
+
       const errMsg = err instanceof IngestionWorkerError || err instanceof ProcessingWorkerError
         ? safeErrorMessage(err)
         : err instanceof Error
@@ -1472,6 +2231,10 @@ export default {
         SUPABASE_URL: Deno.env.get('SUPABASE_URL') ?? '',
         SUPABASE_SERVICE_ROLE_KEY: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
         OPENAI_API_KEY: Deno.env.get('OPENAI_API_KEY') ?? '',
+        BREVO_API_KEY: Deno.env.get('BREVO_API_KEY') ?? '',
+        BREVO_SENDER_EMAIL: Deno.env.get('BREVO_SENDER_EMAIL') ?? '',
+        TELEGRAM_BOT_TOKEN: Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '',
+        MASTER_CRYPTO_KEY: Deno.env.get('MASTER_CRYPTO_KEY') ?? '',
       };
       return await workHandler(req, envs);
     } catch (err: unknown) {

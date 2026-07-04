@@ -1124,3 +1124,90 @@ A change is complete only when:
 - Independent verifier PASS and reviewer APPROVE reports are retained in the
   archived OpenSpec change after multiple checker-requested repairs.
 - R-13 is marked done in the roadmap. R-14 delivery workers are next.
+
+### 2026-07-04 — R-14 delivery workers maker checkpoint
+
+**AI contribution**
+
+- Created OpenSpec change `r-14-delivery-workers` for the delivery runtime
+  slice.
+- Added migration `20260704183308_r14_delivery_workers.sql` to create delivery
+  attempts from digest persistence, enqueue ID-only `delivery-queue` messages,
+  claim delivery attempts atomically, record retry/backoff state, update channel
+  failure counters, and manage integration circuit probes/resets.
+- Extended the `work` Edge Function with delivery adapters for in-app, Brevo
+  transactional email, Telegram bot messages, Slack incoming webhooks, and
+  generic signed webhooks.
+- Added per-attempt webhook SSRF revalidation, no-redirect webhook behavior,
+  generic webhook HMAC signing headers, bounded delivery timeouts, retryable vs
+  permanent response classification, and `Retry-After` handling.
+- Added focused delivery worker tests and extended queue SQL/integration tests
+  for adapter payloads, webhook signatures, redirect blocking, permanent
+  failure acknowledgement, digest-to-attempt creation, retry backoff, and
+  circuit rows.
+- Checked Supabase changelog on 2026-07-04; no R-14-relevant breaking item
+  affected Edge Functions, queues, or migrations. Checked current Brevo,
+  Telegram, and Slack HTTP contract shapes for the adapter request bodies.
+
+**Verification performed by maker**
+
+- `npx vitest run packages/browser/src/lib/delivery-worker.test.ts
+  packages/browser/src/lib/queue-worker.test.ts` passed: 2 files, 14 tests.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run format` passed.
+- `npm run test` passed: 11 files, 127 tests.
+- `npm run deno:check` passed.
+- `npm run deno:lint` passed.
+- `npm run deno:fmt` passed.
+- `npm run supabase:reset` passed and applied the R-14 migration locally.
+- `npm run supabase:lint` passed with no schema errors.
+- `npm run test:integration` passed: 3 files, 4 tests.
+- `npx -y @fission-ai/openspec@1.5.0 show r-14-delivery-workers` and
+  `npx -y @fission-ai/openspec@1.5.0 validate r-14-delivery-workers --strict`
+  passed.
+
+**Not complete**
+
+- Independent verifier and reviewer passes are pending. R-14 remains `in review`
+  until checker reports are retained and blocking findings, if any, are fixed.
+
+**Checker repair loop**
+
+- The first independent verifier attempt found an integration isolation failure:
+  the retry/circuit test reused a static circuit key and observed
+  `consecutive_failure_count = 2` after a previous run. The test now uses a
+  unique circuit key per run.
+- The independent reviewer requested changes for three delivery state-machine
+  defects: duplicate delivered jobs could regress attempts to `failed`,
+  not-yet-due retry jobs could increment failure counters without contacting a
+  provider, and fetch/timeout transport errors could lose retry/circuit
+  classification.
+- The worker now treats already-delivered attempts as idempotent queue
+  acknowledgements, requeues not-yet-due attempts with a delivery delay, and
+  wraps `AbortError`/network `TypeError`/SSRF failures into scoped delivery
+  errors before recording failure state.
+- The migration now includes `acknowledge_delivery_worker_job` and
+  `requeue_delivery_worker_job` RPCs so those no-failure paths still update the
+  queue transactionally.
+- Focused R-14 tests now include delivered-duplicate acknowledgement,
+  not-yet-due requeue, and transport failure circuit-scope regressions.
+- Post-fix maker reruns passed: focused delivery/queue Vitest, `npm run
+  typecheck`, `npm run deno:check`, `npm run deno:lint`, `npm run deno:fmt`,
+  `npm run supabase:reset`, `npm run supabase:lint`, `npm run
+  test:integration`, `npm run verify:local`, OpenSpec strict validation, and
+  `git diff --check`.
+- The final verifier rerun passed focused delivery/queue tests, `npm run
+  verify:local`, `npm run supabase:lint`, `npm run test:integration`, OpenSpec
+  strict validation, and `git diff --check`. The final reviewer approved with
+  no blocking findings and one non-blocking note about keeping SQL skip-path
+  coverage executable in later reliability work.
+
+### 2026-07-04 — R-14 closure
+
+**Closure**
+
+- Independent verifier PASS and reviewer APPROVE reports are retained in the
+  OpenSpec change before archive.
+- R-14 is marked done in the roadmap. R-15 feedback capture is the next
+  processing-pipeline slice.

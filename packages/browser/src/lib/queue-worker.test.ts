@@ -19,6 +19,10 @@ const r13MigrationSource = readFileSync(
   'supabase/migrations/20260704165230_r13_preserve_processing_no_content.sql',
   'utf8',
 );
+const r14MigrationSource = readFileSync(
+  'supabase/migrations/20260704183308_r14_delivery_workers.sql',
+  'utf8',
+);
 
 type RpcResult = { data: unknown; error: { message: string } | null };
 type RpcCall = { name: string; args?: Record<string, unknown> };
@@ -28,6 +32,38 @@ const makeClient = (
 ) => {
   const calls: RpcCall[] = [];
   const updates: Array<{ table: string; patch: Record<string, unknown> }> = [];
+  const tables: Record<string, Record<string, unknown>[]> = {
+    digest_delivery_attempts: [
+      {
+        id: '11111111-1111-1111-1111-111111111111',
+        digest_id: '22222222-2222-2222-2222-222222222222',
+        channel_id: '33333333-3333-3333-3333-333333333333',
+        status: 'pending',
+      },
+    ],
+    delivery_channels: [
+      {
+        id: '33333333-3333-3333-3333-333333333333',
+        user_id: '44444444-4444-4444-4444-444444444444',
+        type: 'in-app',
+        status: 'active',
+        config: {},
+      },
+    ],
+    processed_digests: [
+      {
+        id: '22222222-2222-2222-2222-222222222222',
+        flow_id: '55555555-5555-5555-5555-555555555555',
+        content: { title: 'Digest', language: 'en', sections: [] },
+      },
+    ],
+    processing_flows: [
+      {
+        id: '55555555-5555-5555-5555-555555555555',
+        name: 'Daily Digest',
+      },
+    ],
+  };
   const client = {
     calls,
     updates,
@@ -39,6 +75,26 @@ const makeClient = (
       return { data: {}, error: null };
     },
     from: (table: string) => ({
+      select: () => {
+        const predicates: Record<string, unknown> = {};
+        const builder = {
+          eq: (column: string, value: string) => {
+            predicates[column] = value;
+            return builder;
+          },
+          limit: () => builder,
+          maybeSingle: async () => ({
+            data:
+              (tables[table] ?? []).find((row) =>
+                Object.entries(predicates).every(([column, value]) => row[column] === value),
+              ) ?? null,
+            error: null,
+          }),
+          then: (resolve: (value: { data?: unknown; error: null }) => void) =>
+            resolve({ data: tables[table] ?? [], error: null }),
+        };
+        return builder;
+      },
       update: (patch: Record<string, unknown>) => {
         updates.push({ table, patch });
         const builder = {
@@ -69,8 +125,11 @@ describe('R-11F queue worker safeguards', () => {
             : [],
         error: null,
       }),
-      complete_worker_job: { data: null, error: { message: 'Queue acknowledgement failed' } },
-      fail_worker_job: { data: { updated_rows: 1 }, error: null },
+      claim_delivery_attempt: { data: { claimed: true, status: 'sending' }, error: null },
+      complete_delivery_worker_job: {
+        data: null,
+        error: { message: 'Queue acknowledgement failed' },
+      },
     });
     const handler = createWorkHandler(() => fakeClient);
 
@@ -82,13 +141,12 @@ describe('R-11F queue worker safeguards', () => {
     expect(response.status).toBe(500);
     expect(await response.json()).toMatchObject({
       status: 'failed',
-      error: 'complete worker job failed: Queue acknowledgement failed',
+      error: 'complete delivery worker job failed: Queue acknowledgement failed',
     });
-    expect(fakeClient.updates).toContainEqual({
-      table: 'digest_delivery_attempts',
-      patch: expect.objectContaining({ status: 'sending' }),
-    });
-    expect(fakeClient.calls.map((call) => call.name)).toContain('fail_worker_job');
+    expect(fakeClient.calls.map((call) => call.name)).toContain('complete_delivery_worker_job');
+    expect(fakeClient.calls.map((call) => call.name)).not.toContain(
+      'record_delivery_failure_worker_job',
+    );
   });
 
   it('fails closed on claim_job RPC errors', async () => {
@@ -199,5 +257,35 @@ describe('R-11F queue worker safeguards', () => {
     expect(r13MigrationSource).toContain('delete from public.flow_articles');
     expect(r13MigrationSource).toContain('where processing_run_id = failed_processing_run_id');
     expect(r13MigrationSource).toContain('and digest_id is null');
+  });
+
+  it('creates delivery attempts and ID-only queue messages when a digest is persisted', () => {
+    expect(r14MigrationSource).toContain('function public.enqueue_digest_delivery_attempts');
+    expect(r14MigrationSource).toContain('join public.flow_delivery_channels');
+    expect(r14MigrationSource).toContain("and c.status = 'active'");
+    expect(r14MigrationSource).toContain('on conflict (digest_id, channel_id) do nothing');
+    expect(r14MigrationSource).toContain("perform pgmq.send(\n      'delivery-queue'");
+    expect(r14MigrationSource).toContain("'type', 'delivery'");
+    expect(r14MigrationSource).toContain("'attempt_id', attempt_rec.id");
+    expect(r14MigrationSource).toContain(
+      'perform public.enqueue_digest_delivery_attempts(existing_id)',
+    );
+  });
+
+  it('records delivery retry backoff, permanent acknowledgement, and circuit state', () => {
+    expect(r14MigrationSource).toContain('function public.claim_delivery_attempt');
+    expect(r14MigrationSource).toContain("status in ('pending', 'failed')");
+    expect(r14MigrationSource).toContain('next_attempt_at is null or next_attempt_at <= now()');
+    expect(r14MigrationSource).toContain('function public.complete_delivery_worker_job');
+    expect(r14MigrationSource).toContain('function public.acknowledge_delivery_worker_job');
+    expect(r14MigrationSource).toContain('function public.requeue_delivery_worker_job');
+    expect(r14MigrationSource).toContain("'attempt_id', p_attempt_id");
+    expect(r14MigrationSource).toContain('function public.record_delivery_failure_worker_job');
+    expect(r14MigrationSource).toContain('least(1800');
+    expect(r14MigrationSource).toContain('coalesce(p_retry_after_seconds, 0)');
+    expect(r14MigrationSource).toContain('pgmq.delete(p_queue_name, p_msg_id)');
+    expect(r14MigrationSource).toContain('function public.claim_integration_circuit_probe');
+    expect(r14MigrationSource).toContain("state = 'half_open'");
+    expect(r14MigrationSource).toContain("state = 'open'");
   });
 });
