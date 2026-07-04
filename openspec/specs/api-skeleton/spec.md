@@ -1,7 +1,9 @@
 # api-skeleton Specification
 
 ## Purpose
-TBD - created by archiving change r-06-api-skeleton. Update Purpose after archive.
+Define the authenticated Edge Function API boundary, including CORS, JWT
+session enforcement, response envelopes, and Zod request validation for the
+application service layer (`A-01`, `A-06`, `NFR-SEC-02`).
 ## Requirements
 ### Requirement: CORS Preflight and headers allowlist
 The api Edge Function SHALL handle preflight OPTIONS requests and attach CORS headers to all responses (satisfies A-01).
@@ -25,4 +27,3 @@ All API endpoints SHALL return JSON responses structured inside a `{data, error}
 #### Scenario: Standard success response
 - **WHEN** the health check is requested
 - **THEN** the JSON payload contains `data` and `error` keys where `data` is not null and `error` is null
-

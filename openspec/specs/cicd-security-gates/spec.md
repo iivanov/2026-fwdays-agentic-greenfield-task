@@ -1,7 +1,9 @@
 # cicd-security-gates Specification
 
 ## Purpose
-TBD - created by archiving change r-03-cicd-security-gates. Update Purpose after archive.
+Define the repository verification gates, CI behavior, dependency checks, and
+secret-hygiene expectations that support reliable local and hosted validation
+(`T-12`, `T-13`, `Q-01..Q-05`, `NFR-OPS-04`).
 ## Requirements
 ### Requirement: Continuous Integration Pipeline
 The repository SHALL use GitHub Actions and matching root-level local scripts to verify workspace status on push/PR events, including Node typecheck/lint/format/test, Deno Edge Function check/lint/format, backend coverage, browser build, Playwright smoke behavior, dependency update check, actionlint, and local Supabase migration linting where the local stack is available (satisfies T-12, T-13, Q-01, Q-02, Q-03, Q-04, Q-05, NFR-OPS-04).
@@ -71,4 +73,3 @@ Local Supabase integration tests SHALL fail visibly when the required local Supa
 #### Scenario: Available local Supabase stack
 - **WHEN** `npm run test:integration` is executed while the local Supabase stack is running and migrations are applied
 - **THEN** the integration tests execute their assertions instead of returning early
-

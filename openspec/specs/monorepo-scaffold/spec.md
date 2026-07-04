@@ -1,7 +1,9 @@
 # monorepo-scaffold Specification
 
 ## Purpose
-TBD - created by archiving change r-01-monorepo-scaffold. Update Purpose after archive.
+Define the repository workspace, TypeScript, formatting, linting, and unit-test
+foundation used by all application and verification slices (`T-12`, `T-13`,
+`Q-01`, `Q-02`).
 ## Requirements
 ### Requirement: Workspace Configuration
 The repository SHALL use npm workspaces to manage dependencies across multiple internal packages (satisfies T-12, Q-01).
@@ -37,4 +39,3 @@ The repository SHALL provide Vitest as the standard testing framework (satisfies
 #### Scenario: Running test suite
 - **WHEN** a developer runs `npm run test`
 - **THEN** Vitest executes the defined test suites and reports success or failure based on assertions
-

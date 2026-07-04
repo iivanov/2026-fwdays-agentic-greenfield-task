@@ -2,9 +2,9 @@
 
 ## Current Position
 
-- **Last completed stage**: R-11H (`r-11h-harden-outbound-ssrf`)
-- **Active implementation slice**: R-11I (OpenSpec purpose/traceability and evidence hygiene)
-- **Current checkpoint**: R-11H repaired outbound SSRF/DNS rebinding hardening, retained independent verifier/reviewer reports, and is archived locally. R-11I is next.
+- **Last completed stage**: R-11I (`r-11i-reconstruct-openspec-hygiene`)
+- **Active implementation slice**: R-12 (ingestion worker revision)
+- **Current checkpoint**: R-11I repaired canonical OpenSpec purpose/traceability and archive-evidence hygiene, retained independent verifier/reviewer reports, and is archived locally. R-12 is next.
 - **Paused draft**: R-12 ingestion worker; existing uncommitted maker output is preserved but fails current gates and requires a revised spec.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
@@ -27,6 +27,10 @@ as complete:
 Historical files are not being rewritten to manufacture evidence. Each
 remediation slice must pass all applicable static and behavioral gates plus a
 fresh independent review on its final diff before archive.
+
+R-11I added an executable OpenSpec hygiene guard so canonical specs cannot keep
+placeholder purposes and future non-legacy archives cannot omit complete tasks
+or checker reports.
 
 ## Active Worktree Ownership
 

@@ -1,7 +1,8 @@
 # supabase-local-dev Specification
 
 ## Purpose
-TBD - created by archiving change r-02-supabase-local-dev. Update Purpose after archive.
+Define the local Supabase project configuration, migration workflow, and local
+database validation posture used for backend development (`T-03`, `T-14`).
 ## Requirements
 ### Requirement: Local Supabase Stack Initialization
 The repository SHALL house local Supabase configuration and setup files (satisfies T-03).
@@ -23,4 +24,3 @@ The repository SHALL provide helper script endpoints to run and stop the local S
 #### Scenario: Local helper scripts present
 - **WHEN** the developer views package scripts
 - **THEN** `supabase:start` and `supabase:stop` commands are available to wrap local emulation commands
-

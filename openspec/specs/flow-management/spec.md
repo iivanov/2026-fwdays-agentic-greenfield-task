@@ -1,7 +1,9 @@
 # flow-management Specification
 
 ## Purpose
-TBD - created by archiving change r-09-flow-management. Update Purpose after archive.
+Define user-owned processing flow lifecycle behavior, quotas, scheduling
+defaults, enabled state, and prompt configuration boundaries (`BR-FLOW-01`,
+`BR-FLOW-07`, `BR-USER-03`, `NFR-CON-01`).
 ## Requirements
 ### Requirement: Flow CRUD Operations
 The system SHALL expose RESTful API endpoints for creating, reading, updating, and deleting processing flows owned by the authenticated user (satisfies BR-FLOW-01, BR-FLOW-07).
@@ -39,4 +41,3 @@ The dashboard client SHALL provide interactive forms for managing briefing flows
 #### Scenario: Rendering the Ingestion Flows list
 - **WHEN** the user navigates to the Ingestion Flows dashboard tab
 - **THEN** the system lists all active flow configurations and displays action toggles
-

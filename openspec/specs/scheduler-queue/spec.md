@@ -1,7 +1,9 @@
 # scheduler-queue Specification
 
 ## Purpose
-TBD - created by archiving change r-11-scheduler-queue. Update Purpose after archive.
+Define the Postgres-native scheduling, queue, worker lease, retry, dead-letter,
+and cleanup behaviors that support the asynchronous processing pipeline
+(`BR-FLOW-02`, `A-03`, `A-04`, `T-05`, `NFR-REL-01..05`).
 ## Requirements
 ### Requirement: Daily Scheduling of User Flows
 The system SHALL scan for enabled user processing flows due for execution (matching frequency limits), insert cycle run records into `source_fetch_runs` and `processing_runs`, and enqueue corresponding ingestion jobs to the queue.
