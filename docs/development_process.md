@@ -917,5 +917,27 @@ A change is complete only when:
 
 **Not complete**
 
-- R-11H still needs independent verifier PASS and reviewer APPROVE reports before archive.
-- Multiple checker sub-agent attempts for R-11H hung without returning artifacts, even after explicit status/partial-result prompts. The sessions were closed and the maker checkpoint is committed without archive rather than fabricating checker evidence.
+- The first successful independent reviewer returned REQUEST CHANGES because Slack
+  and generic webhook verification could allow a second protected pre-fetch SSRF
+  validation error to escape the declared `{ success: false }` contract.
+- The maker fixed that blocker by mapping `SsrfProtectionError` from Slack and
+  generic webhook protected fetches to safe verification failures and added
+  public-then-private DNS rebinding regressions that assert fetch is not invoked.
+- The final independent reviewer approved the repaired diff with no blocking
+  findings. A non-blocking redirect-budget cleanup remains documented in the
+  R-11H review artifact.
+- The independent verifier passed targeted API/SSRF unit tests, typecheck, lint,
+  format, Deno check, pinned OpenSpec validation, `git diff --check`, and direct
+  implementation/regression inspection.
+
+### 2026-07-04 — R-11H closure
+
+**Closure**
+
+- Independent verifier PASS and reviewer APPROVE reports are retained in the OpenSpec change.
+- The verifier reran `npm run test -- packages/browser/src/lib/api-helpers.test.ts packages/browser/src/lib/ssrf.test.ts`, `npm run typecheck`, `npm run lint`, `npm run format`, `npm run deno:check`, pinned OpenSpec validation, and `git diff --check`.
+- The reviewer approved the final repaired diff after checking the Slack/generic
+  webhook rebind failure path, protected fetch behavior, and the new regression tests.
+- Archived the change as
+  `openspec/changes/archive/2026-07-04-r-11h-harden-outbound-ssrf/` and marked
+  R-11H done in the roadmap. R-11I is the next remediation slice.

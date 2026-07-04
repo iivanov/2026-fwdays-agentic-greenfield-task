@@ -6,4 +6,4 @@
 - [x] Sync canonical source-management and delivery-channels specs.
 - [x] Update roadmap/state/process records.
 - [x] Run applicable maker gates.
-- [ ] Retain independent verifier and reviewer reports before archive.
+- [x] Retain independent verifier and reviewer reports before archive.

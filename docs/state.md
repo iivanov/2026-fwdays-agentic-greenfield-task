@@ -2,9 +2,9 @@
 
 ## Current Position
 
-- **Last completed stage**: R-11G (`r-11g-retention-metadata-lifecycle`)
-- **Active implementation slice**: R-11H (outbound SSRF/DNS rebinding hardening)
-- **Current checkpoint**: R-11G passed local Supabase migration lint/integration gates, retained independent verifier/reviewer reports, and is archived locally. R-11H is next.
+- **Last completed stage**: R-11H (`r-11h-harden-outbound-ssrf`)
+- **Active implementation slice**: R-11I (OpenSpec purpose/traceability and evidence hygiene)
+- **Current checkpoint**: R-11H repaired outbound SSRF/DNS rebinding hardening, retained independent verifier/reviewer reports, and is archived locally. R-11I is next.
 - **Paused draft**: R-12 ingestion worker; existing uncommitted maker output is preserved but fails current gates and requires a revised spec.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.

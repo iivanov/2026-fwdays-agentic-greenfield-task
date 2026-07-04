@@ -6,6 +6,7 @@ import {
   validateBody,
   handleApiRoute,
   getCorsHeaders,
+  verifyDeliveryChannelTarget,
 } from '../../../../supabase/functions/api/helpers.js';
 import { apiHandler } from '../../../../supabase/functions/api/helpers.js';
 import {
@@ -1328,6 +1329,53 @@ describe('API Edge Function Handler Integration Tests', () => {
       expect(res.status).toBe(400);
       const json = await res.json();
       expect(json.error).toContain('Webhook challenge verification failed');
+      fetchSpy.mockRestore();
+    });
+
+    it('should fail Slack verification closed when pre-fetch SSRF validation rejects', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+      let resolveCalls = 0;
+
+      const result = await verifyDeliveryChannelTarget(
+        'slack',
+        { webhook_url: 'https://hooks.slack.com/services/team/service/token' },
+        async () => {
+          resolveCalls += 1;
+          return resolveCalls === 1 ? ['93.184.216.34'] : ['127.0.0.1'];
+        },
+      );
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Slack webhook URL failed outbound safety validation',
+      });
+      expect(resolveCalls).toBe(2);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      fetchSpy.mockRestore();
+    });
+
+    it('should fail generic webhook verification closed when pre-fetch SSRF validation rejects', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+      let resolveCalls = 0;
+
+      const result = await verifyDeliveryChannelTarget(
+        'webhook',
+        {
+          webhook_url: 'https://example.com/notify',
+          signing_secret: 'a'.repeat(64),
+        },
+        async () => {
+          resolveCalls += 1;
+          return resolveCalls === 1 ? ['93.184.216.34'] : ['127.0.0.1'];
+        },
+      );
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Webhook URL failed outbound safety validation',
+      });
+      expect(resolveCalls).toBe(2);
+      expect(fetchSpy).not.toHaveBeenCalled();
       fetchSpy.mockRestore();
     });
 
