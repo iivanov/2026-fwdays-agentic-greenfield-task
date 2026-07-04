@@ -992,3 +992,81 @@ A change is complete only when:
   allowlist, non-legacy archive evidence requirements, canonical purpose
   requirements, and no-secrets posture.
 - R-11I is marked done in the roadmap. R-12 is the next remediation-dependent slice.
+
+### 2026-07-04 — R-12 ingestion worker maker checkpoint
+
+**AI contribution**
+
+- Started R-12 after completing the R-11A..R-11I audit remediation gate.
+- Added `fast-xml-parser`, `linkedom`, and `@mozilla/readability` to npm and
+  Deno Edge import/lock configuration.
+- Extended the `work` Edge Function with exported ingestion helpers for
+  30-second SSRF-safe fetching, RSS/Atom parsing, Readability extraction,
+  bounded response-size handling, hash-based deduplication through
+  `source_item_fingerprints`, source failure tracking, automatic pausing after
+  five failures, and operational event logging.
+- Routed ingestion queue jobs through the ingestion handler before transactional
+  queue acknowledgement.
+- Added `packages/browser/src/lib/ingestion-worker.test.ts` covering RSS/Atom
+  parsing, HTML extraction sanitization, unsafe redirect blocking before target
+  fetch, duplicate filtering, source pause behavior, and worker queue
+  acknowledgement ordering.
+- Re-enabled the R-12 ingestion worker test in the root Vitest config.
+
+**Verification performed by maker**
+
+- `npm run test -- packages/browser/src/lib/ingestion-worker.test.ts` passed:
+  1 file, 11 tests.
+- `npm run test` passed: 9 files, 109 tests.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run format` passed.
+- `npm run deno:check` passed.
+- `npm run deno:lint` passed.
+- `npm run deno:fmt` passed after applying Deno formatting to Edge files.
+- `npm run deno:lock` passed after updating `supabase/functions/deno.lock`.
+- `npm run test:integration` passed: 3 files, 4 tests.
+- `npm audit` passed with 0 vulnerabilities.
+- `npm run deno:outdated` exited 0 and reported an existing compatible
+  `@supabase/server` update; this remains dependency-update metadata, not a
+  security advisory.
+- `npx -y @fission-ai/openspec@1.5.0 validate r-12-ingestion-worker --strict` passed.
+- `git diff --check` passed.
+
+**Review fixes applied**
+
+- Independent reviewer requested changes for body-size enforcement after full
+  buffering, body-read timeout coverage, and raw external error logging.
+- The worker now streams response bodies with byte counting and cancels reads as
+  soon as the limit is exceeded.
+- The fetch timeout now covers response body reads, including stalled streams.
+- Feed publication dates are normalized before database writes; invalid dates
+  become `null`.
+- Ingestion failures are mapped to safe error categories in source-health
+  operational events and worker responses, while internal queue acknowledgement
+  failures remain visible for operational diagnosis.
+- Focused ingestion tests now include oversized body, stalled body timeout,
+  invalid date normalization, and safe error category regressions.
+
+**Not complete**
+
+- The final independent verifier passed all requested gates and inspected the
+  streaming body limit, body-read timeout, invalid-date normalization, safe
+  error handling, and regression tests.
+- The final independent reviewer approved with no blocking findings. A
+  non-blocking residual risk remains: article and fingerprint writes are
+  separate operations, so a concurrent uniqueness race can still count as a
+  source failure even though pre-insert dedupe checks are implemented.
+
+### 2026-07-04 — R-12 closure
+
+**Closure**
+
+- Independent verifier PASS and reviewer APPROVE reports are retained in the OpenSpec change.
+- The verifier reran focused ingestion tests, full unit tests, typecheck, lint,
+  format, Deno check/lint/fmt/lock, Supabase integration tests, npm audit,
+  pinned OpenSpec validation, and `git diff --check`.
+- The reviewer approved the repaired final diff after checking the prior
+  streaming body limit, timeout, safe-error, SSRF, dedupe, source-health, and
+  queue-acknowledgement findings.
+- R-12 is marked done in the roadmap. R-13 is the next processing-pipeline slice.
