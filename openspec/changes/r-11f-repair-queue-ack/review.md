@@ -1,26 +1,26 @@
-# Independent Review — R-11F (2026-07-03)
+# Independent Review — R-11F (2026-07-04)
 
-Verdict: APPROVE.
+Verdict: REQUEST CHANGES.
 
-## Initial blocking findings and disposition
+## Blocking Findings
 
-1. Queue delete/archive failures were initially ignored. Fixed by storing `pgmq.delete(...)`/`pgmq.archive(...)` return booleans and raising when they are not true.
-2. Initial regression tests were source-string checks only. Fixed by adding `createWorkHandler` dependency injection and behavioral worker tests for acknowledgement RPC failure, claim failure, DLQ ordering, and SQL delete/archive boolean checks.
+1. `supabase/migrations/20260703000000_scheduler_queue.sql:146` — `claim_job(queue_name text, lease_seconds integer)` still accepts an arbitrary queue name and calls `pgmq.read(queue_name, ...)` without using the R-11F queue-name validator. The same migration grants the RPC to `service_role`/`postgres` at `supabase/migrations/20260703000000_scheduler_queue.sql:280`, so the exposed internal worker RPC can read any pgmq queue the role can access. This violates the R-11F design safety contract that service-role functions validate queue names (`openspec/changes/r-11f-repair-queue-ack/design.md:7`) and leaves the queue claim boundary less constrained than the new completion/archive helpers. Fix direction: call `public.validate_worker_queue_name(queue_name)` at the start of `claim_job` and add a regression assertion for unsupported queue names. Also review the legacy `delete_job`, `archive_job`, and `send_to_queue` helper RPCs for the same allowlist/least-privilege treatment or revoke them if they are no longer part of the supported worker contract.
 
-## Final review evidence
+## Non-Blocking Findings
 
-- The delta spec requires transactional success acknowledgement and worker 500 responses for acknowledgement RPC failure.
-- `complete_worker_job` updates domain state, verifies one affected row, checks `pgmq.delete(...)`, and raises if queue acknowledgement fails.
-- The worker routes success through `complete_worker_job`, treats RPC errors as failures, and does not report completion on acknowledgement failure.
-- Delivery states use `sending`, `delivered`, and `failed` with `error_message`.
-- Exhausted retries are archived before ordinary execution, and `archive_exhausted_worker_job` checks `pgmq.archive(...)` before logging a critical operational event.
-- Regression coverage exercises acknowledgement RPC failure behavior, claim failure fail-closed behavior, exhausted-message archive-before-execution behavior, and SQL boolean checks.
+- None.
 
-## Checks reported by reviewer
+## Evidence Checked
 
-- `npm run test -- packages/browser/src/lib/queue-worker.test.ts` passed.
-- `npm run deno:check` passed.
-- `npm run deno:lint && git diff --check` passed.
-- `npm run typecheck` passed.
-- `npm run format` passed.
-- `npx openspec validate r-11f-repair-queue-ack --strict` could not run because npm could not determine an OpenSpec executable.
+- Inspected R-11F proposal, design, delta spec, tasks, verifier report, canonical `scheduler-queue` spec, worker handler, migration SQL, and regression tests.
+- Confirmed `complete_worker_job` validates queue name/job type, updates exactly one domain row, and raises if `pgmq.delete(...)` is not true.
+- Confirmed `archive_exhausted_worker_job` validates queue name, calls `pgmq.archive(...)` before logging the critical DLQ event, and raises if archive fails.
+- Confirmed the worker fails closed on `claim_job` RPC errors, routes success through `complete_worker_job`, uses delivery states `sending`/`delivered`/`failed` with `error_message`, and checks exhausted reads before ordinary execution.
+- Confirmed the canonical `openspec/specs/scheduler-queue/spec.md` contains the same three R-11F requirements as the delta.
+
+## Checks Run
+
+- `npx -y @fission-ai/openspec@1.5.0 validate r-11f-repair-queue-ack --strict` passed.
+- `git diff --check` passed.
+- `npm run test -- packages/browser/src/lib/queue-worker.test.ts` passed: 1 file, 4 tests.
+- I relied on the verifier report for the broader static/unit/build gate list. I did not treat `npm run supabase:lint` or `npm run test:integration` as passed because the verifier recorded local Supabase/Postgres as unavailable.
