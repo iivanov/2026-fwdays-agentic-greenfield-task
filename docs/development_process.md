@@ -893,3 +893,29 @@ A change is complete only when:
 - The verifier reran `npm run supabase:reset`, `npm run supabase:lint`, `npm run test:integration`, `npm run typecheck`, `npm run lint`, `npm run format`, `npm run deno:check`, pinned OpenSpec validation, and `git diff --check`.
 - The reviewer approved the final diff after checking retention semantics, service-role cleanup exposure, idempotency, and sequential Supabase integration execution.
 - Archived the change as `openspec/changes/archive/2026-07-04-r-11g-retention-metadata-lifecycle/` and marked R-11G done in the roadmap. R-11H is the next remediation slice.
+
+### 2026-07-04 — R-11H outbound SSRF hardening maker checkpoint
+
+**AI contribution**
+
+- Selected R-11H as the next dependency-ready remediation slice after R-11G.
+- Created OpenSpec change `r-11h-harden-outbound-ssrf`.
+- Added a protected outbound fetch helper that revalidates URLs immediately before fetch, disables native redirects, and manually follows only explicitly allowed redirects after validating each redirect target.
+- Routed Slack and generic webhook verification through the protected helper with redirects disabled.
+- Added regression tests for DNS rebinding-style private resolution at fetch time, unsafe redirect targets, safe relative redirects, and no-redirect behavior.
+- Synced the canonical source-management and delivery-channel specs with the R-11H requirements.
+
+**Verification performed by maker**
+
+- `npm run test -- packages/browser/src/lib/ssrf.test.ts` passed: 1 file, 21 tests.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run format` passed after formatting the SSRF test file.
+- `npm run deno:check` passed.
+- `npx -y @fission-ai/openspec@1.5.0 validate r-11h-harden-outbound-ssrf --strict` passed.
+- `git diff --check` passed.
+
+**Not complete**
+
+- R-11H still needs independent verifier PASS and reviewer APPROVE reports before archive.
+- Multiple checker sub-agent attempts for R-11H hung without returning artifacts, even after explicit status/partial-result prompts. The sessions were closed and the maker checkpoint is committed without archive rather than fabricating checker evidence.

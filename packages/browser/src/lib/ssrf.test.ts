@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { isPrivateIp, validateUrlSsrf } from '../../../../supabase/functions/api/ssrf.ts';
+import {
+  fetchWithSsrfProtection,
+  isPrivateIp,
+  SsrfProtectionError,
+  validateUrlSsrf,
+} from '../../../../supabase/functions/api/ssrf.ts';
 
 describe('SSRF Protection Tests', () => {
   describe('isPrivateIp Validation Matrix', () => {
@@ -136,6 +141,93 @@ describe('SSRF Protection Tests', () => {
       expect(await validateUrlSsrf('https://mixed-ip-resolution.com/feed', mockResolver)).toBe(
         false,
       );
+    });
+  });
+
+  describe('fetchWithSsrfProtection', () => {
+    it('rejects DNS rebinding changes before fetch is invoked', async () => {
+      const calls: string[] = [];
+      const resolveDns = async () => ['127.0.0.1'];
+      const fetchImpl = async (input: string | URL | Request) => {
+        calls.push(String(input));
+        return new Response('should not fetch');
+      };
+
+      await expect(
+        fetchWithSsrfProtection('https://example.com/feed', {}, { resolveDns, fetchImpl }),
+      ).rejects.toBeInstanceOf(SsrfProtectionError);
+      expect(calls).toEqual([]);
+    });
+
+    it('rejects redirects to unsafe addresses before fetching the redirect target', async () => {
+      const fetched: string[] = [];
+      const resolveDns = async (hostname: string) =>
+        hostname === 'safe.example' ? ['8.8.8.8'] : ['169.254.169.254'];
+      const fetchImpl = async (input: string | URL | Request) => {
+        fetched.push(String(input));
+        return new Response(null, {
+          status: 302,
+          headers: { location: 'http://metadata.example/latest/meta-data' },
+        });
+      };
+
+      await expect(
+        fetchWithSsrfProtection(
+          'https://safe.example/feed',
+          {},
+          {
+            resolveDns,
+            fetchImpl,
+            followRedirects: true,
+          },
+        ),
+      ).rejects.toBeInstanceOf(SsrfProtectionError);
+      expect(fetched).toEqual(['https://safe.example/feed']);
+    });
+
+    it('follows safe relative redirects when redirects are explicitly enabled', async () => {
+      const fetched: string[] = [];
+      const resolveDns = async () => ['8.8.8.8'];
+      const fetchImpl = async (input: string | URL | Request) => {
+        fetched.push(String(input));
+        if (fetched.length === 1) {
+          return new Response(null, { status: 302, headers: { location: '/next.xml' } });
+        }
+        return new Response('ok', { status: 200 });
+      };
+
+      const response = await fetchWithSsrfProtection(
+        'https://safe.example/feed',
+        {},
+        {
+          resolveDns,
+          fetchImpl,
+          followRedirects: true,
+        },
+      );
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe('ok');
+      expect(fetched).toEqual(['https://safe.example/feed', 'https://safe.example/next.xml']);
+    });
+
+    it('does not follow redirects when redirects are disabled', async () => {
+      const fetched: string[] = [];
+      const resolveDns = async () => ['8.8.8.8'];
+      const fetchImpl = async (input: string | URL | Request) => {
+        fetched.push(String(input));
+        return new Response(null, { status: 302, headers: { location: '/next.xml' } });
+      };
+
+      const response = await fetchWithSsrfProtection(
+        'https://safe.example/hook',
+        {},
+        {
+          resolveDns,
+          fetchImpl,
+        },
+      );
+      expect(response.status).toBe(302);
+      expect(fetched).toEqual(['https://safe.example/hook']);
     });
   });
 });

@@ -14,6 +14,21 @@ The system SHALL validate all user-provided source and webhook URLs against SSRF
 - **WHEN** user submits a source URL like `https://news.ycombinator.com/rss` resolving to a public IP
 - **THEN** the system accepts the URL and completes validation
 
+### Requirement: Outbound source requests MUST revalidate DNS immediately before fetch
+Outbound source and URL verification requests MUST re-run SSRF DNS/address validation immediately before each network request.
+
+#### Scenario: DNS rebinding changes a host to private IPs
+- **WHEN** a hostname that previously resolved to public IPs resolves to a private, loopback, link-local, reserved, or cloud-metadata address at outbound request time
+- **THEN** the request is rejected before fetch is invoked.
+
+### Requirement: Source redirects MUST be manually revalidated
+Source-style outbound requests that follow redirects MUST disable native redirect following and revalidate every redirect target before requesting it.
+
+#### Scenario: Redirect target resolves to metadata address
+- **WHEN** a safe source URL returns a redirect to a URL resolving to `169.254.169.254`
+- **THEN** the redirect is rejected
+- **AND** the metadata target is not fetched.
+
 ### Requirement: Link Ingestion Source to Flow
 The API edge function SHALL allow authenticated users to connect validated news feeds to their owned flows (satisfies BR-SRC-01, BR-SRC-02, BR-SRC-03).
 
@@ -31,4 +46,3 @@ The dashboard UI SHALL allow users to select flows, add format-typed URLs, and d
 #### Scenario: Interacting with the Sources Panel
 - **WHEN** user configures settings and links a new feed
 - **THEN** the API POST endpoint is called and the connected sources list refreshes dynamically
-
