@@ -807,3 +807,22 @@ A change is complete only when:
 - R-11E retained independent verifier PASS and independent reviewer APPROVE reports.
 - Synchronized the `core-schema-rls` spec with shared source/article visibility through owned flow links.
 - Archived the change as `openspec/changes/archive/2026-07-03-r-11e-restrict-shared-source-article-rls/` and marked R-11E done in the roadmap. R-11F is the next remediation slice.
+
+### 2026-07-03 — R-11F queue acknowledgement maker checkpoint
+
+**AI contribution**
+
+- Created the R-11F OpenSpec change for queue transactional acknowledgement repair.
+- Added PostgreSQL RPCs for transactional worker completion, worker failure state recording, queue name validation, and exhausted-message archive plus operational-event logging.
+- Updated the `work` Edge Function so claim errors fail closed, success acknowledgement goes through the transactional RPC, exhausted retries are archived before job execution, and delivery attempts use schema-correct `sending`/`delivered`/`failed` states with `error_message`.
+- Added focused Vitest coverage for delivery state names, transactional completion RPC usage, claim RPC failure, and DLQ ordering.
+
+**Verification performed**
+
+- `npm run typecheck` passed.
+- `npm run test -- packages/browser/src/lib/queue-worker.test.ts` passed: 1 file, 3 tests.
+
+**Not complete**
+
+- R-11F retained an independent reviewer APPROVE report and an independent verifier report that passed static/unit/build gates but warned that local Supabase/Postgres was unavailable for migration lint and integration tests.
+- R-11F is not archived until Supabase-backed gates pass in a suitable environment. Later roadmap slices through Phase 4 remain pending; this checkpoint intentionally avoids claiming production readiness.
