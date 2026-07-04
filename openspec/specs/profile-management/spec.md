@@ -1,7 +1,9 @@
 # profile-management Specification
 
 ## Purpose
-TBD - created by archiving change r-07-profile-management. Update Purpose after archive.
+Define authenticated profile preference retrieval and update behavior for
+interests and language preferences across the API and dashboard
+(`BR-USER-02`, `A-06`, `NFR-UX-01`).
 ## Requirements
 ### Requirement: User Profile Retrieval
 The API edge function SHALL allow authenticated users to fetch their current profile preferences (interests, language_preferences) from the database (satisfies BR-USER-02).
@@ -27,4 +29,3 @@ The React frontend dashboard UI SHALL display the user's settings and allow them
 #### Scenario: Save settings successfully from UI
 - **WHEN** the user interacts with the settings panel and clicks "Save Profile Settings"
 - **THEN** the system sends a PUT request to the API, updates the UI query cache, and displays a success notification
-

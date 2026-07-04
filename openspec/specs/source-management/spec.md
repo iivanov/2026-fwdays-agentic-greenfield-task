@@ -1,7 +1,9 @@
 # source-management Specification
 
 ## Purpose
-TBD - created by archiving change r-08-source-management. Update Purpose after archive.
+Define source URL validation, SSRF protection, flow-source linking, and source
+management dashboard behavior for RSS/Atom feeds and single-article URLs
+(`BR-SRC-01..03`, `NFR-SEC-05`, `NFR-UX-01`).
 ## Requirements
 ### Requirement: SSRF Outbound URL Validation
 The system SHALL validate all user-provided source and webhook URLs against SSRF vulnerabilities (satisfies NFR-SEC-05). It MUST enforce HTTP/HTTPS protocols and ensure that hostnames do not resolve to private, loopback, link-local, multicast, or reserved networks.

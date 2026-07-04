@@ -68,7 +68,7 @@ unchanged evidence; these small OpenSpec slices supersede the defective parts.
 | R-11F | Repair queue transactional acknowledgement, delivery attempt state, RPC error handling, and DLQ ordering | R-11B | D-03..06, A-04, AT-02/03/05/06, NFR-REL-01..05 | done |
 | R-11G | Correct retention and operational metadata lifecycles (7-day content, 30-day resolved metadata, unresolved failures retained) | R-11B | BR-DATA-01/02, D-05/06, AT-08, NFR-DATA-01..03, NFR-OPS-02 | done |
 | R-11H | Harden outbound connections against DNS rebinding and prove redirect/address enforcement | R-11B | A-06, AT-07, NFR-SEC-05 | done |
-| R-11I | Reconstruct canonical OpenSpec purposes/traceability and enforce complete archive task/evidence hygiene | R-11A | AT-01/11, Q-01..Q-05, NFR-OPS-04 | pending |
+| R-11I | Reconstruct canonical OpenSpec purposes/traceability and enforce complete archive task/evidence hygiene | R-11A | AT-01/11, Q-01..Q-05, NFR-OPS-04 | done |
 
 ### Processing pipeline continuation
 

@@ -941,3 +941,54 @@ A change is complete only when:
 - Archived the change as
   `openspec/changes/archive/2026-07-04-r-11h-harden-outbound-ssrf/` and marked
   R-11H done in the roadmap. R-11I is the next remediation slice.
+
+### 2026-07-04 — R-11I OpenSpec hygiene maker checkpoint
+
+**AI contribution**
+
+- Selected R-11I after R-11H archive because R-12 depends on the audit
+  remediation gate.
+- Created OpenSpec change `r-11i-reconstruct-openspec-hygiene`.
+- Replaced generated placeholder `Purpose` text in canonical OpenSpec specs
+  with concise ownership and upstream-traceability summaries.
+- Added `packages/browser/src/lib/openspec-hygiene.test.ts` to enforce that
+  canonical specs have meaningful purposes and upstream ID traceability.
+- Added archive hygiene coverage requiring every non-legacy archive to retain
+  complete tasks plus separate `verification.md` and `review.md` reports.
+- Kept R-01..R-11 legacy archive gaps explicit instead of rewriting task
+  checkboxes or inventing retrospective checker evidence.
+
+**Verification performed by maker**
+
+- `npm run test -- packages/browser/src/lib/openspec-hygiene.test.ts` passed:
+  1 file, 3 tests.
+- `npm run test` passed: 8 files, 98 tests.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run format` passed.
+- `npx -y @fission-ai/openspec@1.5.0 validate r-11i-reconstruct-openspec-hygiene --strict` passed.
+- `git diff --check` passed.
+
+**Not complete**
+
+- The first bounded reviewer requested changes because archive-evidence
+  enforcement only checked file existence and absence of unchecked tasks.
+- The maker tightened the hygiene test so non-legacy archives must retain at
+  least one checked task, no unchecked tasks, non-empty verifier/reviewer
+  reports, verifier PASS evidence, reviewer APPROVE evidence, and no unresolved
+  request-changes history.
+- The final independent verifier passed the focused hygiene test, full unit
+  suite, typecheck, lint, format, pinned OpenSpec validation, `git diff --check`,
+  and direct inspections.
+- The final independent reviewer approved the repaired diff with no findings.
+
+### 2026-07-04 — R-11I closure
+
+**Closure**
+
+- Independent verifier PASS and reviewer APPROVE reports are retained in the OpenSpec change.
+- The verifier reran `npm run test -- packages/browser/src/lib/openspec-hygiene.test.ts`, `npm run test`, `npm run typecheck`, `npm run lint`, `npm run format`, pinned OpenSpec validation, and `git diff --check`.
+- The reviewer approved the final repaired diff after checking the exact legacy
+  allowlist, non-legacy archive evidence requirements, canonical purpose
+  requirements, and no-secrets posture.
+- R-11I is marked done in the roadmap. R-12 is the next remediation-dependent slice.
