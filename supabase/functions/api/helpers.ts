@@ -1,5 +1,10 @@
 import { z, type ZodIssue } from 'zod';
-import { fetchWithSsrfProtection, type DnsResolver, validateUrlSsrf } from './ssrf.ts';
+import {
+  fetchWithSsrfProtection,
+  type DnsResolver,
+  SsrfProtectionError,
+  validateUrlSsrf,
+} from './ssrf.ts';
 import {
   decryptConfig,
   decryptPromptTemplate,
@@ -160,6 +165,18 @@ async function fetchWithVerificationTimeout(
   }
 }
 
+function deliveryVerificationFailure(
+  error: unknown,
+  safetyError: string,
+  providerError: string,
+): { success: false; error: string } {
+  if (error instanceof SsrfProtectionError) {
+    return { success: false, error: safetyError };
+  }
+
+  return { success: false, error: providerError };
+}
+
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes)
     .map((byte) => byte.toString(16).padStart(2, '0'))
@@ -225,15 +242,24 @@ export async function verifyDeliveryChannelTarget(
     if (!isSafe) {
       return { success: false, error: 'Slack webhook URL failed outbound safety validation' };
     }
-    const response = await fetchWithVerificationTimeout(
-      webhookUrl,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: 'AI News Aggregator delivery channel verification.' }),
-      },
-      resolveDns,
-    );
+    let response: Response;
+    try {
+      response = await fetchWithVerificationTimeout(
+        webhookUrl,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: 'AI News Aggregator delivery channel verification.' }),
+        },
+        resolveDns,
+      );
+    } catch (error) {
+      return deliveryVerificationFailure(
+        error,
+        'Slack webhook URL failed outbound safety validation',
+        'Slack webhook verification failed',
+      );
+    }
     if (!response.ok) {
       return { success: false, error: 'Slack webhook verification failed' };
     }
@@ -259,20 +285,29 @@ export async function verifyDeliveryChannelTarget(
       timestamp,
     });
     const signature = await signWebhookChallenge(signingSecret, body, timestamp);
-    const response = await fetchWithVerificationTimeout(
-      webhookUrl,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-News-Aggregator-Event': 'delivery_channel.verify',
-          'X-News-Aggregator-Timestamp': timestamp,
-          'X-News-Aggregator-Signature': `sha256=${signature}`,
+    let response: Response;
+    try {
+      response = await fetchWithVerificationTimeout(
+        webhookUrl,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-News-Aggregator-Event': 'delivery_channel.verify',
+            'X-News-Aggregator-Timestamp': timestamp,
+            'X-News-Aggregator-Signature': `sha256=${signature}`,
+          },
+          body,
         },
-        body,
-      },
-      resolveDns,
-    );
+        resolveDns,
+      );
+    } catch (error) {
+      return deliveryVerificationFailure(
+        error,
+        'Webhook URL failed outbound safety validation',
+        'Webhook challenge verification failed',
+      );
+    }
     if (!response.ok) {
       return { success: false, error: 'Webhook challenge verification failed' };
     }
