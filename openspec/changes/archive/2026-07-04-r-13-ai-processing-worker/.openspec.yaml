@@ -1,0 +1,20 @@
+id: r-13-ai-processing-worker
+schema: spec-driven
+title: AI processing worker
+status: draft
+trace:
+  requirements:
+    - BR-FLOW-02
+    - BR-FLOW-03
+    - BR-FLOW-04
+    - BR-FLOW-05
+    - BR-FLOW-06
+    - T-08
+    - T-11
+    - NFR-PERF-03
+    - NFR-CON-02
+    - NFR-CON-03
+owners:
+  maker: codex
+  verifier: independent-subagent-required
+  reviewer: independent-subagent-required

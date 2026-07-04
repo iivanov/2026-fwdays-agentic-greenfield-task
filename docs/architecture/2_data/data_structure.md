@@ -117,6 +117,9 @@ Tracks the outcome and retry state of one flow in one daily cycle.
 - `error_code` (String, Nullable) - Sanitized and operator-visible.
 - `started_at` (Timestamp, Nullable)
 - `completed_at` (Timestamp, Nullable)
+- `processing_enqueued_at` (Timestamp, Nullable) - Internal worker handoff
+  marker set when the ingestion completion transaction enqueues the flow's AI
+  processing job for this cycle.
 - `created_at` (Timestamp)
 - *Constraint:* Unique composite index on `(flow_id, cycle_date)`.
 

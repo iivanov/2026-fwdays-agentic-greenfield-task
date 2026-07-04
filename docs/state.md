@@ -2,9 +2,9 @@
 
 ## Current Position
 
-- **Last completed stage**: R-12 (`r-12-ingestion-worker`)
-- **Active implementation slice**: R-13 (AI processing worker)
-- **Current checkpoint**: R-12 ingestion worker parses feeds/pages, uses SSRF-safe manual redirects, streams bounded bodies with timeout coverage, deduplicates by URL/GUID hashes, updates source health, retained independent verifier/reviewer reports, and is archived locally. R-13 is next.
+- **Last completed stage**: R-13 (`r-13-ai-processing-worker`)
+- **Active implementation slice**: R-14 (delivery workers)
+- **Current checkpoint**: R-13 AI processing worker is archived locally with independent verifier PASS and reviewer APPROVE reports. The pipeline now enqueues processing jobs after all source jobs are terminal, claims unprocessed articles before the 50-article cap, groups near-duplicates, enforces input budgets, calls OpenAI Responses strict structured output with one schema repair attempt, persists digest usage transactionally, records `no_content`, and releases undigested claims on exhausted processing failures. R-14 is next.
 - **Paused draft**: none. The previous R-12 draft has been replaced by the active R-12 implementation.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
@@ -31,6 +31,39 @@ fresh independent review on its final diff before archive.
 R-11I added an executable OpenSpec hygiene guard so canonical specs cannot keep
 placeholder purposes and future non-legacy archives cannot omit complete tasks
 or checker reports.
+
+## R-13 Maker Implementation Status (2026-07-04)
+
+- Created OpenSpec change `r-13-ai-processing-worker`.
+- Added AI processing worker logic to claim new flow articles, reuse same-run
+  claims on retry, group near-duplicates with n-gram Jaccard similarity,
+  enforce 2,000-character per-article and 60,000-character total input budgets,
+  call the OpenAI Responses API with strict structured output, persist one
+  digest with usage/request/model metadata, and record `no_content` without a
+  digest when there are no new candidates.
+- Added a forward migration so transactional queue completion preserves
+  `processing_runs.status = no_content` instead of overwriting it with
+  `completed`, and so digest persistence plus current-run article inclusion
+  happen in one service-role RPC transaction.
+- The same migration now records `processing_enqueued_at`, enqueues one
+  `processing-queue` message after all flow sources for a cycle are terminal
+  through either successful or failed ingestion, and deletes undigested
+  current-run claims when an exhausted processing job is archived.
+- Added focused Vitest coverage in
+  `packages/browser/src/lib/processing-worker.test.ts`.
+- Added a retry regression so an already-persisted digest is reused if queue
+  acknowledgement failed after digest persistence instead of rewriting the run
+  as `no_content`; incomplete current-run article links are repaired before
+  returning retry success.
+- Added one bounded OpenAI schema repair request before malformed structured
+  output fails the run.
+- Fixed candidate selection to filter already-claimed flow articles before
+  applying the 50-article cap, with a regression for older unclaimed articles
+  behind 50 newer claimed articles.
+- Maker self-checks currently passed: focused R-13 Vitest, `npm run
+  typecheck`, `npm run lint`, `npm run format`, `npm run test` (120 tests), `npm run
+  deno:check`, `npm run deno:lint`, and `npm run deno:fmt`.
+- Independent verifier/reviewer passes are still pending on the final R-13 diff.
 
 ## Active Worktree Ownership
 

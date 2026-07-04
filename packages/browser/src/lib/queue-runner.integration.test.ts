@@ -184,6 +184,21 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
       .eq('source_id', source!.id);
     expect(fetchRunsPost![0].status).toBe('completed');
 
+    const { data: processingJobs } = await supabaseAdmin.rpc('claim_job', {
+      queue_name: 'processing-queue',
+      lease_seconds: 1,
+    });
+    expect(processingJobs?.length).toBe(1);
+    expect(processingJobs![0].message).toMatchObject({
+      type: 'processing',
+      flow_id: flow!.id,
+      cycle_date: fetchRuns![0].cycle_date,
+    });
+    await supabaseAdmin.rpc('delete_job', {
+      queue_name: 'processing-queue',
+      msg_id: processingJobs![0].msg_id,
+    });
+
     // 4. Test simulated transient failure
     // Enqueue job with simulate_failure: true
     await supabaseAdmin.rpc('claim_job', { queue_name: 'ingestion-queue', lease_seconds: 1 }); // ensure clean
