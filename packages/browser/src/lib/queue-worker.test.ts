@@ -15,6 +15,10 @@ const schedulerMigrationSource = readFileSync(
   'supabase/migrations/20260703000000_scheduler_queue.sql',
   'utf8',
 );
+const r13MigrationSource = readFileSync(
+  'supabase/migrations/20260704165230_r13_preserve_processing_no_content.sql',
+  'utf8',
+);
 
 type RpcResult = { data: unknown; error: { message: string } | null };
 type RpcCall = { name: string; args?: Record<string, unknown> };
@@ -158,5 +162,42 @@ describe('R-11F queue worker safeguards', () => {
     );
     expect(schedulerMigrationSource).toContain("raise exception 'Unsupported queue name: %'");
     expect(schedulerMigrationSource).toContain("errcode = 'invalid_parameter_value'");
+  });
+
+  it('enqueues processing jobs only after all flow sources are terminal', () => {
+    expect(r13MigrationSource).toContain(
+      'add column if not exists processing_enqueued_at timestamp with time zone',
+    );
+    expect(r13MigrationSource).toContain('function public.enqueue_ready_processing_runs');
+    expect(r13MigrationSource).toContain(
+      'perform public.enqueue_ready_processing_runs(p_source_id, p_cycle_date)',
+    );
+    expect(r13MigrationSource).toContain("perform pgmq.send(\n      'processing-queue'");
+    expect(r13MigrationSource).toContain("'type', 'processing'");
+    expect(r13MigrationSource).toContain("'flow_id', processing_rec.flow_id");
+    expect(r13MigrationSource).toContain("'cycle_date', processing_rec.cycle_date");
+    expect(r13MigrationSource).toContain('pr.processing_enqueued_at is null');
+    expect(r13MigrationSource).toContain(
+      "coalesce(sfr.status, 'pending') not in ('completed', 'failed')",
+    );
+    expect(r13MigrationSource).toContain('for update of pr skip locked');
+  });
+
+  it('runs the processing handoff when ingestion jobs fail terminally', () => {
+    expect(r13MigrationSource).toContain('function public.fail_worker_job');
+    expect(r13MigrationSource).toContain("if p_job_type = 'ingestion' then");
+    expect(r13MigrationSource).toContain("set status = 'failed'");
+    expect(r13MigrationSource).toContain(
+      'perform public.enqueue_ready_processing_runs(p_source_id, p_cycle_date)',
+    );
+  });
+
+  it('releases undigested processing claims when exhausted jobs are archived', () => {
+    expect(r13MigrationSource).toContain('function public.archive_exhausted_worker_job');
+    expect(r13MigrationSource).toContain("p_context ->> 'type' = 'processing'");
+    expect(r13MigrationSource).toContain('from public.processed_digests');
+    expect(r13MigrationSource).toContain('delete from public.flow_articles');
+    expect(r13MigrationSource).toContain('where processing_run_id = failed_processing_run_id');
+    expect(r13MigrationSource).toContain('and digest_id is null');
   });
 });

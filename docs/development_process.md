@@ -1070,3 +1070,57 @@ A change is complete only when:
   streaming body limit, timeout, safe-error, SSRF, dedupe, source-health, and
   queue-acknowledgement findings.
 - R-12 is marked done in the roadmap. R-13 is the next processing-pipeline slice.
+
+### 2026-07-04 — R-13 AI processing worker maker checkpoint
+
+**AI contribution**
+
+- Created OpenSpec change `r-13-ai-processing-worker` for the processing worker
+  slice.
+- Extended the `work` Edge Function with processing helpers for flow/source
+  selection, same-run claim reuse, new-article claiming through `flow_articles`,
+  `no_content` outcomes, n-gram Jaccard near-duplicate grouping, per-article and
+  total input budgets, OpenAI Responses strict JSON-schema request construction,
+  structured response parsing, and digest usage persistence.
+- Added migration `20260704165230_r13_preserve_processing_no_content.sql` so
+  transactional queue completion preserves `processing_runs.status =
+  no_content`, and so digest persistence plus current-run article inclusion
+  happen in one service-role RPC transaction. The migration now also records
+  `processing_enqueued_at`, enqueues one processing job after all flow sources
+  for a cycle are terminal through either successful or failed ingestion, and
+  deletes undigested current-run claims when an exhausted processing job is
+  archived.
+- Added `packages/browser/src/lib/processing-worker.test.ts` covering
+  no-content completion, claim/idempotency behavior, near-duplicate grouping,
+  truncation budgets, strict structured response parsing, usage persistence,
+  sanitized provider failure handling, and reuse of an already-persisted digest
+  when queue acknowledgement failed after digest persistence. Reviewer-requested
+  regressions now also cover incomplete existing-digest link repair and the one
+  schema repair attempt required by the architecture contract.
+- Extended queue SQL regression coverage to assert the processing-queue
+  handoff and terminal failed-claim cleanup contracts.
+- Added a reviewer-requested candidate-selection regression so already-claimed
+  articles are filtered before the 50-article cap is applied.
+- Checked official OpenAI docs on 2026-07-04 for Responses structured output via
+  `text.format` with `type: "json_schema"` and `strict: true`, plus usage
+  metadata under `usage.total_tokens`. Checked the Supabase changelog on
+  2026-07-04; no breaking item affected this worker path.
+
+**Verification performed by maker**
+
+- `npx vitest run packages/browser/src/lib/processing-worker.test.ts` passed:
+  1 file, 8 tests.
+- `npm run typecheck` passed.
+- `npm run lint` passed after removing an unused grouping placeholder.
+- `npm run format` passed after formatting the new test file.
+- `npm run test` passed: 10 files, 120 tests.
+- `npm run deno:check` passed.
+- `npm run deno:lint` passed.
+- `npm run deno:fmt` passed after applying Deno formatting to
+  `supabase/functions/work/index.ts`.
+
+**Not complete**
+
+- Independent verifier PASS and reviewer APPROVE reports are retained in the
+  archived OpenSpec change after multiple checker-requested repairs.
+- R-13 is marked done in the roadmap. R-14 delivery workers are next.
