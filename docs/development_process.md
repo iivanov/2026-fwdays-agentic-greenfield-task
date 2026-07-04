@@ -857,3 +857,39 @@ A change is complete only when:
 
 - Fresh independent verifier PASS and reviewer APPROVE reports are retained in the archived OpenSpec change.
 - Archived the change as `openspec/changes/archive/2026-07-04-r-11f-repair-queue-ack/` and marked R-11F done in the roadmap. R-11G is the next remediation slice.
+
+### 2026-07-04 — R-11G retention lifecycle maker checkpoint
+
+**AI contribution**
+
+- Selected R-11G as the next dependency-ready remediation slice after R-11F.
+- Created OpenSpec change `r-11g-retention-metadata-lifecycle`.
+- Replaced `cleanup_runs()` so seven-day deletion targets content-bearing articles, digests, and delivery attempts, while sanitized source/processing run metadata lives for 30 days.
+- Changed operational metadata cleanup to delete only resolved operational events after 30 days and retain unresolved failures.
+- Changed integration circuit cleanup to delete only closed stale circuits while retaining open and half-open circuit state.
+- Added Supabase integration coverage for content purge, run metadata retention, unresolved failure retention, resolved metadata deletion, and open/closed circuit cleanup.
+- Set Supabase integration test file execution to sequential because those tests share one local database and existing setup deletes shared tables.
+
+**Verification performed by maker**
+
+- `npm run supabase:reset` passed.
+- `npm run supabase:lint` passed with no schema errors.
+- `npm run test:integration` passed: 3 files, 4 tests.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run format` passed.
+- `npx -y @fission-ai/openspec@1.5.0 validate r-11g-retention-metadata-lifecycle --strict` passed.
+- `git diff --check` passed.
+
+**Not complete**
+
+- R-11G still needs independent verifier PASS and reviewer APPROVE reports before archive.
+
+### 2026-07-04 — R-11G closure
+
+**Closure**
+
+- Independent verifier PASS and reviewer APPROVE reports are retained in the OpenSpec change.
+- The verifier reran `npm run supabase:reset`, `npm run supabase:lint`, `npm run test:integration`, `npm run typecheck`, `npm run lint`, `npm run format`, `npm run deno:check`, pinned OpenSpec validation, and `git diff --check`.
+- The reviewer approved the final diff after checking retention semantics, service-role cleanup exposure, idempotency, and sequential Supabase integration execution.
+- Archived the change as `openspec/changes/archive/2026-07-04-r-11g-retention-metadata-lifecycle/` and marked R-11G done in the roadmap. R-11H is the next remediation slice.

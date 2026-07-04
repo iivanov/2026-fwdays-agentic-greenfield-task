@@ -2,9 +2,9 @@
 
 ## Current Position
 
-- **Last completed stage**: R-11F (`r-11f-repair-queue-ack`)
-- **Active implementation slice**: R-11G (retention and operational metadata lifecycle repair)
-- **Current checkpoint**: R-11F passed local Supabase migration lint/integration gates, retained independent verifier/reviewer reports, and is archived locally. R-11G is next.
+- **Last completed stage**: R-11G (`r-11g-retention-metadata-lifecycle`)
+- **Active implementation slice**: R-11H (outbound SSRF/DNS rebinding hardening)
+- **Current checkpoint**: R-11G passed local Supabase migration lint/integration gates, retained independent verifier/reviewer reports, and is archived locally. R-11H is next.
 - **Paused draft**: R-12 ingestion worker; existing uncommitted maker output is preserved but fails current gates and requires a revised spec.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
@@ -187,3 +187,20 @@ See `docs/roadmap.md` for the ordered corrective backlog.
 - `npx -y @fission-ai/openspec@1.5.0 show/validate r-11f-repair-queue-ack` passed, resolving the previous ambiguous `npx openspec` executable warning.
 - Legacy queue helper RPCs now reject unsupported queue names before calling `pgmq`, and the queue worker regression suite covers this safety boundary.
 - Independent verifier PASS and reviewer APPROVE reports are retained in the archived change. R-11G is next.
+
+## R-11G Maker Implementation Status (2026-07-04)
+
+- Created OpenSpec change `r-11g-retention-metadata-lifecycle`.
+- Added a cleanup migration that keeps seven-day deletion focused on content-bearing articles, digests, and delivery attempts; retains source/processing run metadata for 30 days; deletes only resolved operational events older than 30 days; and deletes only closed stale integration circuits.
+- Added Supabase integration coverage for expired content deletion, 20-day run metadata retention, unresolved operational-event retention, resolved metadata deletion, and open/closed circuit lifecycle behavior.
+- Disabled file-level parallelism only for Supabase integration tests because they share one local database and existing tests truncate shared tables.
+- Maker gates passed: `npm run supabase:reset`, `npm run supabase:lint`, `npm run test:integration`, `npm run typecheck`, `npm run lint`, `npm run format`, `npx -y @fission-ai/openspec@1.5.0 validate r-11g-retention-metadata-lifecycle --strict`, and `git diff --check`.
+- R-11G was ready for independent verifier and reviewer passes.
+
+## R-11G Archived Status (2026-07-04)
+
+- Archived OpenSpec change `r-11g-retention-metadata-lifecycle` at `openspec/changes/archive/2026-07-04-r-11g-retention-metadata-lifecycle/`.
+- Cleanup now applies seven-day deletion to content-bearing articles, digests, and delivery attempts, while retaining sanitized source/processing run metadata for 30 days.
+- Cleanup now retains unresolved operational events, deletes only resolved events older than 30 days, retains open/half-open integration circuits, and deletes only closed stale circuits.
+- Supabase integration tests now run sequentially because they share one local database.
+- Independent verifier PASS and reviewer APPROVE reports are retained in the archived change. R-11H is next.
