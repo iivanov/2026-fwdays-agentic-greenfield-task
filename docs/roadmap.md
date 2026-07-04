@@ -65,7 +65,7 @@ unchanged evidence; these small OpenSpec slices supersede the defective parts.
 | R-11C | Encrypt custom prompts at rest, authorize plaintext use, and exclude prompts from logs | R-11A | BR-FLOW-07, D-01, A-06, NFR-SEC-03, T-09 | done |
 | R-11D | Repair delivery identity/secrets: verified account email only, app-owned Telegram bot, functional verification, one-time webhook secret | R-11A | BR-DEL-02..05, D-04, A-05/06, NFR-SEC-03/04/06 | done |
 | R-11E | Restrict shared source/article RLS to service access or owning flow links | R-11A | D-01/02, A-06, NFR-SEC-02/03 | done |
-| R-11F | Repair queue transactional acknowledgement, delivery attempt state, RPC error handling, and DLQ ordering | R-11B | D-03..06, A-04, AT-02/03/05/06, NFR-REL-01..05 | pending |
+| R-11F | Repair queue transactional acknowledgement, delivery attempt state, RPC error handling, and DLQ ordering | R-11B | D-03..06, A-04, AT-02/03/05/06, NFR-REL-01..05 | in-progress |
 | R-11G | Correct retention and operational metadata lifecycles (7-day content, 30-day resolved metadata, unresolved failures retained) | R-11B | BR-DATA-01/02, D-05/06, AT-08, NFR-DATA-01..03, NFR-OPS-02 | pending |
 | R-11H | Harden outbound connections against DNS rebinding and prove redirect/address enforcement | R-11B | A-06, AT-07, NFR-SEC-05 | pending |
 | R-11I | Reconstruct canonical OpenSpec purposes/traceability and enforce complete archive task/evidence hygiene | R-11A | AT-01/11, Q-01..Q-05, NFR-OPS-04 | pending |
