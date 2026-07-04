@@ -87,7 +87,6 @@ declare
   enqueued_count integer := 0;
   flows_processed integer := 0;
   cycle_dt date;
-  new_run_id uuid;
 begin
   for flow_rec in
     select id, next_run_at, user_id
@@ -99,8 +98,7 @@ begin
     
     begin
       insert into public.processing_runs (flow_id, cycle_date, status)
-      values (flow_rec.id, cycle_dt, 'pending')
-      returning id into new_run_id;
+      values (flow_rec.id, cycle_dt, 'pending');
     exception when unique_violation then
       continue;
     end;
@@ -153,17 +151,23 @@ returns table (
   message jsonb
 ) as $$
 begin
-  return query execute format(
-    'select msg_id, read_ct, enqueued_at, message from pgmq.read(%L, %s, 1)',
-    queue_name,
-    lease_seconds
-  );
+  if queue_name not in ('ingestion-queue', 'processing-queue', 'delivery-queue') then
+    raise exception 'Unsupported queue name: %', queue_name using errcode = 'invalid_parameter_value';
+  end if;
+
+  return query
+  select job.msg_id, job.read_ct, job.enqueued_at, job.message
+  from pgmq.read(queue_name, lease_seconds, 1) as job;
 end;
 $$ language plpgsql;
 
 create or replace function public.delete_job(queue_name text, msg_id bigint)
 returns boolean as $$
 begin
+  if queue_name not in ('ingestion-queue', 'processing-queue', 'delivery-queue') then
+    raise exception 'Unsupported queue name: %', queue_name using errcode = 'invalid_parameter_value';
+  end if;
+
   perform pgmq.delete(queue_name, msg_id);
   return true;
 end;
@@ -172,6 +176,10 @@ $$ language plpgsql;
 create or replace function public.archive_job(queue_name text, msg_id bigint)
 returns boolean as $$
 begin
+  if queue_name not in ('ingestion-queue', 'processing-queue', 'delivery-queue') then
+    raise exception 'Unsupported queue name: %', queue_name using errcode = 'invalid_parameter_value';
+  end if;
+
   perform pgmq.archive(queue_name, msg_id);
   return true;
 end;
@@ -260,6 +268,10 @@ $$ language plpgsql;
 create or replace function public.send_to_queue(queue_name text, message jsonb)
 returns bigint as $$
 begin
+  if queue_name not in ('ingestion-queue', 'processing-queue', 'delivery-queue') then
+    raise exception 'Unsupported queue name: %', queue_name using errcode = 'invalid_parameter_value';
+  end if;
+
   return pgmq.send(queue_name, message);
 end;
 $$ language plpgsql;

@@ -826,3 +826,34 @@ A change is complete only when:
 
 - R-11F retained an independent reviewer APPROVE report and an independent verifier report that passed static/unit/build gates but warned that local Supabase/Postgres was unavailable for migration lint and integration tests.
 - R-11F is not archived until Supabase-backed gates pass in a suitable environment. Later roadmap slices through Phase 4 remain pending; this checkpoint intentionally avoids claiming production readiness.
+
+### 2026-07-04 — R-11F closure
+
+**Human direction**
+
+- Before continuing roadmap implementation, fix or resolve the verifier warnings for `npm run supabase:lint`, `npm run test:integration`, and `npx openspec show r-11f-repair-queue-ack`.
+
+**AI contribution**
+
+- Confirmed the local Supabase container stack was running but needed a fresh migration replay; ran `npm run supabase:reset`.
+- Reproduced the integration failure after the first reset as a real stale-schema/worker issue, then cleaned the scheduler migration by removing an unused variable and replacing dynamic queue-claim SQL with a direct `pgmq.read` call.
+- Addressed the independent reviewer blocker by adding queue-name allowlist checks to the legacy `claim_job`, `delete_job`, `archive_job`, and `send_to_queue` RPC helpers before they call `pgmq`.
+- Added regression coverage to keep those helper RPCs restricted to `ingestion-queue`, `processing-queue`, and `delivery-queue`.
+- Synced the canonical `scheduler-queue` OpenSpec with the R-11F transactional acknowledgement, delivery-state, and DLQ-ordering requirements.
+
+**Verification performed**
+
+- `npm run supabase:reset` passed and replayed migrations through `20260703230000_r11f_queue_transactional_ack.sql`.
+- `npm run supabase:lint` passed with no schema errors.
+- `npm run test:integration` passed: 2 files, 3 tests.
+- `npm run test -- packages/browser/src/lib/queue-worker.test.ts` passed: 1 file, 5 tests.
+- `npx -y @fission-ai/openspec@1.5.0 show r-11f-repair-queue-ack` passed, resolving the plain `npx openspec` executable issue by using the pinned package.
+- `npx -y @fission-ai/openspec@1.5.0 validate r-11f-repair-queue-ack --strict` passed.
+- `npx -y @fission-ai/openspec@1.5.0 validate --all --strict` passed in the reviewer pass.
+- `git diff --check` passed.
+- `npm run deno:check` passed in the verifier pass.
+
+**Closure**
+
+- Fresh independent verifier PASS and reviewer APPROVE reports are retained in the archived OpenSpec change.
+- Archived the change as `openspec/changes/archive/2026-07-04-r-11f-repair-queue-ack/` and marked R-11F done in the roadmap. R-11G is the next remediation slice.

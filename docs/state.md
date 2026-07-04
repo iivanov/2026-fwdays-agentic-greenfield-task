@@ -2,9 +2,9 @@
 
 ## Current Position
 
-- **Last completed stage**: R-11E (`r-11e-restrict-shared-source-article-rls`)
-- **Active implementation slice**: R-11F (queue transactional acknowledgement repair)
-- **Current checkpoint**: R-11E is archived locally with retained verifier/reviewer reports; R-11F is next.
+- **Last completed stage**: R-11F (`r-11f-repair-queue-ack`)
+- **Active implementation slice**: R-11G (retention and operational metadata lifecycle repair)
+- **Current checkpoint**: R-11F passed local Supabase migration lint/integration gates, retained independent verifier/reviewer reports, and is archived locally. R-11G is next.
 - **Paused draft**: R-12 ingestion worker; existing uncommitted maker output is preserved but fails current gates and requires a revised spec.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
@@ -176,4 +176,14 @@ See `docs/roadmap.md` for the ordered corrective backlog.
 - Added transactional service-role RPCs so worker success commits domain state and queue acknowledgement together, with fail-closed claim/ack/archive error handling.
 - Updated the `work` Edge Function to use schema-correct delivery attempt states (`sending`, `delivered`, `failed`) and `error_message`.
 - Added worker regression tests for transactional completion, claim RPC failure, and DLQ ordering.
-- Maker checks, independent review approval, and independent verification with environment-limited Supabase gates are retained in the active change. R-11F is not archived because Supabase-backed migration/integration evidence could not run in this environment.
+- Maker checks, independent review approval, and independent verification with environment-limited Supabase gates were retained in the active change before the final repair pass.
+
+## R-11F Archived Status (2026-07-04)
+
+- Archived OpenSpec change `r-11f-repair-queue-ack` at `openspec/changes/archive/2026-07-04-r-11f-repair-queue-ack/`.
+- Local Supabase was reset successfully and replayed migrations through the R-11F transactional acknowledgement migration.
+- `npm run supabase:lint` passed with no schema errors, resolving the previous local Supabase/Postgres unavailable warning.
+- `npm run test:integration` passed with 2 integration files and 3 tests, resolving the previous local Supabase health warning.
+- `npx -y @fission-ai/openspec@1.5.0 show/validate r-11f-repair-queue-ack` passed, resolving the previous ambiguous `npx openspec` executable warning.
+- Legacy queue helper RPCs now reject unsupported queue names before calling `pgmq`, and the queue worker regression suite covers this safety boundary.
+- Independent verifier PASS and reviewer APPROVE reports are retained in the archived change. R-11G is next.

@@ -11,6 +11,10 @@ const migrationSource = readFileSync(
   'supabase/migrations/20260703230000_r11f_queue_transactional_ack.sql',
   'utf8',
 );
+const schedulerMigrationSource = readFileSync(
+  'supabase/migrations/20260703000000_scheduler_queue.sql',
+  'utf8',
+);
 
 type RpcResult = { data: unknown; error: { message: string } | null };
 type RpcCall = { name: string; args?: Record<string, unknown> };
@@ -143,5 +147,16 @@ describe('R-11F queue worker safeguards', () => {
     expect(migrationSource).toContain(
       "set status = 'failed', error_message = left(p_error_message, 500)",
     );
+  });
+
+  it('keeps legacy queue helper RPCs restricted to known worker queues', () => {
+    for (const helperName of ['claim_job', 'delete_job', 'archive_job', 'send_to_queue']) {
+      expect(schedulerMigrationSource).toContain(`function public.${helperName}`);
+    }
+    expect(schedulerMigrationSource).toContain(
+      "queue_name not in ('ingestion-queue', 'processing-queue', 'delivery-queue')",
+    );
+    expect(schedulerMigrationSource).toContain("raise exception 'Unsupported queue name: %'");
+    expect(schedulerMigrationSource).toContain("errcode = 'invalid_parameter_value'");
   });
 });
