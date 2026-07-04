@@ -2,9 +2,9 @@
 
 ## Current Position
 
-- **Last completed stage**: R-13 (`r-13-ai-processing-worker`)
-- **Active implementation slice**: R-14 (delivery workers)
-- **Current checkpoint**: R-13 AI processing worker is archived locally with independent verifier PASS and reviewer APPROVE reports. The pipeline now enqueues processing jobs after all source jobs are terminal, claims unprocessed articles before the 50-article cap, groups near-duplicates, enforces input budgets, calls OpenAI Responses strict structured output with one schema repair attempt, persists digest usage transactionally, records `no_content`, and releases undigested claims on exhausted processing failures. R-14 is next.
+- **Last completed stage**: R-14 (`r-14-delivery-workers`)
+- **Active implementation slice**: R-15 (feedback capture)
+- **Current checkpoint**: R-14 delivery workers are complete and archived locally with independent verifier PASS and reviewer APPROVE reports. The worker now creates active-channel delivery attempts from digest persistence, sends in-app/Brevo/Telegram/Slack/generic signed webhook attempts, revalidates webhook URLs before delivery, blocks webhook redirects, signs generic webhook bodies, records retry/backoff/circuit/channel state through service-role RPCs, idempotently acknowledges duplicate delivered jobs, and requeues not-yet-due attempts without counting provider failures. R-15 feedback capture is next.
 - **Paused draft**: none. The previous R-12 draft has been replaced by the active R-12 implementation.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
@@ -31,6 +31,38 @@ fresh independent review on its final diff before archive.
 R-11I added an executable OpenSpec hygiene guard so canonical specs cannot keep
 placeholder purposes and future non-legacy archives cannot omit complete tasks
 or checker reports.
+
+## R-14 Maker Implementation Status (2026-07-04)
+
+- Created OpenSpec change `r-14-delivery-workers`.
+- Added migration `20260704183308_r14_delivery_workers.sql` with
+  `enqueue_digest_delivery_attempts`, digest persistence handoff to
+  `delivery-queue`, atomic delivery-claim helpers, delivery completion/failure
+  acknowledgement RPCs, retry/backoff scheduling, channel failure counters, and
+  integration circuit probe/failure/reset state.
+- Extended `supabase/functions/work/index.ts` with delivery adapters for in-app,
+  Brevo email, Telegram bot, Slack incoming webhook, and generic signed webhook
+  delivery. Slack and generic webhook delivery use the shared SSRF helper
+  immediately before requests, do not follow redirects, and generic webhooks
+  send `X-News-Event-Id`, `X-News-Timestamp`, and `X-News-Signature`.
+- Added `packages/browser/src/lib/delivery-worker.test.ts` and extended queue
+  unit/integration coverage for provider payloads, HMAC signatures, redirect
+  blocking, permanent failure acknowledgement, attempt creation, retry backoff,
+  and circuit rows.
+- Fixed the R-13 canonical `ai-processing-worker` spec purpose placeholder
+  left by archive so OpenSpec hygiene tests remain truthful.
+- Maker self-checks currently passed: focused R-14 Vitest, `npm run typecheck`,
+  `npm run lint`, `npm run format`, `npm run test` (130 tests), `npm run
+  deno:check`, `npm run deno:lint`, `npm run deno:fmt`, `npm run
+  supabase:reset`, `npm run supabase:lint`, `npm run test:integration`, `npx -y
+  @fission-ai/openspec@1.5.0 show r-14-delivery-workers`, and `npx -y
+  @fission-ai/openspec@1.5.0 validate r-14-delivery-workers --strict`.
+- First checker loop found blocking delivery state-machine defects. The current
+  diff fixes duplicate delivered job acknowledgement, not-yet-due retry
+  requeueing, and scoped retry classification for transport failures; both
+  checker passes must be rerun on this final diff.
+- Independent verifier PASS and reviewer APPROVE reports are retained in the
+  archived OpenSpec change. R-15 feedback capture is next.
 
 ## R-13 Maker Implementation Status (2026-07-04)
 
