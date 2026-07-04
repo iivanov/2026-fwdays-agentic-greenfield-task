@@ -204,3 +204,12 @@ See `docs/roadmap.md` for the ordered corrective backlog.
 - Cleanup now retains unresolved operational events, deletes only resolved events older than 30 days, retains open/half-open integration circuits, and deletes only closed stale circuits.
 - Supabase integration tests now run sequentially because they share one local database.
 - Independent verifier PASS and reviewer APPROVE reports are retained in the archived change. R-11H is next.
+
+## R-11H Maker Implementation Status (2026-07-04)
+
+- Created OpenSpec change `r-11h-harden-outbound-ssrf`.
+- Added `fetchWithSsrfProtection()` and `assertUrlSsrfSafe()` to validate outbound URLs immediately before fetch, disable native redirects, and manually revalidate permitted redirects.
+- Routed Slack and generic webhook verification requests through the protected fetch helper with redirects disabled.
+- Added SSRF regression tests for DNS rebinding-style resolver changes, unsafe redirect targets, safe relative redirects, and redirect blocking when redirects are disabled.
+- Maker gates passed: `npm run test -- packages/browser/src/lib/ssrf.test.ts`, `npm run typecheck`, `npm run lint`, `npm run format`, `npm run deno:check`, `npx -y @fission-ai/openspec@1.5.0 validate r-11h-harden-outbound-ssrf --strict`, and `git diff --check`.
+- R-11H is maker-complete but not archived. Multiple independent verifier/reviewer sub-agent attempts hung without returning artifacts, even after explicit status/partial-result prompts, so R-11H remains `in-progress` until fresh checker passes complete.

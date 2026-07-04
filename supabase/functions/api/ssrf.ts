@@ -1,6 +1,14 @@
 // SSRF Defense Validation Helper
 
 export type DnsResolver = (hostname: string) => Promise<string[]>;
+export type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+
+export class SsrfProtectionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SsrfProtectionError';
+  }
+}
 
 // DnsResolver that runs cleanly in both Deno and Node/Vitest
 export const defaultDnsResolver: DnsResolver = async (hostname: string) => {
@@ -300,4 +308,61 @@ export async function validateUrlSsrf(
   } catch {
     return false; // Fail closed on malformed URLs
   }
+}
+
+export async function assertUrlSsrfSafe(
+  urlStr: string,
+  resolveDns: DnsResolver = defaultDnsResolver,
+): Promise<URL> {
+  let url: URL;
+  try {
+    url = new URL(urlStr);
+  } catch {
+    throw new SsrfProtectionError('Outbound URL is malformed');
+  }
+
+  if (!(await validateUrlSsrf(url.toString(), resolveDns))) {
+    throw new SsrfProtectionError('Outbound URL failed SSRF validation');
+  }
+
+  return url;
+}
+
+type ProtectedFetchOptions = {
+  resolveDns?: DnsResolver;
+  fetchImpl?: FetchLike;
+  followRedirects?: boolean;
+  maxRedirects?: number;
+};
+
+export async function fetchWithSsrfProtection(
+  urlStr: string,
+  init: RequestInit = {},
+  options: ProtectedFetchOptions = {},
+): Promise<Response> {
+  const resolveDns = options.resolveDns ?? defaultDnsResolver;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const followRedirects = options.followRedirects ?? false;
+  const maxRedirects = options.maxRedirects ?? 3;
+  let currentUrl = await assertUrlSsrfSafe(urlStr, resolveDns);
+
+  for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
+    const response = await fetchImpl(currentUrl.toString(), {
+      ...init,
+      redirect: 'manual',
+    });
+
+    if (!followRedirects || response.status < 300 || response.status >= 400) {
+      return response;
+    }
+
+    const location = response.headers.get('location');
+    if (!location) {
+      throw new SsrfProtectionError('Redirect response missing Location header');
+    }
+
+    currentUrl = await assertUrlSsrfSafe(new URL(location, currentUrl).toString(), resolveDns);
+  }
+
+  throw new SsrfProtectionError('Too many redirects');
 }

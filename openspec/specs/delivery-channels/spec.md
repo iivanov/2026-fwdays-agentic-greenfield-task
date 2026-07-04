@@ -49,6 +49,14 @@ Delivery channels SHALL be bound to approved identities and SHALL only become ac
 - **WHEN** a channel target passes its type-specific verification check
 - **THEN** the API marks that user-owned channel active using a constrained server-side status transition
 
+### Requirement: Delivery verification webhooks MUST not follow redirects
+Slack and generic webhook verification requests MUST validate the target immediately before the request and MUST NOT follow redirects.
+
+#### Scenario: Webhook verification returns redirect
+- **WHEN** a Slack or generic webhook verification endpoint returns any redirect
+- **THEN** verification fails closed
+- **AND** the redirect target is not requested.
+
 ### Requirement: Flow to Channel Mappings
 The system SHALL support mapping multiple delivery channels to a processing flow in the `flow_delivery_channels` table (satisfies BR-DEL-06).
 
@@ -62,4 +70,3 @@ The dashboard client SHALL provide interactive tab panels for configuring, testi
 #### Scenario: Rendering the Delivery Channels settings
 - **WHEN** the user navigates to the Delivery Channels dashboard tab
 - **THEN** the system lists all active configurations, masking secret strings (e.g. `https://hooks.slack.com/services/****`)
-

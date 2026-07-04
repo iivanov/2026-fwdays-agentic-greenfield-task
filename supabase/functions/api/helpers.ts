@@ -1,5 +1,5 @@
 import { z, type ZodIssue } from 'zod';
-import { type DnsResolver, validateUrlSsrf } from './ssrf.ts';
+import { fetchWithSsrfProtection, type DnsResolver, validateUrlSsrf } from './ssrf.ts';
 import {
   decryptConfig,
   decryptPromptTemplate,
@@ -145,12 +145,16 @@ function getEnv(name: string): string {
 async function fetchWithVerificationTimeout(
   url: string,
   init: RequestInit,
+  resolveDns?: DnsResolver,
   timeoutMs = 5000,
 ): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...init, signal: controller.signal, redirect: 'error' });
+    return await fetchWithSsrfProtection(url, { ...init, signal: controller.signal }, {
+      resolveDns,
+      followRedirects: false,
+    });
   } finally {
     clearTimeout(timeout);
   }
@@ -221,11 +225,15 @@ export async function verifyDeliveryChannelTarget(
     if (!isSafe) {
       return { success: false, error: 'Slack webhook URL failed outbound safety validation' };
     }
-    const response = await fetchWithVerificationTimeout(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: 'AI News Aggregator delivery channel verification.' }),
-    });
+    const response = await fetchWithVerificationTimeout(
+      webhookUrl,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: 'AI News Aggregator delivery channel verification.' }),
+      },
+      resolveDns,
+    );
     if (!response.ok) {
       return { success: false, error: 'Slack webhook verification failed' };
     }
@@ -251,16 +259,20 @@ export async function verifyDeliveryChannelTarget(
       timestamp,
     });
     const signature = await signWebhookChallenge(signingSecret, body, timestamp);
-    const response = await fetchWithVerificationTimeout(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-News-Aggregator-Event': 'delivery_channel.verify',
-        'X-News-Aggregator-Timestamp': timestamp,
-        'X-News-Aggregator-Signature': `sha256=${signature}`,
+    const response = await fetchWithVerificationTimeout(
+      webhookUrl,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-News-Aggregator-Event': 'delivery_channel.verify',
+          'X-News-Aggregator-Timestamp': timestamp,
+          'X-News-Aggregator-Signature': `sha256=${signature}`,
+        },
+        body,
       },
-      body,
-    });
+      resolveDns,
+    );
     if (!response.ok) {
       return { success: false, error: 'Webhook challenge verification failed' };
     }
