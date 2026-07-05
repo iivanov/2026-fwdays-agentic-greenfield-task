@@ -1,10 +1,5 @@
-# supabase-auth Specification
+## MODIFIED Requirements
 
-## Purpose
-Define Supabase Auth expectations for Google/GitHub OAuth PKCE, local-only
-password-auth posture, session handling, and profile creation linkage
-(`BR-USER-01`, `T-06`, `NFR-SEC-01`).
-## Requirements
 ### Requirement: Google and GitHub OAuth (PKCE Flow)
 The system SHALL support user registration and authentication via Google and GitHub OAuth using the PKCE flow, including a browser OAuth callback path that restores the Supabase session before showing authenticated dashboard content (satisfies `BR-USER-01`, `A-01`, `T-02`, `T-06`, `NFR-SEC-01`, `NFR-UX-01`).
 
@@ -41,6 +36,8 @@ Email and password authentication SHALL be enabled only for local development an
 - **THEN** the sign-in shell shows Google and GitHub OAuth options
 - **AND** it does not render email/password sign-in or sign-up controls
 
+## ADDED Requirements
+
 ### Requirement: Authenticated Browser Routing
 The browser application SHALL protect dashboard routes and restore authenticated users to the requested dashboard subsection when a valid session exists (satisfies `BR-USER-01`, `A-01`, `T-02`, `T-06`, `NFR-SEC-01`, `NFR-UX-01`).
 
@@ -68,12 +65,3 @@ The browser application SHALL provide logout that clears local authenticated UI 
 - **AND** the local session state is cleared
 - **AND** the browser path is replaced with `/`
 - **AND** dashboard content is not visible until a new session is restored
-
-### Requirement: Profile and Channel Auto-Provisioning
-Upon first authentication, the system SHALL automatically create a profile in the `profiles` table and default `in-app` and `email` delivery channels (satisfies T-06, BR-DEL-01).
-
-#### Scenario: User Profile Creation
-- **WHEN** a new user record is created in `auth.users`
-- **THEN** a matching record is inserted into `public.profiles` with the same `id` and `email`
-- **AND** a default `in-app` delivery channel is created with `status = 'active'`
-- **AND** a default `email` delivery channel is created with `status = 'active'` (if OAuth verified) or `status = 'pending'`

@@ -2,16 +2,37 @@
 
 ## Current Position
 
-- **Last completed stage**: R-19 (`r-19-deploy-config-bootstrap`)
-- **Active implementation slice**: R-20 (browser auth lifecycle) is next.
-- **Current checkpoint**: R-19 deploy config bootstrap is archived at
+- **Last completed stage**: R-20 (`r-20-browser-auth-lifecycle`)
+- **Active implementation slice**: none; roadmap Phase 4 slices are complete.
+- **Current checkpoint**: R-20 OpenSpec change is archived at
+  `openspec/changes/archive/2026-07-05-r-20-browser-auth-lifecycle/`, with
+  fresh independent verifier PASS and reviewer APPROVE reports retained. R-20
+  implementation has added browser auth-route helpers, OAuth callback/session
+  restoration handling, protected dashboard paths, route-synced tabs, logout
+  cleanup, production-hidden password controls, focused Vitest coverage, and
+  expanded Playwright auth lifecycle coverage. Coverage exposed a pre-existing
+  nondeterministic Telegram verification path, so the Telegram verifier now
+  passes its DNS resolver hook into the SSRF-protected fetch helper and the
+  success test supplies a safe Telegram IP. Maker checks currently passed:
+  focused auth-routing Vitest, focused Telegram verification Vitest, `npm run
+  typecheck`, `npm run lint`, `npm run format`, `npm run test` (15 files, 161
+  tests), `npm run test:coverage`, `npm run build:browser`, `npm run test:e2e`
+  (10 Chromium tests), `npm run verify:local`, `npm run supabase:lint`, `npm run
+  test:integration` (3 files, 5 tests), `openspec validate --all --strict` (20
+  items), and `git diff --check`. The first independent reviewer pass requested
+  changes for overly broad callback error parsing and logout failure local-state
+  cleanup; the maker fixed both and added Playwright regressions. Fresh
+  independent verifier PASS and reviewer APPROVE reports were retained before
+  archive. Commit, push, and hosted CI are still pending.
+- **Previous checkpoint**: R-19 deploy config bootstrap is archived at
   `openspec/changes/archive/2026-07-05-r-19-deploy-config-bootstrap/` with
   fresh independent verifier PASS and reviewer APPROVE reports. R-19 was
   committed as `ceaa367`; follow-up repair commit `fa0bf6f` fixed a
   pre-existing nondeterministic crypto tamper test. GitHub `CI` run
-  `28740880409` and `CodeQL` run `28740880398` passed for `fa0bf6f`. No
-  provider accounts, project links, secrets, paid features, or production
-  deploys have been created.
+  `28740880409` and `CodeQL` run `28740880398` passed for `fa0bf6f`. Final
+  documentation closure commit `b5d4000` also passed GitHub `CI` run
+  `28741013482` and `CodeQL` run `28741013480`. No provider accounts, project
+  links, secrets, paid features, or production deploys have been created.
 - **Paused draft**: none. The previous R-12 draft has been replaced by the active R-12 implementation.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.

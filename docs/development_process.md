@@ -1531,3 +1531,78 @@ A change is complete only when:
   deployment config audit, unit/coverage, Deno gates, browser build/e2e,
   Supabase migration lint, and Supabase integration tests.
 - GitHub `CodeQL` run `28740880398` passed.
+- Final R-19 documentation closure commit `b5d4000` was pushed to `origin/main`.
+  GitHub `CI` run `28741013482` and `CodeQL` run `28741013480` passed.
+
+### 2026-07-05 — R-20 browser auth lifecycle maker checkpoint
+
+**AI contribution**
+
+- Created OpenSpec change `r-20-browser-auth-lifecycle`.
+- Added a `supabase-auth` spec delta for OAuth callback/session restoration,
+  protected dashboard routing, logout, and production-hidden password controls.
+- Checked current Supabase JavaScript auth docs and changelog on 2026-07-05.
+  No relevant hosted Supabase JS/Auth breaking change affected this browser
+  lifecycle slice.
+- Added typed browser auth routing helpers for callback detection, dashboard tab
+  path mapping, safe same-origin dashboard return paths, OAuth callback error
+  sanitization, and dev-password-auth gating.
+- Wired the browser shell to use `/auth/callback`, preserve only safe dashboard
+  return paths, show protected routes through the sign-in shell when no session
+  exists, restore authenticated dashboard deep links, synchronize tab changes to
+  `/dashboard/...` paths, clear route/session UI on logout, and hide password
+  auth controls outside local development or an explicit dev/test flag.
+- Expanded Playwright smoke coverage for unauthenticated protected routes,
+  callback errors, authenticated fixture callback restoration, deep links,
+  logout, and mobile overflow.
+- Fixed a coverage-only timeout in the existing Telegram channel verification
+  test path by passing the existing DNS resolver hook through Telegram's
+  SSRF-protected fetch call and supplying a safe Telegram IP in the success
+  test. This avoids external DNS timing during coverage and keeps runtime
+  outbound validation behavior consistent with Slack/webhook verification.
+
+**Verification performed so far**
+
+- `openspec validate r-20-browser-auth-lifecycle --strict` passed.
+- `npx vitest run packages/browser/src/lib/auth-routing.test.ts` passed: 1
+  file, 5 tests.
+- `npx vitest run packages/browser/src/lib/api-helpers.test.ts -t "should
+  verify Telegram with the app-owned bot token"` passed: 1 test, 57 skipped.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run format` passed.
+- `npm run test` passed: 15 files, 161 tests.
+- `npm run test:coverage` passed with configured thresholds.
+- `npm run build:browser` passed.
+- `npm run test:e2e` passed: 10 Chromium tests, including regressions that
+  callback error parameters take precedence over e2e fixture sessions, OAuth-like
+  error parameters are ignored outside `/auth/callback`, and logout clears local
+  dashboard UI even when remote sign-out fails.
+- `npm run verify:local` passed, including typecheck, lint, format, infra
+  audit, unit tests, coverage, Deno check/lint/fmt/lock/outdated, npm audit,
+  browser build, and Playwright e2e.
+- `npm run supabase:lint` passed with no schema errors.
+- `npm run test:integration` passed: 3 files, 5 tests.
+- `openspec validate --all --strict` passed: 20 items.
+- `git diff --check` passed.
+
+**Checker loop and closure**
+
+- First independent reviewer pass requested changes for overly broad callback
+  error parsing and logout failure local-state cleanup. Both were fixed and the
+  checker passes were rerun on the final diff.
+- Fresh independent verifier PASS is retained in
+  `openspec/changes/archive/2026-07-05-r-20-browser-auth-lifecycle/verification.md`.
+  The verifier ran focused auth-routing and Telegram tests, typecheck, lint,
+  format, unit tests, browser build, 10-test Playwright e2e, Supabase lint,
+  Supabase integration tests, Deno Edge gates for the touched API helper,
+  OpenSpec strict validation, and `git diff --check`.
+- Fresh independent reviewer APPROVE is retained in
+  `openspec/changes/archive/2026-07-05-r-20-browser-auth-lifecycle/review.md`.
+  The reviewer confirmed the earlier callback-error and logout blockers are
+  fixed. The reviewer noted a non-blocking verifier artifact count mismatch
+  before the verifier report was refreshed; the archived verifier report now
+  records the current 10-test Playwright suite.
+- Archived `r-20-browser-auth-lifecycle`, syncing the browser auth lifecycle
+  requirements into the canonical `supabase-auth` spec.
+- R-20 still needs commit, push, and hosted CI/CodeQL confirmation.
