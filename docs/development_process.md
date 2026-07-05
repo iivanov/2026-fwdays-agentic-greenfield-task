@@ -1524,6 +1524,10 @@ A change is complete only when:
 - `npm run format` passed.
 - `git diff --check` passed.
 
-**Not complete**
+**Closure**
 
-- The repair commit still needs push and hosted CI/CodeQL confirmation.
+- Repair commit `fa0bf6f` was pushed to `origin/main`.
+- GitHub `CI` run `28740880409` passed all quality gates, including the new
+  deployment config audit, unit/coverage, Deno gates, browser build/e2e,
+  Supabase migration lint, and Supabase integration tests.
+- GitHub `CodeQL` run `28740880398` passed.

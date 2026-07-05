@@ -7,11 +7,11 @@
 - **Current checkpoint**: R-19 deploy config bootstrap is archived at
   `openspec/changes/archive/2026-07-05-r-19-deploy-config-bootstrap/` with
   fresh independent verifier PASS and reviewer APPROVE reports. R-19 was
-  committed as `ceaa367` and pushed to `origin/main`; GitHub `CI` run
-  `28740803977` failed in a pre-existing nondeterministic crypto tamper test.
-  The repair makes the test flip a decoded ciphertext byte before expecting
-  decryption failure and is ready to commit/push. No provider accounts, project
-  links, secrets, paid features, or production deploys have been created.
+  committed as `ceaa367`; follow-up repair commit `fa0bf6f` fixed a
+  pre-existing nondeterministic crypto tamper test. GitHub `CI` run
+  `28740880409` and `CodeQL` run `28740880398` passed for `fa0bf6f`. No
+  provider accounts, project links, secrets, paid features, or production
+  deploys have been created.
 - **Paused draft**: none. The previous R-12 draft has been replaced by the active R-12 implementation.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
@@ -238,10 +238,10 @@ or checker reports.
 - R-19 was committed as `ceaa367` and pushed to `origin/main`. GitHub `CI` run
   `28740803977` failed in `packages/browser/src/lib/crypto.test.ts` because the
   test tampered ciphertext with `replace(/a/g, 'b')`, which is a no-op when the
-  random base64 ciphertext contains no `a`. The repair flips a decoded
-  ciphertext byte before re-encoding it, and local focused/full unit tests,
-  lint, format, and `git diff --check` pass. Hosted CI confirmation is pending
-  for the repair commit.
+  random base64 ciphertext contains no `a`. Repair commit `fa0bf6f` flips a
+  decoded ciphertext byte before re-encoding it; local focused/full unit tests,
+  lint, format, and `git diff --check` passed. GitHub `CI` run `28740880409`
+  and `CodeQL` run `28740880398` passed for the repair commit.
 
 ## R-13 Maker Implementation Status (2026-07-04)
 
