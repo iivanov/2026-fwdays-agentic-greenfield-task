@@ -1429,12 +1429,73 @@ A change is complete only when:
 - Fresh independent verifier PASS and independent reviewer APPROVE reports are
   retained in the active change.
 
-**Not complete**
+**Closure**
 
 - R-18 was archived as
   `openspec/changes/archive/2026-07-05-r-18-dashboard-polish-e2e/`, creating the
   canonical `dashboard-responsive-ux` spec and updating `digest-feedback`,
   `flow-management`, and `source-management`.
-- R-18 still needs commit, push, and hosted CI confirmation. R-19 deploy config
-  is the next Phase 4 slice and remains human-bootstrap gated where provider
-  accounts or secrets are required.
+- R-18 was committed as `0ab150d`, pushed to `origin/main`, and passed GitHub
+  `CI` run `28740303146` plus `CodeQL` run `28740303150`. No CI repair was
+  required before continuing.
+
+### 2026-07-05 — R-19 deploy config bootstrap maker checkpoint
+
+**AI contribution**
+
+- Created OpenSpec change `r-19-deploy-config-bootstrap` for the Phase 4
+  deployment/bootstrap slice.
+- Added a `deployment-bootstrap` capability and updated the
+  `cicd-security-gates` capability so deployment audit becomes a committed
+  verification gate.
+- Added root `vercel.json` for Vercel Hobby static frontend deployment with
+  browser workspace build/output settings, SPA fallback rewrites, security
+  headers, and cache headers.
+- Added read-only `infra/scripts/audit-deployment.mjs` and
+  `infra/scripts/bootstrap-check.mjs` scripts. They validate committed
+  deployment config, required environment variable names, ignored private
+  provider-state paths, and human-bootstrap items without printing secret
+  values or mutating providers.
+- Added `infra:audit` and `infra:bootstrap-check` npm scripts; `verify:local`
+  and CI now include the deployment audit.
+- Added focused Vitest coverage for audit secret-safety and static-only Vercel
+  configuration.
+- Added Telegram and scheduler secret names to `.env.example`, and ignored
+  `.vercel/` provider link state.
+
+**Verification performed by maker so far**
+
+- `npm run infra:audit` passed.
+- `npm run infra:bootstrap-check` passed and reported human-gated provider
+  actions without secrets.
+- `npx vitest run packages/browser/src/lib/deployment-audit.test.ts` passed: 1
+  file, 2 tests.
+- `npm run typecheck` passed.
+- `npm run lint` passed after adding a scoped Node-global ESLint config for
+  `infra/scripts/**/*.mjs`.
+- `npm run format` passed after formatting the new scripts/tests/specs.
+- `npx -y @fission-ai/openspec@1.5.0 validate
+  r-19-deploy-config-bootstrap --strict` passed.
+- `npm run test` passed: 14 files, 156 tests.
+- `npm run build:browser` passed.
+- `actionlint .github/workflows/actionlint.yml .github/workflows/ci.yml
+  .github/workflows/codeql.yml .github/workflows/dependency-review.yml` passed.
+- `npx -y @fission-ai/openspec@1.5.0 validate --all --strict` passed: 19
+  items.
+- `git diff --check` passed.
+- `npm run verify:local` passed, including typecheck, lint, format, infra
+  audit, unit tests, coverage, Deno check/lint/fmt/lock/outdated, npm audit,
+  browser build, and Playwright e2e.
+
+**Checker loop and closure**
+
+- Independent verifier PASS and independent reviewer APPROVE reports are
+  retained in the active change. The reviewer recorded one non-blocking
+  follow-up to tighten the broad CSP `connect-src` after human bootstrap
+  provides exact production origins.
+- Archived `r-19-deploy-config-bootstrap`, creating the canonical
+  `deployment-bootstrap` spec and updating `cicd-security-gates`.
+- R-19 still needs commit, push, and hosted CI confirmation.
+- Human bootstrap remains required for Supabase/Vercel project creation,
+  provider secrets, OAuth app registration, hosted repository security settings,
+  and production deployment.

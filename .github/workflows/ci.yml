@@ -40,6 +40,9 @@ jobs:
       - name: Format
         run: npm run format
 
+      - name: Deployment config audit
+        run: npm run infra:audit
+
       - name: Test
         run: npm run test
 

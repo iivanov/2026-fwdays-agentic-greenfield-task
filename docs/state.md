@@ -2,12 +2,13 @@
 
 ## Current Position
 
-- **Last completed stage**: R-18 (`r-18-dashboard-polish-e2e`)
-- **Active implementation slice**: R-19 (deploy config; human-bootstrap gated)
-- **Current checkpoint**: R-18 dashboard polish and responsive e2e is archived
-  at `openspec/changes/archive/2026-07-05-r-18-dashboard-polish-e2e/` with
+- **Last completed stage**: R-19 (`r-19-deploy-config-bootstrap`)
+- **Active implementation slice**: R-20 (browser auth lifecycle) is next.
+- **Current checkpoint**: R-19 deploy config bootstrap is archived at
+  `openspec/changes/archive/2026-07-05-r-19-deploy-config-bootstrap/` with
   fresh independent verifier PASS and reviewer APPROVE reports. The change is
-  ready to commit, push, and monitor in CI.
+  ready to commit, push, and monitor in CI. No provider accounts, project links,
+  secrets, paid features, or production deploys have been created.
 - **Paused draft**: none. The previous R-12 draft has been replaced by the active R-12 implementation.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
@@ -196,7 +197,43 @@ or checker reports.
   `openspec/changes/archive/2026-07-05-r-18-dashboard-polish-e2e/`, creating the
   canonical `dashboard-responsive-ux` spec and updating `digest-feedback`,
   `flow-management`, and `source-management`.
-- R-18 still needs commit, push, and hosted CI confirmation. R-19 is next.
+- R-18 was committed as `0ab150d`, pushed to `origin/main`, and passed GitHub
+  `CI` run `28740303146` plus `CodeQL` run `28740303150`. R-19 deploy config is
+  active.
+
+## R-19 Closure (2026-07-05)
+
+- Created OpenSpec change `r-19-deploy-config-bootstrap` with new
+  `deployment-bootstrap` requirements and a `cicd-security-gates` delta for the
+  deployment audit gate.
+- Checked current Vercel docs for repository-owned `vercel.json` project
+  configuration, rewrites, and headers; checked current Supabase deployment and
+  Edge Function deploy docs; checked the Supabase changelog on 2026-07-05. No
+  relevant breaking item invalidates this config-only slice.
+- Added root `vercel.json` for the Vite browser workspace with static-only SPA
+  fallback, security headers, and asset/HTML cache headers.
+- Added read-only `infra/scripts/audit-deployment.mjs` and
+  `infra/scripts/bootstrap-check.mjs` commands. They validate committed config
+  and print human-bootstrap actions without provider mutation or secret values.
+- Added `npm run infra:audit` and `npm run infra:bootstrap-check`; CI now runs
+  the deployment audit as part of the quality gate.
+- Added focused Vitest coverage for audit secret-safety and Vercel static-only
+  config shape.
+- Maker checks currently passed: `npm run infra:audit`, `npm run
+  infra:bootstrap-check`, focused deployment Vitest, `npm run typecheck`, `npm
+  run lint`, `npm run format`, `npm run test` (14 files, 156 tests), `npm run
+  build:browser`, actionlint for all workflows, `npm run verify:local`, `npx -y
+  @fission-ai/openspec@1.5.0 validate r-19-deploy-config-bootstrap --strict`,
+  `npx -y @fission-ai/openspec@1.5.0 validate --all --strict`, and `git diff
+  --check`.
+- Independent verifier PASS and reviewer APPROVE reports are retained in the
+  archived change. The reviewer recorded one non-blocking follow-up to tighten
+  the broad CSP `connect-src` after human bootstrap provides exact production
+  origins.
+- Archived `r-19-deploy-config-bootstrap`, creating the canonical
+  `deployment-bootstrap` spec and updating `cicd-security-gates`.
+- R-19 still needs commit, push, and hosted CI confirmation. R-20 browser auth
+  lifecycle is next.
 
 ## R-13 Maker Implementation Status (2026-07-04)
 
