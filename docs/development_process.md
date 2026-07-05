@@ -1390,3 +1390,51 @@ A change is complete only when:
 - Archived `r-17-observability-guardrails`, creating the canonical
   `observability-guardrails` spec. R-17 is marked done in the roadmap. R-18
   dashboard polish and responsive e2e is the next Phase 4 slice.
+- R-17 was committed as `d24e00f` and pushed to `origin/main`. GitHub `CI` run
+  `28738906497` and `CodeQL` run `28738906512` both passed for that commit.
+
+### 2026-07-05 — R-18 dashboard polish proposal checkpoint
+
+**AI contribution**
+
+- Created OpenSpec change `r-18-dashboard-polish-e2e`.
+- Read the approved frontend design system, responsive UX requirements, quality
+  standards, current browser shell, digest feedback panel, source panel, flow
+  panel, and existing Playwright smoke test.
+- Scoped R-18 to responsive dashboard polish and deterministic Playwright
+  coverage for digest history, flow run/status summaries, source warnings, and
+  navigation.
+
+**Verification performed so far**
+
+- `npx vitest run packages/browser/src/lib/dashboard-summary.test.ts` passed: 1
+  file, 2 tests.
+- `npm run typecheck`, `npm run lint`, and `npm run format` passed.
+- `npm run test` passed: 13 files, 154 tests.
+- `npm run build:browser` passed.
+- `npm run test:e2e` passed: 3 Chromium tests covering login shell, desktop
+  authenticated overview, and mobile digest feedback.
+- `npm run verify:local` passed, including coverage, Deno gates, npm audit,
+  browser build, and Playwright smoke/responsive e2e.
+- `npx -y @fission-ai/openspec@1.5.0 validate --all --strict` passed: 18 items.
+- `git diff --check` passed.
+
+**Checker loop**
+
+- First independent reviewer pass requested changes because source warnings were
+  scoped to the first flow and existing panels still had mobile-hostile grid
+  minimums. The maker changed the overview to read all user-owned source links,
+  dedupe shared sources, made existing panel grid tracks mobile-safe, and
+  extended mobile e2e coverage across all authenticated tabs.
+- Fresh independent verifier PASS and independent reviewer APPROVE reports are
+  retained in the active change.
+
+**Not complete**
+
+- R-18 was archived as
+  `openspec/changes/archive/2026-07-05-r-18-dashboard-polish-e2e/`, creating the
+  canonical `dashboard-responsive-ux` spec and updating `digest-feedback`,
+  `flow-management`, and `source-management`.
+- R-18 still needs commit, push, and hosted CI confirmation. R-19 deploy config
+  is the next Phase 4 slice and remains human-bootstrap gated where provider
+  accounts or secrets are required.

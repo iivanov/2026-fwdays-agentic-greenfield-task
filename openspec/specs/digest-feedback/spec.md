@@ -5,7 +5,6 @@ Define authenticated digest feedback capture and reporting: users can view
 their retained digest history, see aggregate feedback counts, and set or clear
 thumbs up/down feedback for digests owned by their flows without automatic
 prompt adaptation.
-
 ## Requirements
 ### Requirement: Digest feedback SHALL be captured for owned digests
 
@@ -43,24 +42,18 @@ Upstream: `BR-FLOW-08`, `D-03`, `A-01`, `A-06`, `Q-01`, `Q-02`
 
 ### Requirement: Digest feedback SHALL be reported with digest history
 
-The system SHALL expose an authenticated digest history report containing only
-the caller's retained digests, each digest's current feedback value, and
-aggregate counts for `thumbs_up`, `thumbs_down`, and `none`.
+The digest history UI SHALL remain available from the polished responsive
+dashboard. Users SHALL be able to scan retained digest title, flow name, created
+time, item count, and current feedback state, then set or clear thumbs feedback
+without layout overlap on desktop or mobile.
 
-Upstream: `BR-FLOW-08`, `D-03`, `A-01`, `A-06`, `Q-01`, `Q-04`
+Upstream: `BR-FLOW-08`, `BR-DEL-01`, `NFR-UX-01`, `Q-04`
 
-#### Scenario: User views digest history and feedback counts
+#### Scenario: Digest feedback controls are responsive
 
-- **WHEN** an authenticated user opens digest history
-- **THEN** the API returns only digests belonging to that user's flows
-- **AND** each digest includes its flow ID/name, created timestamp, structured
-  digest content, and `user_feedback`
-- **AND** the report includes feedback counts calculated from the same returned
-  digest set
-
-#### Scenario: User changes feedback from the dashboard
-
-- **WHEN** a user clicks thumbs up or thumbs down for a visible digest
-- **THEN** the dashboard persists the new feedback through the authenticated API
-- **AND** the visible digest row and feedback counts update without modifying
-  the flow's prompt configuration
+- **WHEN** an authenticated user opens retained digest history at desktop or
+  mobile widths
+- **THEN** each digest row shows its title, flow, created time, item count, and
+  feedback state
+- **AND** thumbs-up, thumbs-down, and clear controls remain reachable without
+  clipped text or overlapping controls

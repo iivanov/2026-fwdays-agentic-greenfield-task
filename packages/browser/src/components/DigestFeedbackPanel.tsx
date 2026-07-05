@@ -12,6 +12,7 @@ import {
 
 type DigestFeedbackPanelProps = {
   session: Session;
+  fixtureReport?: DigestFeedbackReport;
 };
 
 const emptyReport: DigestFeedbackReport = {
@@ -174,9 +175,9 @@ function DigestRow({
   );
 }
 
-export default function DigestFeedbackPanel({ session }: DigestFeedbackPanelProps) {
-  const [report, setReport] = useState<DigestFeedbackReport>(emptyReport);
-  const [loading, setLoading] = useState(true);
+export default function DigestFeedbackPanel({ session, fixtureReport }: DigestFeedbackPanelProps) {
+  const [report, setReport] = useState<DigestFeedbackReport>(fixtureReport ?? emptyReport);
+  const [loading, setLoading] = useState(!fixtureReport);
   const [pendingDigestId, setPendingDigestId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -184,6 +185,11 @@ export default function DigestFeedbackPanel({ session }: DigestFeedbackPanelProp
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
   const loadDigests = useCallback(async () => {
+    if (fixtureReport) {
+      setReport(fixtureReport);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
@@ -198,7 +204,7 @@ export default function DigestFeedbackPanel({ session }: DigestFeedbackPanelProp
     } finally {
       setLoading(false);
     }
-  }, [anonKey, session.access_token, supabaseUrl]);
+  }, [anonKey, fixtureReport, session.access_token, supabaseUrl]);
 
   useEffect(() => {
     void loadDigests();
@@ -208,13 +214,15 @@ export default function DigestFeedbackPanel({ session }: DigestFeedbackPanelProp
     try {
       setPendingDigestId(digestId);
       setError(null);
-      await updateDigestFeedback({
-        supabaseUrl,
-        anonKey,
-        accessToken: session.access_token,
-        digestId,
-        userFeedback,
-      });
+      if (!fixtureReport) {
+        await updateDigestFeedback({
+          supabaseUrl,
+          anonKey,
+          accessToken: session.access_token,
+          digestId,
+          userFeedback,
+        });
+      }
       setReport((current) => applyDigestFeedback(current, digestId, userFeedback));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to save feedback.');

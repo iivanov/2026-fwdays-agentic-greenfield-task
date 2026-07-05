@@ -2,10 +2,10 @@
 
 ## Current Position
 
-- **Last completed stage**: R-17 (`r-17-observability-guardrails`)
-- **Active implementation slice**: R-18 (dashboard polish and responsive e2e)
-- **Current checkpoint**: R-17 observability guardrails are archived at
-  `openspec/changes/archive/2026-07-05-r-17-observability-guardrails/` with
+- **Last completed stage**: R-18 (`r-18-dashboard-polish-e2e`)
+- **Active implementation slice**: R-19 (deploy config; human-bootstrap gated)
+- **Current checkpoint**: R-18 dashboard polish and responsive e2e is archived
+  at `openspec/changes/archive/2026-07-05-r-18-dashboard-polish-e2e/` with
   fresh independent verifier PASS and reviewer APPROVE reports. The change is
   ready to commit, push, and monitor in CI.
 - **Paused draft**: none. The previous R-12 draft has been replaced by the active R-12 implementation.
@@ -164,8 +164,39 @@ or checker reports.
 - Fresh independent verifier PASS and reviewer APPROVE reports are retained in
   the archived change. R-17 is archived as
   `openspec/changes/archive/2026-07-05-r-17-observability-guardrails/`, creating
-  the canonical `observability-guardrails` spec. R-17 still needs commit, push,
-  and hosted CI confirmation. R-18 is next.
+  the canonical `observability-guardrails` spec.
+- R-17 was committed as `d24e00f`, pushed to `origin/main`, and passed GitHub
+  `CI` run `28738906497` plus `CodeQL` run `28738906512`. R-18 is next.
+
+## R-18 Maker Implementation Status (2026-07-05)
+
+- Created OpenSpec change `r-18-dashboard-polish-e2e`.
+- Scoped the slice to responsive dashboard polish, digest history, flow status,
+  source warnings, and Playwright behavioral evidence.
+- Confirmed the current authenticated browser UI still uses a dark/glass style,
+  while `docs/DESIGN.md` specifies the light "Sophisticated Newsroom" system.
+- Added the light newsroom authenticated shell, responsive overview tab, status
+  ledger, digest/flow/source summaries, e2e-only authenticated fixture mode, and
+  deterministic desktop/mobile Playwright coverage.
+- Fixed the first independent reviewer blockers by reading all user-owned source
+  links for overview warnings, deduplicating shared source links, making
+  existing panel grid tracks mobile-safe, and extending mobile e2e to visit all
+  authenticated tabs.
+- Maker checks currently passed: focused dashboard Vitest
+  (`dashboard-summary.test.ts`, 2 tests), `npm run typecheck`, `npm run lint`,
+  `npm run format`, `npm run test` (154 tests), `npm run build:browser`,
+  `npm run test:e2e` (3 Chromium tests), `npm run verify:local`,
+  `npx -y @fission-ai/openspec@1.5.0 validate --all --strict`, and
+  `git diff --check`.
+- First independent reviewer pass requested changes for all-flow source warning
+  coverage and mobile-safe existing panels. The final diff addressed both
+  blockers and fresh independent verifier PASS and reviewer APPROVE reports are
+  retained in the active change.
+- R-18 is archived as
+  `openspec/changes/archive/2026-07-05-r-18-dashboard-polish-e2e/`, creating the
+  canonical `dashboard-responsive-ux` spec and updating `digest-feedback`,
+  `flow-management`, and `source-management`.
+- R-18 still needs commit, push, and hosted CI confirmation. R-19 is next.
 
 ## R-13 Maker Implementation Status (2026-07-04)
 
