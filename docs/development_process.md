@@ -1211,3 +1211,68 @@ A change is complete only when:
   OpenSpec change before archive.
 - R-14 is marked done in the roadmap. R-15 feedback capture is the next
   processing-pipeline slice.
+
+### 2026-07-04 — R-15 feedback capture maker checkpoint
+
+**Human direction**
+
+- Asked to push current `main`, wait for CI results, fix if needed, and continue
+  development on `main`.
+
+**AI contribution**
+
+- Pushed R-14 commit `ec12104` to `origin/main`.
+- Confirmed GitHub `CodeQL` and `CI` both passed for the pushed R-14 commit, so
+  no CI repair was required before continuing.
+- Created OpenSpec change `r-15-feedback-capture` for `BR-FLOW-08`.
+- Added authenticated digest reporting and feedback update routes to the API
+  helper. The routes derive ownership from JWT user ID via owned
+  `processing_flows`, return feedback counts from the visible digest set, and
+  update only `processed_digests.user_feedback`.
+- Added a browser digest feedback helper and dashboard `Digests` panel with
+  digest history, counts, thumbs up/down toggles, clear action, loading state,
+  and API error display.
+- Added API route tests and browser helper tests for report fetch, update,
+  clear, invalid feedback rejection, error display, and cross-user no-update
+  behavior.
+- Checked the Supabase changelog on 2026-07-04; no recent breaking item changes
+  this route because R-15 adds no new table and uses existing authenticated Edge
+  Function/Data API behavior.
+
+**Verification performed by maker**
+
+- `npx -y @fission-ai/openspec@1.5.0 validate r-15-feedback-capture --strict`
+  passed.
+- `npx vitest run packages/browser/src/lib/api-helpers.test.ts
+  packages/browser/src/lib/digest-feedback.test.ts` passed: 2 files, 63 tests.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run format` passed after `npm run format:write`.
+- `npm run test` passed: 12 files, 140 tests.
+- `npm run deno:check` passed.
+- `npm run deno:lint` passed.
+- `npm run deno:fmt` passed after applying `npx deno fmt` to the API helper.
+
+**Not complete**
+
+- Independent reviewer `Fermat` approved the final diff with no blocking
+  findings. Non-blocking notes were to add a targeted update-error helper test
+  if this area changes again and to consider clearer thumbs visuals for the
+  dashboard buttons.
+- Several broad verifier sub-agent attempts hung before returning artifacts.
+  The retained verifier report therefore uses bounded evidence from separate
+  tiny verifier sub-agent runs: focused R-15 Vitest passed, `npm run typecheck`
+  passed, OpenSpec strict validation passed, and `git diff --check` passed.
+- R-15 was archived as
+  `openspec/changes/archive/2026-07-05-r-15-feedback-capture/`, creating the
+  canonical `digest-feedback` spec.
+- R-15 still needs commit.
+
+### 2026-07-05 — R-15 closure
+
+**Closure**
+
+- Independent reviewer APPROVE and bounded independent verifier PASS reports
+  are retained in the archived OpenSpec change.
+- R-15 is marked done in the roadmap. R-16 retention/cleanup is the next Phase
+  4 slice.

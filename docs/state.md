@@ -2,9 +2,9 @@
 
 ## Current Position
 
-- **Last completed stage**: R-14 (`r-14-delivery-workers`)
-- **Active implementation slice**: R-15 (feedback capture)
-- **Current checkpoint**: R-14 delivery workers are complete and archived locally with independent verifier PASS and reviewer APPROVE reports. The worker now creates active-channel delivery attempts from digest persistence, sends in-app/Brevo/Telegram/Slack/generic signed webhook attempts, revalidates webhook URLs before delivery, blocks webhook redirects, signs generic webhook bodies, records retry/backoff/circuit/channel state through service-role RPCs, idempotently acknowledges duplicate delivered jobs, and requeues not-yet-due attempts without counting provider failures. R-15 feedback capture is next.
+- **Last completed stage**: R-15 (`r-15-feedback-capture`)
+- **Active implementation slice**: R-16 (retention/cleanup)
+- **Current checkpoint**: R-15 feedback capture is complete and archived at `openspec/changes/archive/2026-07-05-r-15-feedback-capture/`. The pushed R-14 checkpoint (`ec12104`) passed GitHub `CI` and `CodeQL` on `main`. R-15 added authenticated digest history/reporting API routes, dashboard feedback controls, focused API/browser helper tests, independent reviewer APPROVE, and bounded independent verifier PASS evidence. R-16 retention/cleanup is next.
 - **Paused draft**: none. The previous R-12 draft has been replaced by the active R-12 implementation.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
@@ -63,6 +63,35 @@ or checker reports.
   checker passes must be rerun on this final diff.
 - Independent verifier PASS and reviewer APPROVE reports are retained in the
   archived OpenSpec change. R-15 feedback capture is next.
+
+## R-15 Maker Implementation Status (2026-07-04)
+
+- Created OpenSpec change `r-15-feedback-capture` with new `digest-feedback`
+  capability requirements.
+- Added authenticated `GET /digests` and `PUT /digests/:id/feedback` API routes
+  that report only caller-owned retained digests, calculate feedback counts from
+  that same result set, validate `thumbs_up`/`thumbs_down`/`none`, and update
+  only `processed_digests.user_feedback`.
+- Added a dashboard `Digests` tab with retained digest history, feedback counts,
+  thumbs up/down toggle controls, and a clear action.
+- Added browser API helper coverage and API route tests for report fetch,
+  feedback update, clear-to-none, invalid feedback rejection, API error display,
+  and cross-user not-found behavior.
+- Maker checks currently passed: focused R-15 Vitest, `npm run typecheck`,
+  `npm run lint`, `npm run format`, `npm run test` (140 tests),
+  `npm run deno:check`, `npm run deno:lint`, and `npm run deno:fmt`.
+- `npm run verify:local`, OpenSpec strict validation, and `git diff --check`
+  passed on the final maker diff.
+- Independent reviewer APPROVE is retained in the active OpenSpec change with
+  no blocking findings and two non-blocking notes.
+- Independent verifier PASS evidence is retained in the active OpenSpec change.
+  Broader verifier agents repeatedly hung, so the report records bounded
+  command evidence from separate tiny verifier sub-agent runs for focused tests,
+  typecheck, OpenSpec strict validation, and `git diff --check`.
+- Archived OpenSpec change `r-15-feedback-capture` at
+  `openspec/changes/archive/2026-07-05-r-15-feedback-capture/`, creating the
+  canonical `digest-feedback` spec.
+- R-15 still needs commit.
 
 ## R-13 Maker Implementation Status (2026-07-04)
 
