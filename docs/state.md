@@ -6,9 +6,12 @@
 - **Active implementation slice**: R-20 (browser auth lifecycle) is next.
 - **Current checkpoint**: R-19 deploy config bootstrap is archived at
   `openspec/changes/archive/2026-07-05-r-19-deploy-config-bootstrap/` with
-  fresh independent verifier PASS and reviewer APPROVE reports. The change is
-  ready to commit, push, and monitor in CI. No provider accounts, project links,
-  secrets, paid features, or production deploys have been created.
+  fresh independent verifier PASS and reviewer APPROVE reports. R-19 was
+  committed as `ceaa367` and pushed to `origin/main`; GitHub `CI` run
+  `28740803977` failed in a pre-existing nondeterministic crypto tamper test.
+  The repair makes the test flip a decoded ciphertext byte before expecting
+  decryption failure and is ready to commit/push. No provider accounts, project
+  links, secrets, paid features, or production deploys have been created.
 - **Paused draft**: none. The previous R-12 draft has been replaced by the active R-12 implementation.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
@@ -232,8 +235,13 @@ or checker reports.
   origins.
 - Archived `r-19-deploy-config-bootstrap`, creating the canonical
   `deployment-bootstrap` spec and updating `cicd-security-gates`.
-- R-19 still needs commit, push, and hosted CI confirmation. R-20 browser auth
-  lifecycle is next.
+- R-19 was committed as `ceaa367` and pushed to `origin/main`. GitHub `CI` run
+  `28740803977` failed in `packages/browser/src/lib/crypto.test.ts` because the
+  test tampered ciphertext with `replace(/a/g, 'b')`, which is a no-op when the
+  random base64 ciphertext contains no `a`. The repair flips a decoded
+  ciphertext byte before re-encoding it, and local focused/full unit tests,
+  lint, format, and `git diff --check` pass. Hosted CI confirmation is pending
+  for the repair commit.
 
 ## R-13 Maker Implementation Status (2026-07-04)
 

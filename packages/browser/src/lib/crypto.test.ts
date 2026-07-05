@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { Buffer } from 'node:buffer';
 import {
   encrypt,
   decrypt,
@@ -32,7 +33,9 @@ describe('AES-256-GCM Encryption Module', () => {
 
   it('should fail decryption if ciphertext or tag is tampered with', async () => {
     const encrypted = await encrypt(samplePlaintext, secretKey);
-    const tampered = { ...encrypted, ciphertext: encrypted.ciphertext.replace(/a/g, 'b') };
+    const tamperedCiphertext = Buffer.from(encrypted.ciphertext, 'base64');
+    tamperedCiphertext[0] ^= 0xff;
+    const tampered = { ...encrypted, ciphertext: tamperedCiphertext.toString('base64') };
     await expect(decrypt(tampered, secretKey)).rejects.toThrow();
   });
 
