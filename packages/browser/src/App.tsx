@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { supabase } from './lib/supabase.js';
 import ProfilePanel from './components/ProfilePanel.js';
 import SourcesPanel from './components/SourcesPanel.js';
@@ -7,13 +7,24 @@ import DeliveryPanel from './components/DeliveryPanel.js';
 import DigestFeedbackPanel from './components/DigestFeedbackPanel.js';
 import DashboardOverview, { dashboardFixture } from './components/DashboardOverview.js';
 import { type Session } from '@supabase/supabase-js';
+import {
+  authReturnStorageKey,
+  dashboardPathForTab,
+  dashboardTabFromPath,
+  dashboardTabs,
+  getOAuthCallbackError,
+  isAuthCallbackPath,
+  isDashboardPath,
+  safeDashboardReturnPath,
+  shouldShowDevPasswordAuth,
+  type DashboardTab,
+} from './lib/auth-routing.js';
 
-type DashboardTab = 'overview' | 'profile' | 'sources' | 'flows' | 'delivery' | 'digests';
-
-const e2eFixtureMode =
-  import.meta.env.MODE === 'e2e' &&
-  import.meta.env.VITE_E2E_DASHBOARD_FIXTURE === '1' &&
-  new URLSearchParams(window.location.search).get('fixture') === 'dashboard';
+const e2eFixtureMode = isE2eFixtureMode();
+const showLocalPasswordAuth = shouldShowDevPasswordAuth(
+  import.meta.env.DEV,
+  import.meta.env.VITE_ENABLE_DEV_PASSWORD_AUTH,
+);
 
 const fixtureSession = {
   access_token: 'fixture-access-token',
@@ -31,53 +42,120 @@ const fixtureSession = {
   },
 } as Session;
 
-const dashboardTabs: Array<{ id: DashboardTab; label: string }> = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'profile', label: 'Preferences' },
-  { id: 'sources', label: 'Sources' },
-  { id: 'flows', label: 'Flows' },
-  { id: 'delivery', label: 'Delivery' },
-  { id: 'digests', label: 'Digests' },
-];
-
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
-  const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
+  const [activeTab, setActiveTab] = useState<DashboardTab>(() =>
+    dashboardTabFromPath(window.location.pathname),
+  );
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(() => initialCallbackErrorMessage());
+  const [authStatusText, setAuthStatusText] = useState(() =>
+    isAuthCallbackPath(window.location.pathname)
+      ? 'Restoring your secure session...'
+      : 'Loading session...',
+  );
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     if (e2eFixtureMode) {
       setSession(fixtureSession);
+      setActiveTab(dashboardTabFromPath(window.location.pathname));
+      if (isAuthCallbackPath(window.location.pathname)) {
+        replacePath('/dashboard');
+      }
       setLoading(false);
       return;
     }
 
-    // Check initial session
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
+    let callbackFailed = false;
+    const callbackError = currentCallbackError();
+    if (callbackError) {
+      callbackFailed = true;
+      setLoginError(`Authentication failed: ${callbackError}`);
+      clearStoredReturnPath();
+      setSession(null);
+      replacePath('/');
+    } else if (isAuthCallbackPath(window.location.pathname)) {
+      setAuthStatusText('Restoring your secure session...');
+    } else if (isDashboardPath(window.location.pathname)) {
+      storeReturnPath(safeDashboardReturnPath(window.location.pathname));
+    }
 
-    // Listen for auth changes
+    const applySession = (nextSession: Session | null) => {
+      setSession(nextSession);
+      setIsSigningOut(false);
+
+      if (nextSession) {
+        setLoginError(null);
+        const targetPath = readStoredReturnPath() ?? currentDashboardPath();
+        clearStoredReturnPath();
+        setActiveTab(dashboardTabFromPath(targetPath));
+
+        if (
+          !isDashboardPath(window.location.pathname) ||
+          isAuthCallbackPath(window.location.pathname)
+        ) {
+          replacePath(targetPath);
+        }
+      } else if (isDashboardPath(window.location.pathname)) {
+        storeReturnPath(safeDashboardReturnPath(window.location.pathname));
+        setActiveTab(dashboardTabFromPath(window.location.pathname));
+      }
+
+      setLoading(false);
+    };
+
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (error) {
+          setLoginError(error.message);
+        }
+        applySession(callbackFailed ? null : data.session);
+      })
+      .catch((err: unknown) => {
+        setLoginError(err instanceof Error ? err.message : 'Failed to restore session.');
+        applySession(null);
+      });
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
-      setSession(session);
+    } = supabase.auth.onAuthStateChange((event: string, nextSession: Session | null) => {
+      if (event === 'SIGNED_OUT') {
+        clearStoredReturnPath();
+        setActiveTab('overview');
+        replacePath('/');
+      }
+      applySession(nextSession);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveTab(dashboardTabFromPath(window.location.pathname));
+      if (!session && isDashboardPath(window.location.pathname)) {
+        storeReturnPath(safeDashboardReturnPath(window.location.pathname));
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [session]);
+
   const handleOAuthLogin = async (provider: 'google' | 'github') => {
     try {
       setLoginError(null);
+      storeReturnPath(
+        safeDashboardReturnPath(window.location.pathname) ?? readStoredReturnPath() ?? '/dashboard',
+      );
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
       if (error) throw error;
@@ -86,8 +164,11 @@ export default function App() {
     }
   };
 
-  const handleLocalSignIn = async (e: React.FormEvent) => {
+  const handleLocalSignIn = async (e: FormEvent) => {
     e.preventDefault();
+    if (!showLocalPasswordAuth) {
+      return;
+    }
     try {
       setLoginError(null);
       const { error } = await supabase.auth.signInWithPassword({
@@ -101,6 +182,10 @@ export default function App() {
   };
 
   const handleLocalSignUp = async () => {
+    if (!showLocalPasswordAuth) {
+      return;
+    }
+
     try {
       setLoginError(null);
       const { error } = await supabase.auth.signUp({
@@ -115,7 +200,35 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    const simulateFixtureSignOutFailure =
+      e2eFixtureMode && new URLSearchParams(window.location.search).get('signout') === 'fail';
+    setIsSigningOut(true);
+    setLoginError(null);
+    clearStoredReturnPath();
+    setActiveTab('overview');
+    replacePath('/');
+    setSession(null);
+    if (e2eFixtureMode) {
+      if (simulateFixtureSignOutFailure) {
+        setLoginError('Remote sign-out failed: fixture sign-out failure');
+      }
+      setIsSigningOut(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      setLoginError(`Remote sign-out failed: ${error.message}`);
+      setIsSigningOut(false);
+      return;
+    }
+  };
+
+  const handleTabChange = (tab: DashboardTab) => {
+    setActiveTab(tab);
+    if (session) {
+      pushPath(dashboardPathForTab(tab));
+    }
   };
 
   if (loading) {
@@ -128,7 +241,7 @@ export default function App() {
           justifyContent: 'center',
         }}
       >
-        <div className="spinner">Loading session...</div>
+        <div className="spinner">{authStatusText}</div>
       </div>
     );
   }
@@ -237,103 +350,106 @@ export default function App() {
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <hr style={{ flex: 1, borderColor: 'rgba(255,255,255,0.08)' }} />
-            <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-secondary))' }}>
-              or dev login
-            </span>
-            <hr style={{ flex: 1, borderColor: 'rgba(255,255,255,0.08)' }} />
-          </div>
+          {showLocalPasswordAuth ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <hr style={{ flex: 1, borderColor: 'rgba(255,255,255,0.08)' }} />
+                <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-secondary))' }}>
+                  or dev login
+                </span>
+                <hr style={{ flex: 1, borderColor: 'rgba(255,255,255,0.08)' }} />
+              </div>
 
-          {/* Local login form */}
-          <form
-            onSubmit={handleLocalSignIn}
-            style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
-          >
-            <div>
-              <label
-                style={{
-                  fontSize: '0.8rem',
-                  color: 'hsl(var(--text-secondary))',
-                  display: 'block',
-                  marginBottom: '6px',
-                }}
+              <form
+                onSubmit={handleLocalSignIn}
+                style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
               >
-                Email address
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid hsl(var(--border-color))',
-                  background: 'hsl(var(--bg-secondary))',
-                }}
-              />
-            </div>
+                <div>
+                  <label
+                    style={{
+                      fontSize: '0.8rem',
+                      color: 'hsl(var(--text-secondary))',
+                      display: 'block',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Email address
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: '1px solid hsl(var(--border-color))',
+                      background: 'hsl(var(--bg-secondary))',
+                    }}
+                  />
+                </div>
 
-            <div>
-              <label
-                style={{
-                  fontSize: '0.8rem',
-                  color: 'hsl(var(--text-secondary))',
-                  display: 'block',
-                  marginBottom: '6px',
-                }}
-              >
-                Password
-              </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid hsl(var(--border-color))',
-                  background: 'hsl(var(--bg-secondary))',
-                }}
-              />
-            </div>
+                <div>
+                  <label
+                    style={{
+                      fontSize: '0.8rem',
+                      color: 'hsl(var(--text-secondary))',
+                      display: 'block',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: '1px solid hsl(var(--border-color))',
+                      background: 'hsl(var(--bg-secondary))',
+                    }}
+                  />
+                </div>
 
-            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-              <button
-                type="submit"
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'var(--accent-gradient)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Log In
-              </button>
-              <button
-                type="button"
-                onClick={handleLocalSignUp}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid hsl(var(--border-color))',
-                  background: 'transparent',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Sign Up
-              </button>
-            </div>
-          </form>
+                <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                  <button
+                    type="submit"
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'var(--accent-gradient)',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Log In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLocalSignUp}
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: '1px solid hsl(var(--border-color))',
+                      background: 'transparent',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Sign Up
+                  </button>
+                </div>
+              </form>
+            </>
+          ) : null}
         </div>
       </main>
     );
@@ -354,7 +470,7 @@ export default function App() {
               type="button"
               aria-current={activeTab === tab.id ? 'page' : undefined}
               className={`tab-button${activeTab === tab.id ? ' tab-button--active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
             >
               {tab.label}
             </button>
@@ -362,8 +478,8 @@ export default function App() {
         </nav>
         <div className="account-strip">
           <span>{session.user.email}</span>
-          <button className="secondary-button" onClick={handleLogout}>
-            Log out
+          <button className="secondary-button" onClick={handleLogout} disabled={isSigningOut}>
+            {isSigningOut ? 'Signing out...' : 'Log out'}
           </button>
         </div>
       </header>
@@ -373,7 +489,7 @@ export default function App() {
           <DashboardOverview
             session={session}
             fixture={e2eFixtureMode ? dashboardFixture : undefined}
-            onOpenTab={setActiveTab}
+            onOpenTab={handleTabChange}
           />
         ) : activeTab === 'profile' ? (
           <ProfilePanel session={session} />
@@ -392,4 +508,71 @@ export default function App() {
       </main>
     </div>
   );
+}
+
+function isE2eFixtureMode(): boolean {
+  return (
+    import.meta.env.MODE === 'e2e' &&
+    import.meta.env.VITE_E2E_DASHBOARD_FIXTURE === '1' &&
+    !currentCallbackError() &&
+    new URLSearchParams(window.location.search).get('fixture') === 'dashboard'
+  );
+}
+
+function currentCallbackError(): string | null {
+  if (!isAuthCallbackPath(window.location.pathname)) {
+    return null;
+  }
+
+  return getOAuthCallbackError(window.location.search, window.location.hash);
+}
+
+function initialCallbackErrorMessage(): string | null {
+  const callbackError = currentCallbackError();
+  return callbackError ? `Authentication failed: ${callbackError}` : null;
+}
+
+function currentDashboardPath(): string {
+  return safeDashboardReturnPath(window.location.pathname) ?? '/dashboard';
+}
+
+function readStoredReturnPath(): string | null {
+  try {
+    return safeDashboardReturnPath(window.sessionStorage.getItem(authReturnStorageKey));
+  } catch {
+    return null;
+  }
+}
+
+function storeReturnPath(path: string | null): void {
+  const safePath = safeDashboardReturnPath(path);
+  if (!safePath) {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(authReturnStorageKey, safePath);
+  } catch {
+    // Ignore storage failures; routing still falls back to /dashboard.
+  }
+}
+
+function clearStoredReturnPath(): void {
+  try {
+    window.sessionStorage.removeItem(authReturnStorageKey);
+  } catch {
+    // Ignore storage failures; session state still changes.
+  }
+}
+
+function pushPath(path: string): void {
+  if (window.location.pathname !== path) {
+    window.history.pushState(null, '', path);
+  }
+}
+
+function replacePath(path: string): void {
+  if (window.location.pathname !== path) {
+    window.history.replaceState(null, '', path);
+  }
 }

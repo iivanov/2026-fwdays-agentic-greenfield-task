@@ -282,6 +282,7 @@ export async function verifyDeliveryChannelTarget(
         encodeURIComponent(chatId)
       }`,
       { method: 'GET' },
+      resolveDns,
     );
     if (!response.ok) {
       return { success: false, error: 'Telegram chat verification failed' };

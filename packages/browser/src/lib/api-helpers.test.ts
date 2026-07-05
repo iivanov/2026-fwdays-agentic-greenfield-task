@@ -1541,6 +1541,7 @@ describe('API Edge Function Handler Integration Tests', () => {
           `channels/${validChannelId}/verify`,
           mockSupabase,
           null,
+          async () => ['149.154.167.220'],
         );
         expect(res.status).toBe(200);
         expect(fetchSpy).toHaveBeenCalledWith(
