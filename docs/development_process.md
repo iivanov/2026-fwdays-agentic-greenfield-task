@@ -1266,7 +1266,8 @@ A change is complete only when:
 - R-15 was archived as
   `openspec/changes/archive/2026-07-05-r-15-feedback-capture/`, creating the
   canonical `digest-feedback` spec.
-- R-15 still needs commit.
+- R-15 was committed as `10b5fe5` and pushed to `origin/main`. GitHub
+  `CodeQL` and `CI` both passed for that commit.
 
 ### 2026-07-05 — R-15 closure
 
@@ -1276,3 +1277,58 @@ A change is complete only when:
   are retained in the archived OpenSpec change.
 - R-15 is marked done in the roadmap. R-16 retention/cleanup is the next Phase
   4 slice.
+
+### 2026-07-05 — R-16 lifecycle cleanup maker checkpoint
+
+**AI contribution**
+
+- Created OpenSpec change `r-16-lifecycle-cleanup`.
+- Audited the existing R-11F/R-11G/R-13/R-14 queue, cleanup, and schedule
+  implementation against R-16 lifecycle requirements.
+- Added focused queue-worker regression assertions for 30-minute cleanup
+  cadence, seven-day article/digest/delivery-attempt purge, 30-day sanitized
+  metadata retention, unresolved operational-event retention, active circuit
+  preservation, exact sanitized DLQ context, and absence of separate durable
+  news-content storage or content-bearing queue payloads.
+- Extended Supabase cleanup integration coverage so the database executes
+  cleanup and proves stale source-fetch, processing, and delivery leases are
+  reset to pending with cleared lease fields.
+- Checked the Supabase changelog on 2026-07-05; no recent cleanup,
+  `pg_cron`, Edge Function, or migration breaking change changes the R-16
+  approach. The relevant historical `pg_cron` breaking item is satisfied
+  because the project uses `cron.schedule` instead of direct `cron.job` writes.
+
+**Verification performed by maker**
+
+- `npx vitest run packages/browser/src/lib/queue-worker.test.ts` passed: 1 file,
+  15 tests.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run format` passed after applying Prettier to the changed test file.
+- `npm run test` passed: 12 files, 145 tests.
+- `npm run deno:check`, `npm run deno:lint`, and `npm run deno:fmt` passed.
+- `npm run supabase:lint` passed against the local database.
+- `npm run test:integration` passed: 3 files, 5 tests, including the new stale
+  lease recovery scenario.
+- `npx -y @fission-ai/openspec@1.5.0 validate --all --strict` passed.
+- `git diff --check` passed.
+
+**Checker loop**
+
+- First independent reviewer pass requested changes because the initial tests
+  were too text-fragment focused and did not prove stale lease recovery, DLQ
+  context sanitization, or durable queue/cache payload posture. The maker added
+  integration and unit evidence for those gaps, then both checker passes were
+  rerun on the final diff.
+
+### 2026-07-05 — R-16 lifecycle cleanup closure
+
+**Closure**
+
+- Fresh independent verifier PASS and independent reviewer APPROVE reports are
+  retained in
+  `openspec/changes/archive/2026-07-05-r-16-lifecycle-cleanup/`.
+- Archived `r-16-lifecycle-cleanup`, creating the canonical
+  `lifecycle-cleanup` spec and updating `scheduler-queue`.
+- R-16 is marked done in the roadmap. R-17 observability is the next Phase 4
+  slice.

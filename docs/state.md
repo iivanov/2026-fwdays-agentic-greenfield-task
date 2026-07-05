@@ -2,9 +2,9 @@
 
 ## Current Position
 
-- **Last completed stage**: R-15 (`r-15-feedback-capture`)
-- **Active implementation slice**: R-16 (retention/cleanup)
-- **Current checkpoint**: R-15 feedback capture is complete and archived at `openspec/changes/archive/2026-07-05-r-15-feedback-capture/`. The pushed R-14 checkpoint (`ec12104`) passed GitHub `CI` and `CodeQL` on `main`. R-15 added authenticated digest history/reporting API routes, dashboard feedback controls, focused API/browser helper tests, independent reviewer APPROVE, and bounded independent verifier PASS evidence. R-16 retention/cleanup is next.
+- **Last completed stage**: R-16 (`r-16-lifecycle-cleanup`)
+- **Active implementation slice**: R-17 (observability)
+- **Current checkpoint**: R-16 retention/cleanup is complete and archived at `openspec/changes/archive/2026-07-05-r-16-lifecycle-cleanup/`. The final diff passed independent verifier and reviewer passes, including local Supabase migration lint and integration coverage for stale lease recovery. R-17 observability is next.
 - **Paused draft**: none. The previous R-12 draft has been replaced by the active R-12 implementation.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
@@ -91,7 +91,38 @@ or checker reports.
 - Archived OpenSpec change `r-15-feedback-capture` at
   `openspec/changes/archive/2026-07-05-r-15-feedback-capture/`, creating the
   canonical `digest-feedback` spec.
-- R-15 still needs commit.
+- R-15 was committed as `10b5fe5` and passed GitHub `CI` and `CodeQL` on
+  `main`.
+
+## R-16 Closure (2026-07-05)
+
+- Created OpenSpec change `r-16-lifecycle-cleanup`.
+- Audited existing R-11F/R-11G/R-13/R-14 cleanup, queue, and schedule behavior
+  against R-16 requirements.
+- Added lightweight `queue-worker` regression coverage for 30-minute cleanup
+  cadence, seven-day content purge, 30-day sanitized metadata retention,
+  unresolved operational-event retention, active circuit preservation, exact
+  sanitized DLQ context passed to `archive_exhausted_worker_job`, and no
+  separate durable news-content storage or content-bearing queue payloads.
+- Extended Supabase cleanup integration coverage so the local database executes
+  cleanup and proves stale source-fetch, processing, and delivery leases are
+  reset to pending with cleared lease fields.
+- Maker checks currently passed: focused R-16 Vitest
+  (`packages/browser/src/lib/queue-worker.test.ts`, 15 tests),
+  `npm run typecheck`, `npm run lint`, `npm run format`, `npm run test` (145
+  tests), `npm run deno:check`, `npm run deno:lint`, `npm run deno:fmt`,
+  `npm run supabase:lint`, `npm run test:integration` (3 files, 5 tests),
+  `npx -y @fission-ai/openspec@1.5.0 validate --all --strict`, and `git diff
+  --check`.
+- First independent reviewer pass requested changes because the initial R-16
+  tests did not behaviorally prove stale lease recovery, DLQ context
+  sanitization, or durable queue/cache posture. The final diff addressed those
+  blockers.
+- Independent verifier PASS and reviewer APPROVE reports are retained in the
+  archived change. R-16 is archived as
+  `openspec/changes/archive/2026-07-05-r-16-lifecycle-cleanup/`, creating the
+  canonical `lifecycle-cleanup` spec and updating `scheduler-queue`.
+- R-16 is ready to commit; R-17 observability is the next slice.
 
 ## R-13 Maker Implementation Status (2026-07-04)
 

@@ -52,11 +52,21 @@ Messages with more than five reads MUST be archived to the queue archive and log
 - **AND** does not run the job body
 
 ### Requirement: Maintenance Cleanup Loop
-The system SHALL run a cleanup loop every 30 minutes to recover expired visibility leases (older than 5 minutes) by resetting their visibility timeout and permanently delete articles, digests, and attempt logs older than 7 days.
+
+The system SHALL run a cleanup loop every 30 minutes to recover expired
+source-fetch, processing, and delivery leases older than five minutes, and to
+permanently delete content-bearing articles, digests, and delivery attempts
+older than seven days while retaining only sanitized metadata according to its
+longer lifecycle.
 
 #### Scenario: Recovering expired leases and purging old assets
+
 - **WHEN** the `cleanup` function executes
-- **THEN** it resets visibility on abandoned messages and purges historical data older than 7 days
+- **THEN** it resets abandoned source-fetch, processing, and delivery leases
+- **AND** it purges content-bearing article, digest, and delivery-attempt rows
+  older than seven days
+- **AND** it does not delete unresolved operational failures solely because of
+  age
 
 ### Requirement: Cleanup MUST enforce distinct content and metadata lifecycles
 Cleanup MUST permanently delete content-bearing article, digest, and delivery attempt data after seven days while retaining sanitized run metadata for 30 days.

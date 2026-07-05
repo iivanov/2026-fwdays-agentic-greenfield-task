@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createWorkHandler } from '../../../../supabase/functions/work/index.ts';
 
@@ -23,6 +23,16 @@ const r14MigrationSource = readFileSync(
   'supabase/migrations/20260704183308_r14_delivery_workers.sql',
   'utf8',
 );
+const r11gCleanupMigrationSource = readFileSync(
+  'supabase/migrations/20260704104026_r11g_retention_metadata_lifecycle.sql',
+  'utf8',
+);
+const allMigrationSources = readdirSync('supabase/migrations')
+  .filter((fileName) => fileName.endsWith('.sql'))
+  .sort()
+  .map((fileName) => readFileSync(`supabase/migrations/${fileName}`, 'utf8'))
+  .join('\n');
+const workFunctionSource = readFileSync('supabase/functions/work/index.ts', 'utf8');
 
 type RpcResult = { data: unknown; error: { message: string } | null };
 type RpcCall = { name: string; args?: Record<string, unknown> };
@@ -168,6 +178,18 @@ describe('R-11F queue worker safeguards', () => {
   });
 
   it('archives exhausted messages before ordinary execution', async () => {
+    const exhaustedMessage = {
+      type: 'ingestion',
+      source_id: '22222222-2222-2222-2222-222222222222',
+      flow_id: '55555555-5555-5555-5555-555555555555',
+      attempt_id: '11111111-1111-1111-1111-111111111111',
+      cycle_date: '2031-03-04',
+      simulate_failure: true,
+      article_body: 'raw article content must not be persisted in DLQ context',
+      digest_text: 'digest text must not be persisted in DLQ context',
+      prompt_template: 'private prompt must not be persisted in DLQ context',
+      credential: 'secret-token',
+    };
     const fakeClient = makeClient({
       claim_job: {
         data: [
@@ -175,7 +197,7 @@ describe('R-11F queue worker safeguards', () => {
             msg_id: 99,
             read_ct: 6,
             enqueued_at: new Date().toISOString(),
-            message: { type: 'ingestion', source_id: '22222222-2222-2222-2222-222222222222' },
+            message: exhaustedMessage,
           },
         ],
         error: null,
@@ -195,6 +217,19 @@ describe('R-11F queue worker safeguards', () => {
       'claim_job',
       'archive_exhausted_worker_job',
     ]);
+    expect(fakeClient.calls[1].args).toEqual({
+      p_queue_name: 'delivery-queue',
+      p_msg_id: 99,
+      p_event_key: 'msg_failed_dlq_delivery-queue_99',
+      p_context: {
+        queue: 'delivery-queue',
+        type: 'ingestion',
+        source_id: '22222222-2222-2222-2222-222222222222',
+        flow_id: '55555555-5555-5555-5555-555555555555',
+        attempt_id: '11111111-1111-1111-1111-111111111111',
+        cycle_date: '2031-03-04',
+      },
+    });
     expect(fakeClient.updates).toEqual([]);
   });
 
@@ -287,5 +322,82 @@ describe('R-11F queue worker safeguards', () => {
     expect(r14MigrationSource).toContain('function public.claim_integration_circuit_probe');
     expect(r14MigrationSource).toContain("state = 'half_open'");
     expect(r14MigrationSource).toContain("state = 'open'");
+  });
+
+  it('schedules cleanup every 30 minutes to satisfy the purge lag SLA', () => {
+    expect(schedulerMigrationSource).toContain("select cron.schedule(\n  'cleanup-job'");
+    expect(schedulerMigrationSource).toContain("'*/30 * * * *'");
+    expect(schedulerMigrationSource).toContain("url := 'http://kong:8000/functions/v1/cleanup'");
+  });
+
+  it('cleanup reclaims abandoned leases and applies distinct content and metadata lifecycles', () => {
+    expect(r11gCleanupMigrationSource).toContain("where status = 'processing'");
+    expect(r11gCleanupMigrationSource).toContain("started_at <= now() - interval '5 minutes'");
+    expect(r11gCleanupMigrationSource).toContain("where status = 'sending'");
+    expect(r11gCleanupMigrationSource).toContain("locked_at <= now() - interval '5 minutes'");
+    expect(r11gCleanupMigrationSource).toContain(
+      "delete from public.digest_delivery_attempts\n    where created_at <= now() - interval '7 days'",
+    );
+    expect(r11gCleanupMigrationSource).toContain(
+      "delete from public.processed_digests\n    where created_at <= now() - interval '7 days'",
+    );
+    expect(r11gCleanupMigrationSource).toContain(
+      "delete from public.ingested_articles\n    where created_at <= now() - interval '7 days'",
+    );
+    expect(r11gCleanupMigrationSource).toContain(
+      "delete from public.source_fetch_runs\n    where created_at <= now() - interval '30 days'",
+    );
+    expect(r11gCleanupMigrationSource).toContain(
+      "delete from public.processing_runs\n    where created_at <= now() - interval '30 days'",
+    );
+  });
+
+  it('cleanup retains unresolved failures and preserves active circuit state', () => {
+    expect(r11gCleanupMigrationSource).toContain(
+      'delete from public.operational_events\n    where resolved_at is not null',
+    );
+    expect(r11gCleanupMigrationSource).not.toContain(
+      "delete from public.operational_events\n    where first_seen_at <= now() - interval '7 days'",
+    );
+    expect(r11gCleanupMigrationSource).toContain(
+      "delete from public.integration_circuits\n    where state = 'closed'",
+    );
+    expect(r11gCleanupMigrationSource).toContain("and updated_at <= now() - interval '30 days'");
+  });
+
+  it('dead-letter surfacing records sanitized operational events', () => {
+    expect(workFunctionSource).toContain('p_context: sanitizeDlqContext(activeQueue, message)');
+    expect(workFunctionSource).toContain('const sanitizeDlqContext =');
+    expect(workFunctionSource).not.toMatch(/p_context:\s*message/);
+    const archiveFunction = r13MigrationSource.slice(
+      r13MigrationSource.indexOf('create or replace function public.archive_exhausted_worker_job'),
+      r13MigrationSource.indexOf('create or replace function public.persist_processing_digest'),
+    );
+    expect(archiveFunction).toContain('function public.archive_exhausted_worker_job');
+    expect(archiveFunction).toContain("event_id := public.log_operational_event(\n    'critical'");
+    expect(archiveFunction).toContain("'dlq_exhaustion'");
+    expect(archiveFunction).toContain('p_context');
+    expect(archiveFunction).not.toContain('prompt_template');
+  });
+
+  it('does not introduce separate durable news-content storage or content-bearing queue payloads', () => {
+    expect(allMigrationSources).not.toMatch(
+      /create table public\.[a-z_]*(cache|cached|article_body|digest_body|news_content)[a-z_]*/i,
+    );
+    expect(allMigrationSources).not.toMatch(/create table public\.[a-z_]*payload[a-z_]*/i);
+
+    const queueSendPayloads = [
+      ...allMigrationSources.matchAll(
+        /pgmq\.send\(\s*'[^']+',\s*jsonb_build_object\(([\s\S]*?)\)\s*\)/g,
+      ),
+    ].map((match) => match[1]);
+    expect(queueSendPayloads.length).toBeGreaterThan(0);
+    for (const payload of queueSendPayloads) {
+      expect(payload).not.toMatch(
+        /('content'|'article_body'|'body'|'digest_text'|'summary'|'prompt_template'|'config'|'credential'|'secret'|'token')/i,
+      );
+    }
+
+    expect(workFunctionSource).not.toMatch(/localStorage|indexedDB|caches\.open|CacheStorage/);
   });
 });
