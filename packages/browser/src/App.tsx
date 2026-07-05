@@ -5,19 +5,56 @@ import SourcesPanel from './components/SourcesPanel.js';
 import FlowsPanel from './components/FlowsPanel.js';
 import DeliveryPanel from './components/DeliveryPanel.js';
 import DigestFeedbackPanel from './components/DigestFeedbackPanel.js';
+import DashboardOverview, { dashboardFixture } from './components/DashboardOverview.js';
 import { type Session } from '@supabase/supabase-js';
+
+type DashboardTab = 'overview' | 'profile' | 'sources' | 'flows' | 'delivery' | 'digests';
+
+const e2eFixtureMode =
+  import.meta.env.MODE === 'e2e' &&
+  import.meta.env.VITE_E2E_DASHBOARD_FIXTURE === '1' &&
+  new URLSearchParams(window.location.search).get('fixture') === 'dashboard';
+
+const fixtureSession = {
+  access_token: 'fixture-access-token',
+  refresh_token: 'fixture-refresh-token',
+  expires_in: 3600,
+  token_type: 'bearer',
+  user: {
+    id: 'fixture-user',
+    aud: 'authenticated',
+    role: 'authenticated',
+    email: 'editor@example.com',
+    app_metadata: {},
+    user_metadata: {},
+    created_at: '2026-07-05T00:00:00.000Z',
+  },
+} as Session;
+
+const dashboardTabs: Array<{ id: DashboardTab; label: string }> = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'profile', label: 'Preferences' },
+  { id: 'sources', label: 'Sources' },
+  { id: 'flows', label: 'Flows' },
+  { id: 'delivery', label: 'Delivery' },
+  { id: 'digests', label: 'Digests' },
+];
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    'profile' | 'sources' | 'flows' | 'delivery' | 'digests'
-  >('profile');
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (e2eFixtureMode) {
+      setSession(fixtureSession);
+      setLoading(false);
+      return;
+    }
+
     // Check initial session
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -304,165 +341,41 @@ export default function App() {
 
   // Authenticated Dashboard
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Premium Header */}
-      <header
-        className="glass-panel"
-        style={{
-          borderRadius: 0,
-          borderLeft: 'none',
-          borderRight: 'none',
-          borderTop: 'none',
-          padding: '16px 32px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-          <h2
-            style={{
-              fontSize: '1.4rem',
-              background: 'var(--accent-gradient)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            News Personalization
-          </h2>
-          <nav style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => setActiveTab('profile')}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                background: activeTab === 'profile' ? 'rgba(255,255,255,0.08)' : 'transparent',
-                color:
-                  activeTab === 'profile'
-                    ? 'hsl(var(--text-primary))'
-                    : 'hsl(var(--text-secondary))',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              Preferences
-            </button>
-            <button
-              onClick={() => setActiveTab('sources')}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                background: activeTab === 'sources' ? 'rgba(255,255,255,0.08)' : 'transparent',
-                color:
-                  activeTab === 'sources'
-                    ? 'hsl(var(--text-primary))'
-                    : 'hsl(var(--text-secondary))',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              Sources
-            </button>
-            <button
-              onClick={() => setActiveTab('flows')}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                background: activeTab === 'flows' ? 'rgba(255,255,255,0.08)' : 'transparent',
-                color:
-                  activeTab === 'flows' ? 'hsl(var(--text-primary))' : 'hsl(var(--text-secondary))',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              Flows
-            </button>
-            <button
-              onClick={() => setActiveTab('delivery')}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                background: activeTab === 'delivery' ? 'rgba(255,255,255,0.08)' : 'transparent',
-                color:
-                  activeTab === 'delivery'
-                    ? 'hsl(var(--text-primary))'
-                    : 'hsl(var(--text-secondary))',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              Delivery
-            </button>
-            <button
-              onClick={() => setActiveTab('digests')}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                background: activeTab === 'digests' ? 'rgba(255,255,255,0.08)' : 'transparent',
-                color:
-                  activeTab === 'digests'
-                    ? 'hsl(var(--text-primary))'
-                    : 'hsl(var(--text-secondary))',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              Digests
-            </button>
-          </nav>
+    <div className="app-shell">
+      <header className="app-masthead">
+        <div className="masthead-brand">
+          <p className="eyebrow">AI news desk</p>
+          <h2>News Personalization</h2>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span style={{ fontSize: '0.9rem', color: 'hsl(var(--text-secondary))' }}>
-            {session.user.email}
-          </span>
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '6px',
-              border: '1px solid hsl(var(--border-color))',
-              background: 'transparent',
-              cursor: 'pointer',
-              fontSize: '0.85rem',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'hsl(var(--danger))';
-              e.currentTarget.style.color = 'hsl(var(--danger))';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'hsl(var(--border-color))';
-              e.currentTarget.style.color = 'inherit';
-            }}
-          >
-            Log Out
+        <nav className="tab-nav" aria-label="Dashboard sections">
+          {dashboardTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              aria-current={activeTab === tab.id ? 'page' : undefined}
+              className={`tab-button${activeTab === tab.id ? ' tab-button--active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+        <div className="account-strip">
+          <span>{session.user.email}</span>
+          <button className="secondary-button" onClick={handleLogout}>
+            Log out
           </button>
         </div>
       </header>
 
-      {/* Main Panel grid */}
-      <main
-        style={{ flex: 1, padding: '40px', maxWidth: '1200px', width: '100%', margin: '0 auto' }}
-      >
-        {activeTab === 'profile' ? (
+      <main className="app-content">
+        {activeTab === 'overview' ? (
+          <DashboardOverview
+            session={session}
+            fixture={e2eFixtureMode ? dashboardFixture : undefined}
+            onOpenTab={setActiveTab}
+          />
+        ) : activeTab === 'profile' ? (
           <ProfilePanel session={session} />
         ) : activeTab === 'sources' ? (
           <SourcesPanel session={session} />
@@ -471,7 +384,10 @@ export default function App() {
         ) : activeTab === 'delivery' ? (
           <DeliveryPanel session={session} />
         ) : (
-          <DigestFeedbackPanel session={session} />
+          <DigestFeedbackPanel
+            session={session}
+            fixtureReport={e2eFixtureMode ? dashboardFixture.digestReport : undefined}
+          />
         )}
       </main>
     </div>

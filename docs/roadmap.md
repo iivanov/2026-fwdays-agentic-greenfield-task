@@ -85,7 +85,7 @@ unchanged evidence; these small OpenSpec slices supersede the defective parts.
 | --- | --- | --- | --- | --- |
 | R-16 | Retention/cleanup: 7-day purge (≤1h lag), 24h cache expiry, lease recovery, dead-letter surfacing | R-11 | BR-DATA-01..02, NFR-DATA-01..03, AT-08 | done |
 | R-17 | Observability: structured logs + correlation ids, `OperationalEvent`, deduped Brevo operator alerts, AI usage/quota monitoring, fail-closed on free-tier exhaustion | R-11 | A-07, NFR-OPS-01..03, AT-10/12 | done |
-| R-18 | Dashboard polish + responsive Playwright e2e for critical flows (digest history, run status, source warnings) | R-07..R-10, R-14 | NFR-UX-01, NFR-PERF-02, Q-04 | pending |
+| R-18 | Dashboard polish + responsive Playwright e2e for critical flows (digest history, run status, source warnings) | R-07..R-10, R-14 | NFR-UX-01, NFR-PERF-02, Q-04 | done |
 | R-19 | Deploy config: `vercel.json` (SPA rewrites + security headers), Supabase deploy config, idempotent `infra/scripts/` bootstrap/audit — **human bootstrap gated** | R-03, R-18 | BR-PROJ-01..03, T-04, T-14, NFR-CON-04..08 | pending |
 | R-20 | Browser auth lifecycle: OAuth callback/session restoration, authenticated routing, logout, and responsive behavioral tests | R-05, R-18 | BR-USER-01, A-01, T-02/T-06, NFR-SEC-01, NFR-UX-01 | pending |
 
