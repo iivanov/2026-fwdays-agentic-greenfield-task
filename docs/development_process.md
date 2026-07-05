@@ -1605,4 +1605,5 @@ A change is complete only when:
   records the current 10-test Playwright suite.
 - Archived `r-20-browser-auth-lifecycle`, syncing the browser auth lifecycle
   requirements into the canonical `supabase-auth` spec.
-- R-20 still needs commit, push, and hosted CI/CodeQL confirmation.
+- R-20 was committed as `45af8dd`, pushed to `origin/main`, and passed GitHub
+  `CI` run `28745843691` plus `CodeQL` run `28745843672`.

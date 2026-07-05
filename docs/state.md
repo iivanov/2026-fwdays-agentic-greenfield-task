@@ -23,7 +23,8 @@
   changes for overly broad callback error parsing and logout failure local-state
   cleanup; the maker fixed both and added Playwright regressions. Fresh
   independent verifier PASS and reviewer APPROVE reports were retained before
-  archive. Commit, push, and hosted CI are still pending.
+  archive. R-20 was committed as `45af8dd`, pushed to `origin/main`, and passed
+  GitHub `CI` run `28745843691` plus `CodeQL` run `28745843672`.
 - **Previous checkpoint**: R-19 deploy config bootstrap is archived at
   `openspec/changes/archive/2026-07-05-r-19-deploy-config-bootstrap/` with
   fresh independent verifier PASS and reviewer APPROVE reports. R-19 was
@@ -35,7 +36,8 @@
   links, secrets, paid features, or production deploys have been created.
 - **Paused draft**: none. The previous R-12 draft has been replaced by the active R-12 implementation.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
-  push checkpoint on 2026-07-03. No deploy/spend/account creation.
+  push checkpoint on 2026-07-03 and explicitly requested push/CI watching on
+  2026-07-05. No deploy/spend/account creation.
 
 ## Evidence Status
 
