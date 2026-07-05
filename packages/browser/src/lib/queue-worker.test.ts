@@ -233,6 +233,170 @@ describe('R-11F queue worker safeguards', () => {
     expect(fakeClient.updates).toEqual([]);
   });
 
+  it('emits sanitized correlated logs and deduplicated operator alerts for exhausted work', async () => {
+    const sentAlerts: Array<{ url: string; init?: RequestInit }> = [];
+    const logs: string[] = [];
+    const fakeClient = makeClient({
+      claim_job: {
+        data: [
+          {
+            msg_id: 100,
+            read_ct: 6,
+            enqueued_at: new Date().toISOString(),
+            message: {
+              type: 'processing',
+              flow_id: '55555555-5555-5555-5555-555555555555',
+              cycle_date: '2031-03-04',
+              digest_text: 'digest text must not be logged',
+              prompt_template: 'private prompt must not be logged',
+              credential: 'secret-token',
+            },
+          },
+        ],
+        error: null,
+      },
+      archive_exhausted_worker_job: {
+        data: { archived: true, event_id: '66666666-6666-4666-8666-666666666666' },
+        error: null,
+      },
+      claim_operational_event_alert: {
+        data: {
+          claimed: true,
+          event_id: '66666666-6666-4666-8666-666666666666',
+          severity: 'critical',
+          category: 'dlq_exhaustion',
+          deduplication_key: 'msg_failed_dlq_processing-queue_100',
+          occurrence_count: 1,
+          context: {
+            queue: 'processing-queue',
+            type: 'processing',
+            flow_id: '55555555-5555-5555-5555-555555555555',
+            cycle_date: '2031-03-04',
+          },
+        },
+        error: null,
+      },
+    });
+    const handler = createWorkHandler(() => fakeClient, {
+      logger: {
+        log: (message?: unknown) => logs.push(String(message)),
+        warn: (message?: unknown) => logs.push(String(message)),
+        error: (message?: unknown) => logs.push(String(message)),
+      },
+      delivery: {
+        fetchImpl: async (input, init) => {
+          sentAlerts.push({ url: String(input), init });
+          return new Response('{}', { status: 201 });
+        },
+      },
+    });
+
+    const response = await handler(
+      new Request('http://localhost/functions/v1/work', {
+        headers: {
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          'X-Request-Id': 'req-r17',
+        },
+      }),
+      {
+        SUPABASE_URL: 'http://localhost',
+        SUPABASE_SERVICE_ROLE_KEY: SERVICE_KEY,
+        BREVO_API_KEY: 'brevo-key',
+        BREVO_SENDER_EMAIL: 'sender@example.com',
+        OPERATOR_ALERT_EMAIL: 'operator@example.com',
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(sentAlerts).toHaveLength(1);
+    expect(sentAlerts[0].url).toBe('https://api.brevo.com/v3/smtp/email');
+    expect((sentAlerts[0].init?.headers as Record<string, string>)['api-key']).toBe('brevo-key');
+    expect(JSON.parse(String(sentAlerts[0].init?.body))).toMatchObject({
+      sender: { email: 'sender@example.com' },
+      to: [{ email: 'operator@example.com' }],
+      subject: '[News Aggregator] critical dlq_exhaustion',
+    });
+    expect(fakeClient.calls).toContainEqual({
+      name: 'claim_operational_event_alert',
+      args: {
+        p_event_id: '66666666-6666-4666-8666-666666666666',
+        p_cooldown: '1 hour',
+      },
+    });
+    const joinedLogs = logs.join('\n');
+    expect(joinedLogs).toContain('"correlation_id":"req-r17"');
+    expect(joinedLogs).toContain('"event":"work.dlq_archived"');
+    expect(joinedLogs).toContain('"flow_id":"55555555-5555-5555-5555-555555555555"');
+    expect(joinedLogs).not.toContain('digest text must not be logged');
+    expect(joinedLogs).not.toContain('private prompt must not be logged');
+    expect(joinedLogs).not.toContain('secret-token');
+  });
+
+  it('logs alert claim failures without blocking exhausted work archival', async () => {
+    const logs: string[] = [];
+    const fakeClient = makeClient({
+      claim_job: {
+        data: [
+          {
+            msg_id: 101,
+            read_ct: 6,
+            enqueued_at: new Date().toISOString(),
+            message: {
+              type: 'processing',
+              flow_id: '55555555-5555-5555-5555-555555555555',
+              cycle_date: '2031-03-04',
+            },
+          },
+        ],
+        error: null,
+      },
+      archive_exhausted_worker_job: {
+        data: { archived: true, event_id: '77777777-7777-4777-8777-777777777777' },
+        error: null,
+      },
+      claim_operational_event_alert: {
+        data: null,
+        error: { message: 'database temporarily unavailable' },
+      },
+    });
+    const handler = createWorkHandler(() => fakeClient, {
+      logger: {
+        log: (message?: unknown) => logs.push(String(message)),
+        warn: (message?: unknown) => logs.push(String(message)),
+        error: (message?: unknown) => logs.push(String(message)),
+      },
+    });
+
+    const response = await handler(
+      new Request('http://localhost/functions/v1/work', {
+        headers: {
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          'X-Request-Id': 'req-r17-claim-failed',
+        },
+      }),
+      {
+        SUPABASE_URL: 'http://localhost',
+        SUPABASE_SERVICE_ROLE_KEY: SERVICE_KEY,
+        BREVO_API_KEY: 'brevo-key',
+        BREVO_SENDER_EMAIL: 'sender@example.com',
+        OPERATOR_ALERT_EMAIL: 'operator@example.com',
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: 'dlq_archived', msg_id: 101 });
+    expect(fakeClient.calls.map((call) => call.name)).toEqual([
+      'claim_job',
+      'archive_exhausted_worker_job',
+      'claim_operational_event_alert',
+    ]);
+    const joinedLogs = logs.join('\n');
+    expect(joinedLogs).toContain('"event":"operator_alert.claim_failed"');
+    expect(joinedLogs).toContain('"correlation_id":"req-r17-claim-failed"');
+    expect(joinedLogs).toContain('"event_id":"77777777-7777-4777-8777-777777777777"');
+    expect(joinedLogs).not.toContain('brevo-key');
+  });
+
   it('requires SQL helpers to raise when pgmq delete or archive returns false', () => {
     expect(migrationSource).toContain('deleted := pgmq.delete(p_queue_name, p_msg_id);');
     expect(migrationSource).toContain('if deleted is not true then');
@@ -363,6 +527,32 @@ describe('R-11F queue worker safeguards', () => {
       "delete from public.integration_circuits\n    where state = 'closed'",
     );
     expect(r11gCleanupMigrationSource).toContain("and updated_at <= now() - interval '30 days'");
+  });
+
+  it('keeps R-17 observability helper RPCs restricted to worker roles', () => {
+    expect(allMigrationSources).toContain('function public.claim_operational_event_alert');
+    expect(allMigrationSources).toContain('function public.get_ai_token_usage_since');
+    expect(allMigrationSources).toContain('table if not exists public.ai_usage_events');
+    expect(allMigrationSources).toContain('function public.record_ai_usage_event');
+    expect(allMigrationSources).toContain('function public.fail_terminal_processing_worker_job');
+    expect(allMigrationSources).toContain(
+      'revoke execute on function public.claim_operational_event_alert(uuid, interval) from public',
+    );
+    expect(allMigrationSources).toContain(
+      'grant execute on function public.claim_operational_event_alert(uuid, interval) to service_role, postgres',
+    );
+    expect(allMigrationSources).toContain(
+      'revoke execute on function public.get_ai_token_usage_since(timestamp with time zone) from public',
+    );
+    expect(allMigrationSources).toContain(
+      'grant execute on function public.get_ai_token_usage_since(timestamp with time zone) to service_role, postgres',
+    );
+    expect(allMigrationSources).toContain(
+      'grant execute on function public.record_ai_usage_event(uuid, uuid, text, text, integer, text, text) to service_role, postgres',
+    );
+    expect(allMigrationSources).toContain(
+      'grant execute on function public.fail_terminal_processing_worker_job(text, bigint, uuid, date, text) to service_role, postgres',
+    );
   });
 
   it('dead-letter surfacing records sanitized operational events', () => {
