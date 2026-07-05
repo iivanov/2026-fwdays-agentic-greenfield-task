@@ -1819,3 +1819,258 @@ describe('API Edge Function Handler Integration Tests', () => {
     });
   });
 });
+
+describe('Digest feedback API routes', () => {
+  const validDigestId = '11111111-1111-4111-8111-111111111111';
+  const validFlowId = '22222222-2222-4222-8222-222222222222';
+
+  it('reports only caller-owned digests with feedback counts', async () => {
+    const req = new Request('http://localhost/functions/v1/api/digests', {
+      method: 'GET',
+    });
+    const mockSupabaseAdmin = {
+      from: (table: string) => {
+        if (table === 'processing_flows') {
+          return {
+            select: () => ({
+              eq: (column: string, value: string) => ({
+                order: async () => ({
+                  data:
+                    column === 'user_id' && value === 'user-123'
+                      ? [{ id: validFlowId, name: 'Morning digest' }]
+                      : [],
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'processed_digests') {
+          return {
+            select: () => ({
+              in: (column: string, values: string[]) => ({
+                order: async () => ({
+                  data:
+                    column === 'flow_id' && values.includes(validFlowId)
+                      ? [
+                          {
+                            id: validDigestId,
+                            flow_id: validFlowId,
+                            processing_run_id: '33333333-3333-4333-8333-333333333333',
+                            content: { title: 'Digest report', sections: [] },
+                            token_usage: 120,
+                            provider_request_id: 'req-123',
+                            model: 'gpt-5.4-mini',
+                            user_feedback: 'thumbs_up',
+                            created_at: '2026-07-04T06:00:00Z',
+                          },
+                        ]
+                      : [],
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        return {};
+      },
+    };
+
+    const res = await handleApiRoute(
+      req,
+      { id: 'user-123' },
+      'digests',
+      'digests',
+      {},
+      mockSupabaseAdmin,
+    );
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.data.feedback_counts).toEqual({ thumbs_up: 1, thumbs_down: 0, none: 0 });
+    expect(json.data.digests).toEqual([
+      expect.objectContaining({
+        id: validDigestId,
+        flow_id: validFlowId,
+        flow_name: 'Morning digest',
+        user_feedback: 'thumbs_up',
+      }),
+    ]);
+  });
+
+  it('updates owned digest feedback with only the feedback column', async () => {
+    const req = new Request(`http://localhost/functions/v1/api/digests/${validDigestId}/feedback`, {
+      method: 'PUT',
+      body: JSON.stringify({ user_feedback: 'thumbs_down' }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const updateSpy = vi.fn();
+    const mockSupabaseAdmin = {
+      from: (table: string) => {
+        if (table === 'processing_flows') {
+          return {
+            select: () => ({
+              eq: async () => ({ data: [{ id: validFlowId }], error: null }),
+            }),
+          };
+        }
+        if (table === 'processed_digests') {
+          return {
+            update: (payload: Record<string, unknown>) => {
+              updateSpy(payload);
+              return {
+                eq: (column: string, value: string) => ({
+                  in: (inColumn: string, values: string[]) => ({
+                    select: () => ({
+                      single: async () => ({
+                        data: {
+                          id: value,
+                          flow_id: values[0],
+                          user_feedback: 'thumbs_down',
+                          created_at: '2026-07-04T06:00:00Z',
+                        },
+                        error:
+                          column === 'id' && inColumn === 'flow_id'
+                            ? null
+                            : { message: 'bad query' },
+                      }),
+                    }),
+                  }),
+                }),
+              };
+            },
+          };
+        }
+        return {};
+      },
+    };
+
+    const res = await handleApiRoute(
+      req,
+      { id: 'user-123' },
+      'digests',
+      `digests/${validDigestId}/feedback`,
+      {},
+      mockSupabaseAdmin,
+    );
+
+    expect(res.status).toBe(200);
+    expect(updateSpy).toHaveBeenCalledWith({ user_feedback: 'thumbs_down' });
+    const json = await res.json();
+    expect(json.data).toMatchObject({ id: validDigestId, user_feedback: 'thumbs_down' });
+  });
+
+  it('clears owned digest feedback to none without prompt mutation fields', async () => {
+    const req = new Request(`http://localhost/functions/v1/api/digests/${validDigestId}/feedback`, {
+      method: 'PUT',
+      body: JSON.stringify({ user_feedback: 'none' }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const updateSpy = vi.fn();
+    const mockSupabaseAdmin = {
+      from: (table: string) => {
+        if (table === 'processing_flows') {
+          return {
+            select: () => ({
+              eq: async () => ({ data: [{ id: validFlowId }], error: null }),
+            }),
+          };
+        }
+        if (table === 'processed_digests') {
+          return {
+            update: (payload: Record<string, unknown>) => {
+              updateSpy(payload);
+              return {
+                eq: () => ({
+                  in: () => ({
+                    select: () => ({
+                      single: async () => ({
+                        data: {
+                          id: validDigestId,
+                          flow_id: validFlowId,
+                          user_feedback: 'none',
+                          created_at: '2026-07-04T06:00:00Z',
+                        },
+                        error: null,
+                      }),
+                    }),
+                  }),
+                }),
+              };
+            },
+          };
+        }
+        return {};
+      },
+    };
+
+    const res = await handleApiRoute(
+      req,
+      { id: 'user-123' },
+      'digests',
+      `digests/${validDigestId}/feedback`,
+      {},
+      mockSupabaseAdmin,
+    );
+
+    expect(res.status).toBe(200);
+    expect(updateSpy).toHaveBeenCalledWith({ user_feedback: 'none' });
+    expect(updateSpy.mock.calls[0]?.[0]).not.toHaveProperty('prompt_template');
+  });
+
+  it('rejects invalid digest feedback before writing', async () => {
+    const req = new Request(`http://localhost/functions/v1/api/digests/${validDigestId}/feedback`, {
+      method: 'PUT',
+      body: JSON.stringify({ user_feedback: 'stars' }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const updateSpy = vi.fn();
+    const res = await handleApiRoute(
+      req,
+      { id: 'user-123' },
+      'digests',
+      `digests/${validDigestId}/feedback`,
+      { from: () => ({ update: updateSpy }) },
+      null,
+    );
+
+    expect(res.status).toBe(400);
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not update feedback when the caller owns no matching flow', async () => {
+    const req = new Request(`http://localhost/functions/v1/api/digests/${validDigestId}/feedback`, {
+      method: 'PUT',
+      body: JSON.stringify({ user_feedback: 'thumbs_up' }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const updateSpy = vi.fn();
+    const mockSupabaseAdmin = {
+      from: (table: string) => {
+        if (table === 'processing_flows') {
+          return {
+            select: () => ({
+              eq: async () => ({ data: [], error: null }),
+            }),
+          };
+        }
+        if (table === 'processed_digests') {
+          return { update: updateSpy };
+        }
+        return {};
+      },
+    };
+
+    const res = await handleApiRoute(
+      req,
+      { id: 'user-123' },
+      'digests',
+      `digests/${validDigestId}/feedback`,
+      {},
+      mockSupabaseAdmin,
+    );
+
+    expect(res.status).toBe(404);
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+});

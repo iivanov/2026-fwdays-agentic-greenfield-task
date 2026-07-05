@@ -65,6 +65,62 @@ type ProcessingFlowRecord = {
   [key: string]: unknown;
 };
 
+type DigestFeedbackValue = 'thumbs_up' | 'thumbs_down' | 'none';
+
+type DigestFlowSummary = {
+  id: string;
+  name: string;
+};
+
+type DigestRecord = {
+  id: string;
+  flow_id: string;
+  processing_run_id: string;
+  content: unknown;
+  token_usage: number;
+  provider_request_id: string | null;
+  model: string;
+  user_feedback: DigestFeedbackValue;
+  created_at: string;
+};
+
+const feedbackValues = ['thumbs_up', 'thumbs_down', 'none'] as const;
+
+function emptyFeedbackCounts(): Record<DigestFeedbackValue, number> {
+  return { thumbs_up: 0, thumbs_down: 0, none: 0 };
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function buildDigestReport(digests: DigestRecord[], flows: DigestFlowSummary[]) {
+  const flowById = new Map(flows.map((flow) => [flow.id, flow]));
+  const counts = emptyFeedbackCounts();
+
+  const items = digests.map((digest) => {
+    const feedback = feedbackValues.includes(digest.user_feedback) ? digest.user_feedback : 'none';
+    counts[feedback] += 1;
+    const flow = flowById.get(digest.flow_id) ?? { id: digest.flow_id, name: 'Unknown flow' };
+    return {
+      id: digest.id,
+      flow_id: digest.flow_id,
+      flow_name: flow.name,
+      processing_run_id: digest.processing_run_id,
+      content: digest.content,
+      token_usage: digest.token_usage,
+      provider_request_id: digest.provider_request_id,
+      model: digest.model,
+      user_feedback: feedback,
+      created_at: digest.created_at,
+    };
+  });
+
+  return { digests: items, feedback_counts: counts };
+}
+
 async function decryptFlowPrompt<T extends ProcessingFlowRecord>(flow: T): Promise<T> {
   if (flow.prompt_type !== 'custom') {
     return { ...flow, prompt_template: null };
@@ -788,6 +844,98 @@ export async function handleApiRoute(
       }
 
       return sendSuccess({ deleted: true }, req);
+    }
+
+    return sendError('Method Not Allowed', req, 405);
+  }
+
+  if (rootSegment === 'digests') {
+    const digestId = segments[1] || '';
+
+    if (req.method === 'GET' && !digestId) {
+      const reader = supabaseAdmin ?? supabaseClient;
+      let flowQuery = reader.from('processing_flows').select('id, name');
+      if (supabaseAdmin) {
+        flowQuery = flowQuery.eq('user_id', user.id);
+      }
+      const { data: flows, error: flowError } = await flowQuery.order('created_at', {
+        ascending: true,
+      });
+
+      if (flowError) {
+        return sendError(flowError.message, req, 500);
+      }
+
+      const userFlows = (flows ?? []) as DigestFlowSummary[];
+      if (userFlows.length === 0) {
+        return sendSuccess(buildDigestReport([], []), req);
+      }
+
+      const flowIds = userFlows.map((flow) => flow.id);
+      const { data: digests, error: digestError } = await reader
+        .from('processed_digests')
+        .select(
+          'id, flow_id, processing_run_id, content, token_usage, provider_request_id, model, user_feedback, created_at',
+        )
+        .in('flow_id', flowIds)
+        .order('created_at', { ascending: false });
+
+      if (digestError) {
+        return sendError(digestError.message, req, 500);
+      }
+
+      return sendSuccess(buildDigestReport((digests ?? []) as DigestRecord[], userFlows), req);
+    }
+
+    if (req.method === 'PUT' && segments[2] === 'feedback') {
+      if (!digestId || !isUuid(digestId)) {
+        return sendError('Invalid or missing digest ID', req, 400);
+      }
+
+      const feedbackSchema = z.object({
+        user_feedback: z.enum(feedbackValues),
+      });
+      const validation = await validateBody(req, feedbackSchema);
+      if (!validation.success) {
+        return sendError(validation.error, req, 400);
+      }
+
+      const writer = supabaseAdmin ?? supabaseClient;
+      let flowIds: string[] | null = null;
+      if (supabaseAdmin) {
+        const { data: flows, error: flowError } = await writer
+          .from('processing_flows')
+          .select('id')
+          .eq('user_id', user.id);
+        if (flowError) {
+          return sendError(flowError.message, req, 500);
+        }
+        flowIds = ((flows ?? []) as Array<{ id: string }>).map((flow) => flow.id);
+        if (flowIds.length === 0) {
+          return sendError('Digest not found or unauthorized access', req, 404);
+        }
+      }
+
+      let updateQuery = writer
+        .from('processed_digests')
+        .update({ user_feedback: validation.data.user_feedback })
+        .eq('id', digestId);
+      if (flowIds) {
+        updateQuery = updateQuery.in('flow_id', flowIds);
+      }
+
+      const { data, error } = await updateQuery
+        .select('id, flow_id, user_feedback, created_at')
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return sendError('Digest not found or unauthorized access', req, 404);
+        }
+        return sendError(error.message, req, 500);
+      }
+
+      return sendSuccess(data, req);
     }
 
     return sendError('Method Not Allowed', req, 405);
