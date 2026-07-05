@@ -1499,3 +1499,31 @@ A change is complete only when:
 - Human bootstrap remains required for Supabase/Vercel project creation,
   provider secrets, OAuth app registration, hosted repository security settings,
   and production deployment.
+
+### 2026-07-05 — R-19 CI repair checkpoint
+
+**AI contribution**
+
+- Committed and pushed R-19 as `ceaa367`.
+- GitHub `CI` run `28740803977` failed in
+  `packages/browser/src/lib/crypto.test.ts` before Supabase gates. The failure
+  was unrelated to the R-19 deployment audit step, which passed in CI.
+- Root cause: the test attempted to tamper ciphertext with
+  `encrypted.ciphertext.replace(/a/g, 'b')`; when the random base64 ciphertext
+  contains no `a`, the test does not alter authenticated data and decryption
+  correctly resolves.
+- Repaired the test to decode the base64 ciphertext, flip the first byte, and
+  re-encode it before asserting AES-GCM decryption rejects.
+
+**Verification performed**
+
+- `npx vitest run packages/browser/src/lib/crypto.test.ts` passed: 1 file, 10
+  tests.
+- `npm run test` passed: 14 files, 156 tests.
+- `npm run lint` passed.
+- `npm run format` passed.
+- `git diff --check` passed.
+
+**Not complete**
+
+- The repair commit still needs push and hosted CI/CodeQL confirmation.
