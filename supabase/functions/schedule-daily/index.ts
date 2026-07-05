@@ -2,7 +2,23 @@
 import { withSupabase } from '@supabase/server';
 import { createClient } from '@supabase/supabase-js';
 
+const logScheduleEvent = (
+  level: 'info' | 'error',
+  event: string,
+  context: Record<string, unknown>,
+) => {
+  const payload = {
+    level,
+    event,
+    timestamp: new Date().toISOString(),
+    ...context,
+  };
+  console[level === 'error' ? 'error' : 'log'](JSON.stringify(payload));
+};
+
 export const scheduleDailyHandler = async (req: Request, envs: Record<string, string>) => {
+  const startedAt = Date.now();
+  const correlationId = req.headers.get('X-Request-Id') ?? crypto.randomUUID();
   const authHeader = req.headers.get('Authorization') ?? '';
   const serviceKey = envs.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
@@ -30,12 +46,22 @@ export const scheduleDailyHandler = async (req: Request, envs: Record<string, st
 
   const { data, error } = await supabaseAdmin.rpc('schedule_daily_flows');
   if (error) {
+    logScheduleEvent('error', 'schedule_daily.failed', {
+      correlation_id: correlationId,
+      duration_ms: Date.now() - startedAt,
+      error_code: 'schedule_daily_rpc_failed',
+    });
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
+  logScheduleEvent('info', 'schedule_daily.completed', {
+    correlation_id: correlationId,
+    duration_ms: Date.now() - startedAt,
+    ...(data && typeof data === 'object' ? (data as Record<string, unknown>) : {}),
+  });
   return new Response(JSON.stringify({ data }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },

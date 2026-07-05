@@ -73,7 +73,9 @@ const makeQuery = (
   return query;
 };
 
-const makeClient = (options: { articles?: Row[]; claimedArticleIds?: string[] } = {}) => {
+const makeClient = (
+  options: { articles?: Row[]; claimedArticleIds?: string[]; aiTokenUsage?: number } = {},
+) => {
   const tables: FakeTables = {
     processing_flows: [
       {
@@ -164,6 +166,23 @@ const makeClient = (options: { articles?: Row[]; claimedArticleIds?: string[] } 
           }
         }
         return { data: existingDigest?.id ?? digestId, error: null };
+      }
+      if (name === 'get_ai_token_usage_since') {
+        return { data: options.aiTokenUsage ?? 0, error: null };
+      }
+      if (name === 'log_operational_event') {
+        return { data: '99999999-9999-4999-8999-999999999999', error: null };
+      }
+      if (name === 'record_ai_usage_event') {
+        return { data: '88888888-8888-4888-8888-888888888888', error: null };
+      }
+      if (name === 'claim_operational_event_alert') {
+        return { data: { claimed: false }, error: null };
+      }
+      if (name === 'fail_terminal_processing_worker_job') {
+        tables.processing_runs[0].status = 'failed';
+        tables.processing_runs[0].error_code = args?.p_error_message;
+        return { data: { acknowledged: true }, error: null };
       }
       return { data: {}, error: null };
     },
@@ -374,6 +393,201 @@ describe('R-13 AI processing worker', () => {
       model: 'gpt-5.4-mini',
     });
     expect(client.tables.flow_articles.filter((row) => row.digest_id)).toHaveLength(2);
+  });
+
+  it('fails closed before calling OpenAI when the daily token budget is exhausted', async () => {
+    const client = makeClient({
+      aiTokenUsage: 100,
+      articles: [article('a1', 'Budget story', 'Budget content', '2026-07-04T10:00:00Z')],
+    });
+    let providerCalled = false;
+
+    await expect(
+      processFlow(client, FLOW_ID, CYCLE_DATE, {
+        openAiApiKey: 'test-openai-key',
+        aiDailyTokenBudget: 100,
+        fetchImpl: async () => {
+          providerCalled = true;
+          return new Response('{}');
+        },
+      }),
+    ).rejects.toThrow('AI daily token budget exhausted');
+
+    expect(providerCalled).toBe(false);
+    expect(client.tables.processed_digests).toHaveLength(0);
+    expect(client.rpcCalls).toContainEqual({
+      name: 'log_operational_event',
+      args: expect.objectContaining({
+        p_severity: 'critical',
+        p_category: 'provider_quota',
+        p_deduplication_key: 'provider_quota_daily_budget_exhausted',
+        p_context: expect.objectContaining({
+          flow_id: FLOW_ID,
+          processing_run_id: RUN_ID,
+          daily_budget: 100,
+          current_usage: 100,
+        }),
+      }),
+    });
+  });
+
+  it('fails closed without persisting a digest when provider response exceeds the token budget', async () => {
+    const client = makeClient({
+      articles: [article('a1', 'Budget story', 'Budget content', '2026-07-04T10:00:00Z')],
+    });
+
+    await expect(
+      processFlow(client, FLOW_ID, CYCLE_DATE, {
+        openAiApiKey: 'test-openai-key',
+        aiResponseTokenBudget: 10,
+        fetchImpl: async () =>
+          new Response(
+            JSON.stringify({
+              id: 'resp_budget',
+              model: 'gpt-5.4-mini',
+              output: [
+                {
+                  content: [
+                    {
+                      type: 'output_text',
+                      text: JSON.stringify({
+                        title: 'Digest',
+                        language: 'en',
+                        sections: [
+                          {
+                            heading: 'Budget',
+                            items: [
+                              {
+                                title: 'Story',
+                                summary: 'Summary',
+                                source_urls: ['https://example.com/a1'],
+                              },
+                            ],
+                          },
+                        ],
+                      }),
+                    },
+                  ],
+                },
+              ],
+              usage: { total_tokens: 42 },
+            }),
+          ),
+      }),
+    ).rejects.toThrow('AI token budget exceeded');
+
+    expect(client.tables.processed_digests).toHaveLength(0);
+    expect(client.rpcCalls.map((call) => call.name)).not.toContain('persist_processing_digest');
+    expect(client.rpcCalls).toContainEqual({
+      name: 'record_ai_usage_event',
+      args: expect.objectContaining({
+        p_flow_id: FLOW_ID,
+        p_processing_run_id: RUN_ID,
+        p_provider_request_id: 'resp_budget',
+        p_model: 'gpt-5.4-mini',
+        p_token_usage: 42,
+        p_outcome: 'failed_budget',
+        p_reason: 'response_budget_exceeded',
+      }),
+    });
+    expect(client.rpcCalls).toContainEqual({
+      name: 'log_operational_event',
+      args: expect.objectContaining({
+        p_category: 'provider_quota',
+        p_deduplication_key: 'provider_quota_response_budget_exceeded',
+        p_context: expect.objectContaining({
+          flow_id: FLOW_ID,
+          response_budget: 10,
+          response_usage: 42,
+          provider_request_id: 'resp_budget',
+        }),
+      }),
+    });
+  });
+
+  it('does not schema-repair an invalid provider response that already exceeds the token budget', async () => {
+    const client = makeClient({
+      articles: [
+        article(
+          'a1',
+          'Budget repair story',
+          'Malformed output should not trigger another provider call after budget exhaustion.',
+          '2026-07-04T10:00:00Z',
+        ),
+      ],
+    });
+    let providerCalls = 0;
+
+    await expect(
+      processFlow(client, FLOW_ID, CYCLE_DATE, {
+        openAiApiKey: 'test-openai-key',
+        aiResponseTokenBudget: 10,
+        fetchImpl: async () => {
+          providerCalls += 1;
+          return new Response(
+            JSON.stringify({
+              id: 'resp_bad_budget',
+              model: 'gpt-5.4-mini',
+              output: [
+                {
+                  type: 'message',
+                  content: [{ type: 'output_text', text: '{"title":"Missing fields"}' }],
+                },
+              ],
+              usage: { total_tokens: 42 },
+            }),
+          );
+        },
+      }),
+    ).rejects.toThrow('AI token budget exceeded');
+
+    expect(providerCalls).toBe(1);
+    expect(client.tables.processed_digests).toHaveLength(0);
+    expect(client.rpcCalls.map((call) => call.name)).not.toContain('persist_processing_digest');
+    expect(client.rpcCalls).toContainEqual({
+      name: 'record_ai_usage_event',
+      args: expect.objectContaining({
+        p_flow_id: FLOW_ID,
+        p_processing_run_id: RUN_ID,
+        p_provider_request_id: 'resp_bad_budget',
+        p_model: 'gpt-5.4-mini',
+        p_token_usage: 42,
+        p_outcome: 'failed_budget',
+        p_reason: 'response_budget_exceeded',
+      }),
+    });
+  });
+
+  it('acknowledges processing budget exhaustion terminally instead of retrying the queue message', async () => {
+    const client = makeClient({
+      aiTokenUsage: 100,
+      articles: [article('a1', 'Budget story', 'Budget content', '2026-07-04T10:00:00Z')],
+    });
+    const handler = createWorkHandler(() => client, {
+      processing: {
+        openAiApiKey: 'test-openai-key',
+        aiDailyTokenBudget: 100,
+      },
+    });
+
+    const response = await handler(AUTH_REQ, {
+      SUPABASE_URL: 'http://localhost',
+      SUPABASE_SERVICE_ROLE_KEY: SERVICE_KEY,
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      status: 'processing_failed_terminal',
+      error: 'ai budget exhausted',
+    });
+    expect(client.tables.processing_runs[0]).toMatchObject({
+      status: 'failed',
+      error_code: 'ai budget exhausted',
+    });
+    expect(client.rpcCalls.map((call) => call.name)).toContain(
+      'fail_terminal_processing_worker_job',
+    );
+    expect(client.rpcCalls.map((call) => call.name)).not.toContain('fail_worker_job');
   });
 
   it('filters already-claimed articles before applying the 50-article cap', async () => {

@@ -53,6 +53,25 @@ type SupabaseAdmin = {
 };
 
 type WorkerKind = 'ingestion' | 'processing' | 'delivery';
+type LogLevel = 'info' | 'warn' | 'error';
+type SafeLogger = Pick<Console, 'log' | 'warn' | 'error'>;
+type AlertEventClaim = {
+  claimed?: boolean;
+  event_id?: string;
+  severity?: string;
+  category?: string;
+  deduplication_key?: string;
+  context?: Record<string, unknown>;
+  occurrence_count?: number;
+};
+type OperatorAlertOptions = {
+  fetchImpl?: FetchLike;
+  brevoApiKey?: string;
+  brevoSenderEmail?: string;
+  operatorAlertEmail?: string;
+  logger?: SafeLogger;
+  correlationId?: string;
+};
 
 const json = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -74,6 +93,65 @@ const sanitizeDlqContext = (queue: string, message: JobPayload) => ({
   flow_id: message.flow_id ?? null,
   attempt_id: message.attempt_id ?? null,
   cycle_date: message.cycle_date ?? null,
+});
+
+const safeLogValue = (value: unknown): unknown => {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return value;
+  }
+  if (Array.isArray(value)) return value.map(safeLogValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([key]) =>
+          !/(content|body|prompt|token|secret|credential|config|webhook_url|api[_-]?key)/i
+            .test(key)
+        )
+        .map(([key, nested]) => [key, safeLogValue(nested)]),
+    );
+  }
+  return String(value);
+};
+
+const emitStructuredLog = (
+  logger: SafeLogger,
+  level: LogLevel,
+  event: string,
+  context: Record<string, unknown>,
+) => {
+  const payload = {
+    level,
+    event,
+    timestamp: new Date().toISOString(),
+    ...(safeLogValue(context) as Record<string, unknown>),
+  };
+  logger[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log'](JSON.stringify(payload));
+};
+
+const jobLogContext = (
+  correlationId: string,
+  queue: string,
+  msgId: string | number | null,
+  readCount: number | null,
+  kind: WorkerKind | null,
+  message: JobPayload,
+  startedAt: number,
+) => ({
+  correlation_id: correlationId,
+  queue,
+  msg_id: msgId,
+  read_count: readCount,
+  job_type: kind,
+  source_id: message.source_id ?? null,
+  flow_id: message.flow_id ?? null,
+  attempt_id: message.attempt_id ?? null,
+  cycle_date: message.cycle_date ?? null,
+  duration_ms: Date.now() - startedAt,
 });
 
 const assertRpcOk = <T>(result: { data: T; error: { message: string } | null }, label: string) => {
@@ -119,6 +197,11 @@ type ProcessingOptions = {
   fetchImpl?: FetchLike;
   openAiApiKey?: string;
   timeoutMs?: number;
+  aiDailyTokenBudget?: number | null;
+  aiResponseTokenBudget?: number | null;
+  alerting?: OperatorAlertOptions;
+  onOpenAiResponse?: (metadata: OpenAiDigestResponseMetadata) => void | Promise<void>;
+  onOpenAiSchemaInvalid?: (metadata: OpenAiDigestResponseMetadata) => void | Promise<void>;
 };
 
 type DeliveryOptions = {
@@ -1014,7 +1097,7 @@ async function recordOperationalEvent(
   key: string,
   context: Record<string, unknown>,
 ) {
-  assertRpcOk(
+  return assertRpcOk(
     await supabaseAdmin.rpc('log_operational_event', {
       p_severity: severity,
       p_category: category,
@@ -1022,7 +1105,152 @@ async function recordOperationalEvent(
       p_context: context,
     }),
     'log operational event failed',
+  ) as string;
+}
+
+const asPositiveInteger = (value: unknown): number | null => {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  return Math.floor(numeric);
+};
+
+const parseConfiguredBudget = (value: string | number | undefined): number | null =>
+  value === undefined || value === '' ? null : asPositiveInteger(value);
+
+async function sendOperatorAlertEmail(
+  event: AlertEventClaim,
+  options: OperatorAlertOptions,
+): Promise<boolean> {
+  const apiKey = options.brevoApiKey;
+  const senderEmail = options.brevoSenderEmail;
+  const operatorEmail = options.operatorAlertEmail;
+  if (!apiKey || !senderEmail || !operatorEmail) return false;
+
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const body = {
+    sender: { email: senderEmail },
+    to: [{ email: operatorEmail }],
+    subject: `[News Aggregator] ${event.severity ?? 'critical'} ${event.category ?? 'event'}`,
+    textContent: [
+      `Operational event: ${event.category ?? 'unknown'}`,
+      `Severity: ${event.severity ?? 'unknown'}`,
+      `Event ID: ${event.event_id ?? 'unknown'}`,
+      `Deduplication key: ${event.deduplication_key ?? 'unknown'}`,
+      `Occurrences: ${event.occurrence_count ?? 1}`,
+      `Context: ${JSON.stringify(safeLogValue(event.context ?? {}))}`,
+    ].join('\n'),
+  };
+
+  const response = await fetchImpl('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`operator_alert_http_${response.status}`);
+  }
+  return true;
+}
+
+async function alertCriticalOperationalEvent(
+  supabaseAdmin: SupabaseAdmin,
+  eventId: string | null,
+  options: OperatorAlertOptions,
+): Promise<boolean> {
+  if (!eventId) return false;
+  let claim: AlertEventClaim;
+  try {
+    claim = assertRpcOk(
+      await supabaseAdmin.rpc('claim_operational_event_alert', {
+        p_event_id: eventId,
+        p_cooldown: '1 hour',
+      }),
+      'claim operational alert failed',
+    ) as AlertEventClaim;
+  } catch (error: unknown) {
+    emitStructuredLog(options.logger ?? console, 'warn', 'operator_alert.claim_failed', {
+      correlation_id: options.correlationId ?? null,
+      event_id: eventId,
+      error_code: safeErrorCode(error),
+    });
+    return false;
+  }
+  if (!claim.claimed) return false;
+
+  try {
+    const sent = await sendOperatorAlertEmail(claim, options);
+    emitStructuredLog(options.logger ?? console, sent ? 'info' : 'warn', 'operator_alert.result', {
+      correlation_id: options.correlationId ?? null,
+      event_id: claim.event_id ?? eventId,
+      category: claim.category ?? null,
+      sent,
+    });
+    return sent;
+  } catch (error: unknown) {
+    emitStructuredLog(options.logger ?? console, 'warn', 'operator_alert.failed', {
+      correlation_id: options.correlationId ?? null,
+      event_id: claim.event_id ?? eventId,
+      category: claim.category ?? null,
+      error_code: safeErrorCode(error),
+    });
+    return false;
+  }
+}
+
+async function getAiTokenUsageSince(
+  supabaseAdmin: SupabaseAdmin,
+  since: string,
+): Promise<number> {
+  const usage = assertRpcOk(
+    await supabaseAdmin.rpc('get_ai_token_usage_since', { p_since: since }),
+    'get ai token usage failed',
   );
+  return asPositiveInteger(usage) ?? 0;
+}
+
+async function recordAiUsageEvent(
+  supabaseAdmin: SupabaseAdmin,
+  payload: {
+    flowId: string;
+    processingRunId: string;
+    providerRequestId: string | null;
+    model: string;
+    tokenUsage: number;
+    outcome: 'failed_budget' | 'failed_provider';
+    reason: string;
+  },
+) {
+  assertRpcOk(
+    await supabaseAdmin.rpc('record_ai_usage_event', {
+      p_flow_id: payload.flowId,
+      p_processing_run_id: payload.processingRunId,
+      p_provider_request_id: payload.providerRequestId,
+      p_model: payload.model,
+      p_token_usage: payload.tokenUsage,
+      p_outcome: payload.outcome,
+      p_reason: payload.reason,
+    }),
+    'record ai usage event failed',
+  );
+}
+
+async function recordProviderQuotaEvent(
+  supabaseAdmin: SupabaseAdmin,
+  reason: string,
+  context: Record<string, unknown>,
+  alerting?: OperatorAlertOptions,
+) {
+  const eventId = await recordOperationalEvent(
+    supabaseAdmin,
+    'critical',
+    'provider_quota',
+    `provider_quota_${reason}`,
+    { provider: 'openai', reason, ...context },
+  );
+  await alertCriticalOperationalEvent(supabaseAdmin, eventId, alerting ?? {});
 }
 
 const getErrorName = (error: unknown): string =>
@@ -1557,6 +1785,7 @@ export function parseOpenAiDigestResponse(body: OpenAiResponseBody): {
   model: string;
   tokenUsage: number;
 } {
+  const metadata = extractOpenAiDigestMetadata(body);
   const text = extractOutputText(body);
   if (!text) {
     throw new ProcessingWorkerError(
@@ -1572,14 +1801,26 @@ export function parseOpenAiDigestResponse(body: OpenAiResponseBody): {
     throw new ProcessingWorkerError('AI response was not valid JSON', 'ai_schema_invalid');
   }
 
-  const tokenUsage = Number(body.usage?.total_tokens ?? 0);
   return {
     digest: parseStructuredDigest(parsed),
+    ...metadata,
+  };
+}
+
+type OpenAiDigestResponseMetadata = {
+  providerRequestId: string | null;
+  model: string;
+  tokenUsage: number;
+};
+
+const extractOpenAiDigestMetadata = (body: OpenAiResponseBody): OpenAiDigestResponseMetadata => {
+  const tokenUsage = Number(body.usage?.total_tokens ?? 0);
+  return {
     providerRequestId: typeof body.id === 'string' ? body.id : null,
     model: typeof body.model === 'string' ? body.model : APPROVED_AI_MODEL,
     tokenUsage: Number.isFinite(tokenUsage) && tokenUsage >= 0 ? tokenUsage : 0,
   };
-}
+};
 
 async function callOpenAiDigest(
   requestBody: ReturnType<typeof buildOpenAiDigestRequest>,
@@ -1602,7 +1843,17 @@ async function callOpenAiDigest(
     if (!response.ok) {
       throw new ProcessingWorkerError('AI provider request failed', 'ai_provider_failed');
     }
-    return parseOpenAiDigestResponse(await response.json() as OpenAiResponseBody);
+    const body = await response.json() as OpenAiResponseBody;
+    const metadata = extractOpenAiDigestMetadata(body);
+    await options.onOpenAiResponse?.(metadata);
+    try {
+      return parseOpenAiDigestResponse(body);
+    } catch (error: unknown) {
+      if (error instanceof ProcessingWorkerError && error.code === 'ai_schema_invalid') {
+        await options.onOpenAiSchemaInvalid?.(metadata);
+      }
+      throw error;
+    }
   } catch (error: unknown) {
     if (error instanceof ProcessingWorkerError) throw error;
     if (getErrorName(error) === 'AbortError') {
@@ -1860,11 +2111,124 @@ export async function processFlow(
   const apiKey = options.openAiApiKey;
   if (!apiKey) throw new ProcessingWorkerError('OpenAI API key not configured', 'ai_key_missing');
 
+  const dayStart = `${cycleDate}T00:00:00.000Z`;
+  const dailyBudget = asPositiveInteger(options.aiDailyTokenBudget);
+  const currentDailyUsage = dailyBudget === null
+    ? 0
+    : await getAiTokenUsageSince(supabaseAdmin, dayStart);
+  if (dailyBudget !== null && currentDailyUsage >= dailyBudget) {
+    await recordProviderQuotaEvent(
+      supabaseAdmin,
+      'daily_budget_exhausted',
+      {
+        flow_id: flowId,
+        processing_run_id: processingRun.id,
+        cycle_date: cycleDate,
+        daily_budget: dailyBudget,
+        current_usage: currentDailyUsage,
+      },
+      options.alerting,
+    );
+    throw new ProcessingWorkerError('AI daily token budget exhausted', 'ai_budget_exhausted');
+  }
+
+  const responseBudget = asPositiveInteger(options.aiResponseTokenBudget);
+  let failedProviderTokenUsageThisAttempt = 0;
+  const enforceProviderResponseBudget = async (metadata: OpenAiDigestResponseMetadata) => {
+    const effectiveCurrentUsage = currentDailyUsage + failedProviderTokenUsageThisAttempt;
+    const exceedsResponseBudget = responseBudget !== null && metadata.tokenUsage > responseBudget;
+    const exceedsDailyBudget = dailyBudget !== null &&
+      effectiveCurrentUsage + metadata.tokenUsage > dailyBudget;
+    if (!exceedsResponseBudget && !exceedsDailyBudget) return;
+
+    const budgetReason = exceedsResponseBudget
+      ? 'response_budget_exceeded'
+      : 'daily_budget_exceeded';
+    await recordAiUsageEvent(supabaseAdmin, {
+      flowId,
+      processingRunId: processingRun.id,
+      providerRequestId: metadata.providerRequestId,
+      model: metadata.model,
+      tokenUsage: metadata.tokenUsage,
+      outcome: 'failed_budget',
+      reason: budgetReason,
+    });
+    await recordProviderQuotaEvent(
+      supabaseAdmin,
+      budgetReason,
+      {
+        flow_id: flowId,
+        processing_run_id: processingRun.id,
+        cycle_date: cycleDate,
+        daily_budget: dailyBudget,
+        current_usage: effectiveCurrentUsage,
+        response_budget: responseBudget,
+        response_usage: metadata.tokenUsage,
+        provider_request_id: metadata.providerRequestId,
+        model: metadata.model,
+      },
+      options.alerting,
+    );
+    throw new ProcessingWorkerError('AI token budget exceeded', 'ai_budget_exhausted');
+  };
+  const recordSchemaInvalidProviderUsage = async (metadata: OpenAiDigestResponseMetadata) => {
+    if (metadata.tokenUsage <= 0 && !metadata.providerRequestId) return;
+    await recordAiUsageEvent(supabaseAdmin, {
+      flowId,
+      processingRunId: processingRun.id,
+      providerRequestId: metadata.providerRequestId,
+      model: metadata.model,
+      tokenUsage: metadata.tokenUsage,
+      outcome: 'failed_provider',
+      reason: 'ai_schema_invalid',
+    });
+    failedProviderTokenUsageThisAttempt += metadata.tokenUsage;
+  };
+
   const aiResult = await callOpenAiDigestWithSchemaRepair(
     buildOpenAiDigestRequest(flow, grouped, customPrompt),
     apiKey,
-    options,
+    {
+      ...options,
+      onOpenAiResponse: enforceProviderResponseBudget,
+      onOpenAiSchemaInvalid: recordSchemaInvalidProviderUsage,
+    },
   );
+  const effectiveCurrentUsage = currentDailyUsage + failedProviderTokenUsageThisAttempt;
+  const exceedsResponseBudget = responseBudget !== null && aiResult.tokenUsage > responseBudget;
+  const exceedsDailyBudget = dailyBudget !== null &&
+    effectiveCurrentUsage + aiResult.tokenUsage > dailyBudget;
+  if (exceedsResponseBudget || exceedsDailyBudget) {
+    const budgetReason = exceedsResponseBudget
+      ? 'response_budget_exceeded'
+      : 'daily_budget_exceeded';
+    await recordAiUsageEvent(supabaseAdmin, {
+      flowId,
+      processingRunId: processingRun.id,
+      providerRequestId: aiResult.providerRequestId,
+      model: aiResult.model,
+      tokenUsage: aiResult.tokenUsage,
+      outcome: 'failed_budget',
+      reason: budgetReason,
+    });
+    await recordProviderQuotaEvent(
+      supabaseAdmin,
+      budgetReason,
+      {
+        flow_id: flowId,
+        processing_run_id: processingRun.id,
+        cycle_date: cycleDate,
+        daily_budget: dailyBudget,
+        current_usage: effectiveCurrentUsage,
+        response_budget: responseBudget,
+        response_usage: aiResult.tokenUsage,
+        provider_request_id: aiResult.providerRequestId,
+        model: aiResult.model,
+      },
+      options.alerting,
+    );
+    throw new ProcessingWorkerError('AI token budget exceeded', 'ai_budget_exhausted');
+  }
   const digestId = crypto.randomUUID();
   const persistedDigestId = await persistProcessingDigest(supabaseAdmin, {
     digestId,
@@ -2024,16 +2388,40 @@ const failJob = async (
   );
 };
 
+const failTerminalProcessingJob = async (
+  supabaseAdmin: SupabaseAdmin,
+  activeQueue: string,
+  msgId: string | number,
+  message: JobPayload,
+  cycleDate: string,
+  errorMessage: string,
+) => {
+  assertRpcOk(
+    await supabaseAdmin.rpc('fail_terminal_processing_worker_job', {
+      p_queue_name: activeQueue,
+      p_msg_id: msgId,
+      p_flow_id: message.flow_id ?? null,
+      p_cycle_date: cycleDate,
+      p_error_message: errorMessage,
+    }),
+    'record terminal processing failure failed',
+  );
+};
+
 type CreateAdminClient = (url: string, serviceKey: string) => SupabaseAdmin;
 type WorkHandlerOptions = {
   ingestion?: IngestionOptions;
   processing?: ProcessingOptions;
   delivery?: DeliveryOptions;
+  logger?: SafeLogger;
 };
 
 export const createWorkHandler =
   (createAdminClient: CreateAdminClient, options: WorkHandlerOptions = {}) =>
   async (req: Request, envs: Record<string, string>) => {
+    const logger = options.logger ?? console;
+    const correlationId = req.headers.get('X-Request-Id') ?? crypto.randomUUID();
+    const startedAt = Date.now();
     const authHeader = req.headers.get('Authorization') ?? '';
     const serviceKey = envs.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
@@ -2054,6 +2442,12 @@ export const createWorkHandler =
         lease_seconds: 300,
       });
       if (error) {
+        emitStructuredLog(logger, 'error', 'work.claim_failed', {
+          correlation_id: correlationId,
+          queue: queueName,
+          duration_ms: Date.now() - startedAt,
+          error_code: 'claim_failed',
+        });
         return json({ status: 'claim_failed', queue: queueName, error: error.message }, 500);
       }
       const jobs = data as JobMessage[] | null;
@@ -2064,24 +2458,60 @@ export const createWorkHandler =
       }
     }
 
-    if (!claimedJob) return json({ status: 'idle', message: 'No jobs in queue' });
+    if (!claimedJob) {
+      emitStructuredLog(logger, 'info', 'work.idle', {
+        correlation_id: correlationId,
+        duration_ms: Date.now() - startedAt,
+      });
+      return json({ status: 'idle', message: 'No jobs in queue' });
+    }
 
     const { msg_id: msgId, read_ct: readCount, message } = claimedJob;
     const kind = getWorkerKind(activeQueue, message);
     const cycleDate = message.cycle_date || new Date().toISOString().split('T')[0];
 
-    if (!kind) return json({ status: 'failed', msg_id: msgId, error: 'Unsupported job type' }, 500);
+    if (!kind) {
+      emitStructuredLog(logger, 'error', 'work.failed', {
+        ...jobLogContext(correlationId, activeQueue, msgId, readCount, kind, message, startedAt),
+        outcome: 'unsupported_job_type',
+      });
+      return json({ status: 'failed', msg_id: msgId, error: 'Unsupported job type' }, 500);
+    }
+
+    emitStructuredLog(logger, 'info', 'work.claimed', {
+      ...jobLogContext(correlationId, activeQueue, msgId, readCount, kind, message, startedAt),
+      outcome: 'claimed',
+    });
 
     if (readCount > 5) {
-      const { error } = await supabaseAdmin.rpc('archive_exhausted_worker_job', {
+      const { data, error } = await supabaseAdmin.rpc('archive_exhausted_worker_job', {
         p_queue_name: activeQueue,
         p_msg_id: msgId,
         p_event_key: `msg_failed_dlq_${activeQueue}_${msgId}`,
         p_context: sanitizeDlqContext(activeQueue, message),
       });
       if (error) {
+        emitStructuredLog(logger, 'error', 'work.failed', {
+          ...jobLogContext(correlationId, activeQueue, msgId, readCount, kind, message, startedAt),
+          outcome: 'dlq_archive_failed',
+          error_code: 'dlq_archive_failed',
+        });
         return json({ status: 'dlq_archive_failed', msg_id: msgId, error: error.message }, 500);
       }
+      const archived = data as { event_id?: string | null } | null;
+      await alertCriticalOperationalEvent(supabaseAdmin, archived?.event_id ?? null, {
+        fetchImpl: options.delivery?.fetchImpl,
+        brevoApiKey: options.delivery?.brevoApiKey ?? envs.BREVO_API_KEY,
+        brevoSenderEmail: options.delivery?.brevoSenderEmail ?? envs.BREVO_SENDER_EMAIL,
+        operatorAlertEmail: envs.OPERATOR_ALERT_EMAIL,
+        logger,
+        correlationId,
+      });
+      emitStructuredLog(logger, 'warn', 'work.dlq_archived', {
+        ...jobLogContext(correlationId, activeQueue, msgId, readCount, kind, message, startedAt),
+        outcome: 'dlq_archived',
+        event_id: archived?.event_id ?? null,
+      });
       return json({ status: 'dlq_archived', msg_id: msgId, reason: 'Retry count exceeded 5' });
     }
 
@@ -2100,6 +2530,18 @@ export const createWorkHandler =
         await processFlow(supabaseAdmin, message.flow_id, cycleDate, {
           ...options.processing,
           openAiApiKey: options.processing?.openAiApiKey ?? envs.OPENAI_API_KEY,
+          aiDailyTokenBudget: options.processing?.aiDailyTokenBudget ??
+            parseConfiguredBudget(envs.AI_DAILY_TOKEN_BUDGET),
+          aiResponseTokenBudget: options.processing?.aiResponseTokenBudget ??
+            parseConfiguredBudget(envs.AI_RESPONSE_TOKEN_BUDGET),
+          alerting: {
+            fetchImpl: options.delivery?.fetchImpl,
+            brevoApiKey: options.delivery?.brevoApiKey ?? envs.BREVO_API_KEY,
+            brevoSenderEmail: options.delivery?.brevoSenderEmail ?? envs.BREVO_SENDER_EMAIL,
+            operatorAlertEmail: envs.OPERATOR_ALERT_EMAIL,
+            logger,
+            correlationId,
+          },
         });
       } else if (kind === 'delivery') {
         if (!message.attempt_id) throw new Error('Delivery job missing attempt_id');
@@ -2123,6 +2565,10 @@ export const createWorkHandler =
         deliveryResult,
       );
 
+      emitStructuredLog(logger, 'info', 'work.completed', {
+        ...jobLogContext(correlationId, activeQueue, msgId, readCount, kind, message, startedAt),
+        outcome: 'completed',
+      });
       return json({ status: 'completed', msg_id: msgId });
     } catch (err: unknown) {
       if (kind === 'delivery' && message.attempt_id) {
@@ -2156,6 +2602,19 @@ export const createWorkHandler =
             }, 500);
           }
 
+          emitStructuredLog(logger, 'info', 'work.delivery_skipped', {
+            ...jobLogContext(
+              correlationId,
+              activeQueue,
+              msgId,
+              readCount,
+              kind,
+              message,
+              startedAt,
+            ),
+            outcome: err.action === 'ack' ? 'completed' : 'delivery_requeued',
+            error_code: err.code,
+          });
           return json({
             status: err.action === 'ack' ? 'completed' : 'delivery_requeued',
             msg_id: msgId,
@@ -2184,6 +2643,24 @@ export const createWorkHandler =
           }, 500);
         }
 
+        emitStructuredLog(
+          logger,
+          deliveryError.retryable ? 'error' : 'warn',
+          'work.delivery_failed',
+          {
+            ...jobLogContext(
+              correlationId,
+              activeQueue,
+              msgId,
+              readCount,
+              kind,
+              message,
+              startedAt,
+            ),
+            outcome: deliveryError.retryable ? 'failed' : 'delivery_failed_permanent',
+            error_code: deliveryError.code,
+          },
+        );
         return json(
           {
             status: deliveryError.retryable ? 'failed' : 'delivery_failed_permanent',
@@ -2200,6 +2677,39 @@ export const createWorkHandler =
         ? err.message
         : 'Unknown execution failure';
 
+      if (
+        kind === 'processing' && err instanceof ProcessingWorkerError &&
+        err.code === 'ai_budget_exhausted'
+      ) {
+        try {
+          await failTerminalProcessingJob(
+            supabaseAdmin,
+            activeQueue,
+            msgId,
+            message,
+            cycleDate,
+            errMsg,
+          );
+        } catch (failureRecordErr: unknown) {
+          const recordError = failureRecordErr instanceof Error
+            ? failureRecordErr.message
+            : 'Unknown terminal failure recording error';
+          return json({
+            status: 'failed',
+            msg_id: msgId,
+            error: errMsg,
+            failure_record_error: recordError,
+          }, 500);
+        }
+
+        emitStructuredLog(logger, 'warn', 'work.processing_failed_terminal', {
+          ...jobLogContext(correlationId, activeQueue, msgId, readCount, kind, message, startedAt),
+          outcome: 'processing_failed_terminal',
+          error_code: err.code,
+        });
+        return json({ status: 'processing_failed_terminal', msg_id: msgId, error: errMsg });
+      }
+
       try {
         await failJob(supabaseAdmin, kind, message, cycleDate, errMsg);
       } catch (failureRecordErr: unknown) {
@@ -2214,6 +2724,11 @@ export const createWorkHandler =
         }, 500);
       }
 
+      emitStructuredLog(logger, 'error', 'work.failed', {
+        ...jobLogContext(correlationId, activeQueue, msgId, readCount, kind, message, startedAt),
+        outcome: 'failed',
+        error_code: safeErrorCode(err),
+      });
       return json({ status: 'failed', msg_id: msgId, error: errMsg }, 500);
     }
   };
@@ -2233,6 +2748,9 @@ export default {
         OPENAI_API_KEY: Deno.env.get('OPENAI_API_KEY') ?? '',
         BREVO_API_KEY: Deno.env.get('BREVO_API_KEY') ?? '',
         BREVO_SENDER_EMAIL: Deno.env.get('BREVO_SENDER_EMAIL') ?? '',
+        OPERATOR_ALERT_EMAIL: Deno.env.get('OPERATOR_ALERT_EMAIL') ?? '',
+        AI_DAILY_TOKEN_BUDGET: Deno.env.get('AI_DAILY_TOKEN_BUDGET') ?? '',
+        AI_RESPONSE_TOKEN_BUDGET: Deno.env.get('AI_RESPONSE_TOKEN_BUDGET') ?? '',
         TELEGRAM_BOT_TOKEN: Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '',
         MASTER_CRYPTO_KEY: Deno.env.get('MASTER_CRYPTO_KEY') ?? '',
       };

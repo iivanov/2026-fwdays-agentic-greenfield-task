@@ -1332,3 +1332,61 @@ A change is complete only when:
   `lifecycle-cleanup` spec and updating `scheduler-queue`.
 - R-16 is marked done in the roadmap. R-17 observability is the next Phase 4
   slice.
+
+### 2026-07-05 — R-17 observability guardrails maker checkpoint
+
+**AI contribution**
+
+- Created OpenSpec change `r-17-observability-guardrails`.
+- Added a Supabase migration for atomic alert-claim deduplication, content-free
+  failed AI usage accounting, AI token usage aggregation, and terminal budget
+  failure acknowledgement RPCs, restricted to `service_role`/`postgres`.
+- Added structured sanitized logs for worker, scheduler, and cleanup
+  invocations.
+- Added critical operational-event alert delivery through the existing Brevo
+  adapter path, with database-backed one-hour dedupe.
+- Added daily and per-response AI token budget guardrails that fail closed,
+  record sanitized `provider_quota` events, count failed response usage, and
+  terminally acknowledge budget-exhausted processing jobs to avoid repeat
+  provider spend.
+- Added `.env.example` placeholders for the new non-secret configuration names.
+- Added focused coverage for alert-claim RPC failures so operator alerting
+  remains non-blocking when the dedupe claim cannot be completed.
+- Fixed the reviewer-reported schema-repair budget bypass: OpenAI response
+  usage is now checked before schema validation/repair, over-budget malformed
+  responses are terminal, and under-budget schema-invalid responses are recorded
+  as failed provider usage before repair.
+
+**Verification performed by maker so far**
+
+- `npx vitest run packages/browser/src/lib/queue-worker.test.ts
+  packages/browser/src/lib/processing-worker.test.ts` passed: 2 files, 31
+  tests.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run format` passed.
+- `npm run test` passed: 12 files, 152 tests.
+- `npm run deno:check`, `npm run deno:lint`, and `npm run deno:fmt` passed
+  after applying Deno formatting to `supabase/functions/work/index.ts`.
+- `npm run supabase:reset` applied the R-17 migration locally.
+- `npm run supabase:lint` passed.
+- `npm run test:integration` passed: 3 files, 5 tests.
+- `npm run verify:local` passed, including coverage, Deno lock/outdated, npm
+  audit, browser build, and Playwright smoke e2e.
+- `npx -y @fission-ai/openspec@1.5.0 validate --all --strict` passed.
+- `git diff --check` passed.
+
+**Checker loop and closure**
+
+- The first independent reviewer pass requested changes for a schema-repair
+  budget bypass. The maker fixed the bypass by checking response usage before
+  schema parsing/repair, recording over-budget malformed responses as
+  `failed_budget`, recording under-budget schema-invalid responses as
+  `failed_provider` before the one repair attempt, and keeping exhausted
+  processing jobs on the terminal acknowledgement path.
+- Fresh independent verifier PASS and independent reviewer APPROVE reports are
+  retained in
+  `openspec/changes/archive/2026-07-05-r-17-observability-guardrails/`.
+- Archived `r-17-observability-guardrails`, creating the canonical
+  `observability-guardrails` spec. R-17 is marked done in the roadmap. R-18
+  dashboard polish and responsive e2e is the next Phase 4 slice.

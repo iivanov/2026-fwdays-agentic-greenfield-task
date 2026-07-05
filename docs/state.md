@@ -2,9 +2,12 @@
 
 ## Current Position
 
-- **Last completed stage**: R-16 (`r-16-lifecycle-cleanup`)
-- **Active implementation slice**: R-17 (observability)
-- **Current checkpoint**: R-16 retention/cleanup is complete and archived at `openspec/changes/archive/2026-07-05-r-16-lifecycle-cleanup/`. The final diff passed independent verifier and reviewer passes, including local Supabase migration lint and integration coverage for stale lease recovery. R-17 observability is next.
+- **Last completed stage**: R-17 (`r-17-observability-guardrails`)
+- **Active implementation slice**: R-18 (dashboard polish and responsive e2e)
+- **Current checkpoint**: R-17 observability guardrails are archived at
+  `openspec/changes/archive/2026-07-05-r-17-observability-guardrails/` with
+  fresh independent verifier PASS and reviewer APPROVE reports. The change is
+  ready to commit, push, and monitor in CI.
 - **Paused draft**: none. The previous R-12 draft has been replaced by the active R-12 implementation.
 - **Loop mode**: autopilot on `main`; user explicitly requested a commit and
   push checkpoint on 2026-07-03. No deploy/spend/account creation.
@@ -122,7 +125,47 @@ or checker reports.
   archived change. R-16 is archived as
   `openspec/changes/archive/2026-07-05-r-16-lifecycle-cleanup/`, creating the
   canonical `lifecycle-cleanup` spec and updating `scheduler-queue`.
-- R-16 is ready to commit; R-17 observability is the next slice.
+- R-16 was committed as `3a9b7f3`, pushed to `origin/main`, and passed GitHub
+  `CI` and `CodeQL`. R-17 observability is the active slice.
+
+## R-17 Maker Implementation Status (2026-07-05)
+
+- Created OpenSpec change `r-17-observability-guardrails`.
+- Checked the Supabase changelog on 2026-07-05; no recent Edge Function,
+  Postgres RPC, Cron, or `pgmq` breaking change affects this slice.
+- Added migration `20260705102552_r17_observability_guardrails.sql` with a
+  service-role-only `claim_operational_event_alert` RPC, a critical unresolved
+  event alert index, a content-free `ai_usage_events` budget ledger,
+  `get_ai_token_usage_since`, and a terminal processing failure RPC for budget
+  exhaustion.
+- Added structured, sanitized JSON logs for worker, scheduler, and cleanup
+  invocations with correlation IDs and safe domain identifiers.
+- Added worker alerting for critical DLQ events and provider quota events using
+  Brevo operator email delivery with database-backed one-hour alert dedupe.
+- Added configurable AI token guardrails (`AI_DAILY_TOKEN_BUDGET` and
+  `AI_RESPONSE_TOKEN_BUDGET`) that fail closed before provider calls or before
+  digest persistence when budgets are exhausted, count failed response usage,
+  and acknowledge exhausted processing jobs terminally to avoid repeat spend.
+- Added focused tests for sanitized correlated logs, alert dedupe/send behavior,
+  alert-claim failure hardening, service-role-only observability RPCs, AI
+  budget fail-closed paths, and malformed over-budget schema-repair bypass
+  prevention.
+- Maker checks currently passed: focused R-17 Vitest
+  (`queue-worker.test.ts` and `processing-worker.test.ts`, 31 tests),
+  `npm run typecheck`, `npm run lint`, `npm run format`, `npm run test` (152
+  tests), `npm run deno:check`, `npm run deno:lint`, `npm run deno:fmt`, `npm
+  run supabase:reset`, `npm run supabase:lint`, `npm run test:integration` (3
+  files, 5 tests), `npm run verify:local`, `npx -y
+  @fission-ai/openspec@1.5.0 validate --all --strict`, and `git diff --check`.
+- First independent reviewer pass requested changes for a schema-repair budget
+  bypass. The final diff checks OpenAI response usage before schema parsing or
+  repair, records failed budget/provider usage, and terminally acknowledges
+  budget-exhausted processing jobs.
+- Fresh independent verifier PASS and reviewer APPROVE reports are retained in
+  the archived change. R-17 is archived as
+  `openspec/changes/archive/2026-07-05-r-17-observability-guardrails/`, creating
+  the canonical `observability-guardrails` spec. R-17 still needs commit, push,
+  and hosted CI confirmation. R-18 is next.
 
 ## R-13 Maker Implementation Status (2026-07-04)
 
