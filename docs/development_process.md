@@ -1649,3 +1649,31 @@ A change is complete only when:
 - The browser and Edge Function dev servers remain running for interactive local
   testing.
 - OAuth providers are not configured locally; use the dev email/password flow.
+
+### 2026-07-06 — Non-technical deployment setup guide
+
+**AI contribution**
+
+- Added `docs/deployment_setup_guide.md` as a static, step-by-step operator
+  guide for setting up deployment accounts, tokens, secrets, Vercel, Supabase,
+  OAuth providers, OpenAI, Brevo, Telegram, GitHub secrets, final deployment
+  order, smoke tests, and common deployment failures.
+- Kept the guide aligned with the current repository shape: Vercel hosts only
+  the static Vite frontend, Supabase owns the database/Auth/API/cron/worker
+  runtime, and the existing GitHub workflows verify the project but do not yet
+  provide a complete production deployment workflow.
+- Rechecked current Supabase deployment/API-key documentation and changelog on
+  2026-07-06; no recent Supabase breaking change changed this document's
+  deployment setup instructions.
+
+**Verification performed**
+
+- `npx prettier --check docs/deployment_setup_guide.md docs/state.md
+  docs/development_process.md` passed.
+- `git diff --check` passed.
+- `ls docs/deployment_setup_guide.md docs/state.md
+  docs/development_process.md` confirmed the expected local documentation files
+  exist.
+- `rg "\\[[^\\]]+\\]\\([^\\)]+\\)" docs/deployment_setup_guide.md` found no
+  local Markdown links requiring path validation; the guide uses plain official
+  provider URLs.
