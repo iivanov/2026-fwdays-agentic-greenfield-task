@@ -2,7 +2,7 @@
   "imports": {
     "@supabase/functions-js": "jsr:@supabase/functions-js@^2",
     "@supabase/server": "npm:@supabase/server@^1",
-    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2.110.0",
     "@mozilla/readability": "npm:@mozilla/readability@^0.6.0",
     "fast-xml-parser": "npm:fast-xml-parser@^5.9.3",
     "linkedom": "npm:linkedom@^0.18.12",
