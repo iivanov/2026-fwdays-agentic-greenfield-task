@@ -4,7 +4,14 @@
 
 - **Last completed stage**: R-20 (`r-20-browser-auth-lifecycle`)
 - **Active implementation slice**: none; roadmap Phase 4 slices are complete.
-- **Current checkpoint**: R-20 OpenSpec change is archived at
+- **Current checkpoint**: Added a non-technical deployment setup guide at
+  `docs/deployment_setup_guide.md`. It records where to create provider
+  accounts, where to obtain each token, which store receives each value, the
+  current Vercel/Supabase deploy order, smoke tests, common failures, and the
+  current automation gap that GitHub Actions verifies but does not yet perform
+  a full production Supabase deploy. Provider deployment/API-key references
+  were rechecked on 2026-07-06.
+- **Previous checkpoint**: R-20 OpenSpec change is archived at
   `openspec/changes/archive/2026-07-05-r-20-browser-auth-lifecycle/`, with
   fresh independent verifier PASS and reviewer APPROVE reports retained. R-20
   implementation has added browser auth-route helpers, OAuth callback/session
@@ -25,7 +32,7 @@
   independent verifier PASS and reviewer APPROVE reports were retained before
   archive. R-20 was committed as `45af8dd`, pushed to `origin/main`, and passed
   GitHub `CI` run `28745843691` plus `CodeQL` run `28745843672`.
-- **Previous checkpoint**: R-19 deploy config bootstrap is archived at
+- **Earlier checkpoint**: R-19 deploy config bootstrap is archived at
   `openspec/changes/archive/2026-07-05-r-19-deploy-config-bootstrap/` with
   fresh independent verifier PASS and reviewer APPROVE reports. R-19 was
   committed as `ceaa367`; follow-up repair commit `fa0bf6f` fixed a
