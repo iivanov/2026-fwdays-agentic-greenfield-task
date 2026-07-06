@@ -1630,8 +1630,17 @@ A change is complete only when:
 - `npm run deno:check` passed for all Edge Function entrypoints.
 - `npx vitest run packages/browser/src/lib/api-helpers.test.ts` passed before
   the regression addition: 58 tests.
+- `npx vitest run packages/browser/src/lib/api-helpers.test.ts` passed after
+  the regression addition: 59 tests.
+- `npm run deno:outdated` passed after aligning the API import-map Supabase JS
+  specifier with the frozen Deno lockfile.
 - Manual local probe of `GET /functions/v1/api/profiles` with a real local
   Supabase Auth user returned `200 OK` and the profile payload after the repair.
+- Pushed commit `f5cc8df`; GitHub `CI` run `28783767075` failed at the Deno
+  dependency update check because the import maps used
+  `npm:@supabase/supabase-js@^2` while the lockfile was frozen to
+  `npm:@supabase/supabase-js@^2.110.0`. The follow-up fix aligns the import-map
+  specifier with the lockfile.
 
 **Unresolved work**
 
