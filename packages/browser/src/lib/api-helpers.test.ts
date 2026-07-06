@@ -527,6 +527,41 @@ describe('API Edge Function Handler Integration Tests', () => {
     expect(json.data.id).toBe('user-abc');
   });
 
+  it('should authenticate and route profiles requests from the local Edge Runtime /api prefix', async () => {
+    const req = new Request('http://localhost/api/profiles', {
+      method: 'GET',
+    });
+    const ctx = {
+      supabase: {
+        auth: {
+          getUser: async () => ({
+            data: { user: { id: 'local-user' } },
+            error: null,
+          }),
+        },
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: {
+                  id: 'local-user',
+                  email: 'local@example.com',
+                  interests: [],
+                  language_preferences: [],
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      },
+    };
+    const res = await apiHandler(req, ctx);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.data.id).toBe('local-user');
+  });
+
   describe('/flows endpoints routing', () => {
     const validFlowId = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
 

@@ -1266,6 +1266,10 @@ export async function apiHandler(req: Request, ctx: any): Promise<Response> {
     route = route.slice('/functions/v1/api/'.length);
   } else if (route === '/functions/v1/api') {
     route = '';
+  } else if (route.startsWith('/api/')) {
+    route = route.slice('/api/'.length);
+  } else if (route === '/api') {
+    route = '';
   }
 
   const segments = route.split('/').filter(Boolean);

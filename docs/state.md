@@ -484,3 +484,12 @@ See `docs/roadmap.md` for the ordered corrective backlog.
 - Added SSRF regression tests for DNS rebinding-style resolver changes, unsafe redirect targets, safe relative redirects, and redirect blocking when redirects are disabled.
 - Maker gates passed: `npm run test -- packages/browser/src/lib/ssrf.test.ts`, `npm run typecheck`, `npm run lint`, `npm run format`, `npm run deno:check`, `npx -y @fission-ai/openspec@1.5.0 validate r-11h-harden-outbound-ssrf --strict`, and `git diff --check`.
 - R-11H is maker-complete but not archived. Multiple independent verifier/reviewer sub-agent attempts hung without returning artifacts, even after explicit status/partial-result prompts, so R-11H remains `in-progress` until fresh checker passes complete.
+
+## Local Runtime Repair Status (2026-07-06)
+
+- Started local Supabase and browser development services for interactive testing.
+- Repaired the API Edge Function local boot path by adding the missing Supabase JS import map entries used by function imports.
+- Switched the API Edge Function wrapper to accept verified user JWTs, while keeping health routing public through the existing handler-level guard.
+- Repaired API route normalization for the local Edge Runtime `/api/...` request path, in addition to hosted `/functions/v1/api/...` paths.
+- Added regression coverage for the local `/api/profiles` route prefix.
+- Verified `GET /functions/v1/api/profiles` returns `200 OK` for a real local authenticated user.

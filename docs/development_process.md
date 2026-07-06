@@ -1607,3 +1607,34 @@ A change is complete only when:
   requirements into the canonical `supabase-auth` spec.
 - R-20 was committed as `45af8dd`, pushed to `origin/main`, and passed GitHub
   `CI` run `28745843691` plus `CodeQL` run `28745843672`.
+
+### 2026-07-06 — Local Supabase function startup repair
+
+**AI contribution**
+
+- Started local Supabase Edge Functions and the Vite browser app so the human
+  could interact with `/dashboard/profile`.
+- Investigated the browser error `Function not found` and then the subsequent
+  local function boot/auth failures.
+- Added missing Supabase JS import-map entries for Edge Function runtime imports.
+- Changed the API Edge Function wrapper to use user-JWT auth with a public
+  fallback for handler-gated health checks instead of accepting only
+  publishable/secret API keys.
+- Added local Edge Runtime route normalization for `/api/...` paths, which the
+  local function worker passes to handlers, while preserving hosted
+  `/functions/v1/api/...` behavior.
+- Added a regression test for authenticated `/api/profiles` routing.
+
+**Verification performed**
+
+- `npm run deno:check` passed for all Edge Function entrypoints.
+- `npx vitest run packages/browser/src/lib/api-helpers.test.ts` passed before
+  the regression addition: 58 tests.
+- Manual local probe of `GET /functions/v1/api/profiles` with a real local
+  Supabase Auth user returned `200 OK` and the profile payload after the repair.
+
+**Unresolved work**
+
+- The browser and Edge Function dev servers remain running for interactive local
+  testing.
+- OAuth providers are not configured locally; use the dev email/password flow.
