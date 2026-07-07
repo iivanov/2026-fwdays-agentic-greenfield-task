@@ -124,6 +124,14 @@ for (const ignoredPath of ['.vercel/', 'supabase/.temp/', 'supabase/.branches/',
 }
 
 const supabaseConfig = readText('supabase/config.toml');
+requireCondition(
+  !/^\[local_smtp\]/m.test(supabaseConfig),
+  'supabase/config.toml must use [inbucket], not the deprecated [local_smtp] key.',
+);
+requireCondition(
+  /^\[inbucket\]/m.test(supabaseConfig),
+  'supabase/config.toml must configure the local email test server with [inbucket].',
+);
 for (const functionName of ['api', 'schedule-daily', 'work', 'cleanup']) {
   const escapedName = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   requireCondition(
