@@ -425,6 +425,7 @@ export default function App() {
                       borderRadius: '8px',
                       border: 'none',
                       background: 'var(--accent-gradient)',
+                      color: '#ffffff',
                       fontWeight: 600,
                       cursor: 'pointer',
                     }}

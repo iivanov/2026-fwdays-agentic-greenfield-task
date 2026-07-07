@@ -1914,3 +1914,32 @@ A change is complete only when:
 - `npx playwright test tests/e2e/browser-smoke.spec.ts` passed and verified
   digest summary text is visible on mobile.
 - `git diff --check` passed.
+
+### 2026-07-08 — Digest row collapse and button contrast
+
+**Human correction**
+
+- Some gradient action buttons rendered dark text on a dark blue gradient, and
+  full digest content made retained digest rows too tall by default.
+
+**AI contribution**
+
+- Set explicit white text on gradient action buttons in the auth shell,
+  preferences, sources, flows, and delivery panels.
+- Made retained digest content collapsed by default, with an accessible
+  per-digest expand/collapse button while keeping row metadata and feedback
+  controls visible.
+- Updated the browser smoke test to prove summary text is hidden initially and
+  appears after expansion on mobile.
+
+**Verification performed**
+
+- `npm run format` passed.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run build:browser` passed.
+- `npx playwright test tests/e2e/browser-smoke.spec.ts` passed.
+- Independent verifier PASS confirmed the same focused gates plus code
+  inspection for button contrast, collapsed default state, expand/collapse
+  control, and smoke coverage.
+- Independent reviewer APPROVE found no blocking or non-blocking findings.
