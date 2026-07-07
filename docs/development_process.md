@@ -1754,3 +1754,36 @@ A change is complete only when:
 - `npm run deno:check` passed for all Edge Function entrypoints.
 - `npx vitest run packages/browser/src/lib/deployment-audit.test.ts` passed.
 - `git diff --check` passed.
+
+### 2026-07-08 — Hosted Supabase cron pg_net repair
+
+**Human correction**
+
+- A manual run of the hosted `schedule-daily-job` cron command failed with
+  `ERROR: 3F000: schema "net" does not exist`.
+- The failing command also showed production cron was still targeting the local
+  Docker gateway URL `http://kong:8000/functions/v1/schedule-daily`.
+
+**AI contribution**
+
+- Verified current Supabase docs: scheduled Edge Function invocation uses
+  `pg_cron` with `pg_net`, and `net.http_post` is provided by the `pg_net`
+  extension.
+- Added migration `20260707211433_repair_hosted_cron_pg_net.sql` to enable
+  `pg_net`, unschedule the stale jobs, and recreate `schedule-daily-job`,
+  `worker-drain-job`, and `cleanup-job` with URLs based on
+  `app.settings.supabase_url`, falling back to local `http://kong:8000`.
+- Documented the hosted database settings needed by cron:
+  `app.settings.supabase_url` and `app.settings.service_role_key`.
+- Added focused migration-source coverage for the hosted cron repair.
+
+**Verification performed**
+
+- `npm run format` passed.
+- `npm run lint` passed.
+- `npx vitest run packages/browser/src/lib/queue-worker.test.ts` passed.
+- `npm run supabase:reset` passed and applied the new migration locally.
+- `npm run supabase:lint` passed after the reset.
+- `npm run test:integration` passed against the freshly reset local Supabase
+  database.
+- `git diff --check` passed.
