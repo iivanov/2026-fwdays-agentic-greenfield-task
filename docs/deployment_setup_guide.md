@@ -318,6 +318,13 @@ Use this if you want the simplest provider-managed setup.
 
 Supabase documentation says the GitHub deployment path works on all plans. Branch preview environments require a paid plan.
 
+If the Edge Functions page stays empty after connecting GitHub, confirm that:
+
+1. **Deploy to production** is enabled in the Supabase GitHub integration.
+2. The production branch is `main`.
+3. The working directory is the repository root.
+4. `supabase/config.toml` includes entries for `api`, `schedule-daily`, `work`, and `cleanup`.
+
 ### Option B: Technical Helper Runs the Supabase CLI
 
 Use this if you do not want to connect Supabase directly to GitHub yet.

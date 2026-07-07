@@ -123,6 +123,19 @@ for (const ignoredPath of ['.vercel/', 'supabase/.temp/', 'supabase/.branches/',
   requireCondition(gitignore.includes(ignoredPath), `.gitignore must ignore ${ignoredPath}.`);
 }
 
+const supabaseConfig = readText('supabase/config.toml');
+for (const functionName of ['api', 'schedule-daily', 'work', 'cleanup']) {
+  const escapedName = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  requireCondition(
+    new RegExp(`^\\[functions\\.${escapedName}\\]`, 'm').test(supabaseConfig),
+    `supabase/config.toml must declare functions.${functionName} for GitHub deployment.`,
+  );
+  requireCondition(
+    new RegExp(`entrypoint\\s*=\\s*"\\./functions/${escapedName}/index\\.ts"`).test(supabaseConfig),
+    `supabase/config.toml must configure the ${functionName} function entrypoint.`,
+  );
+}
+
 for (const path of [
   'supabase/config.toml',
   'supabase/functions/api/index.ts',

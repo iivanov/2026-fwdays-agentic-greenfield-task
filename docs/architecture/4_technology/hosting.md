@@ -117,7 +117,7 @@ flowchart LR
 ### 4.3 Vercel
 
 1. Import the public personal GitHub repository into a Vercel Hobby project.
-2. Set the frontend package as the project root and select the Vite build/output settings.
+2. Keep the project root at the repository root, then use the committed Vite workspace build and `packages/browser/dist` output settings from `vercel.json`.
 3. Expose only the Supabase project URL and publishable key to the browser. These are intentionally public; authorization relies on JWT validation and RLS.
 4. Configure the SPA fallback so client-side routes serve `index.html`.
 5. Add the production `vercel.app` URL to Supabase Auth redirects and to the API CORS allowlist. Do not allow arbitrary preview origins in production CORS/Auth configuration.
@@ -134,7 +134,8 @@ If the repository is transferred to a GitHub organization, reassess `T-04`; Verc
 ### 4.5 CI/CD
 
 - Vercel deploys the frontend from the production branch through its Git integration and creates preview deployments for pull requests.
-- A GitHub Actions workflow runs tests on pull requests. On the protected production branch it uses pinned Supabase CLI tooling to apply forward migrations and deploy Edge Functions.
+- Supabase GitHub integration deploys migrations and the declared Edge Functions (`api`, `schedule-daily`, `work`, and `cleanup`) from `supabase/config.toml` when production deployment is enabled for `main`.
+- A GitHub Actions workflow runs tests on pull requests. A future protected production workflow may use pinned Supabase CLI tooling to apply forward migrations and deploy Edge Functions if provider-managed GitHub deployment is replaced.
 - Store the Supabase access token, project reference, and database password as GitHub environment secrets. Require approval for the production environment; never expose them to pull requests from forks.
 - GitHub Actions is used only for analysis, tests, and deployment—not daily processing or cleanup. Standard hosted runners are free for the public repository.
 

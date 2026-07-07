@@ -1699,3 +1699,32 @@ A change is complete only when:
 - `npx prettier --check docs/deployment_setup_guide.md docs/state.md
   docs/development_process.md` passed.
 - `git diff --check` passed.
+
+### 2026-07-07 — Supabase GitHub function declarations
+
+**Human correction**
+
+- After connecting Supabase to GitHub, no new Edge Functions appeared in the
+  Supabase dashboard.
+
+**AI contribution**
+
+- Verified current Supabase GitHub integration documentation: production deploys
+  apply migrations and deploy Edge Functions declared in `supabase/config.toml`.
+- Added `schedule-daily`, `work`, and `cleanup` function declarations beside the
+  existing `api` declaration in `supabase/config.toml`.
+- Extended `infra/scripts/audit-deployment.mjs` so the local deployment audit
+  requires all four production Edge Functions to be declared with entrypoints.
+- Updated deployment and hosting docs to keep Vercel rooted at the repository
+  root and to describe Supabase GitHub deployment of the four declared
+  functions.
+
+**Verification performed**
+
+- `npm run format` passed.
+- `npm run lint` passed.
+- `npm run infra:audit` passed and now verifies all four Edge Function
+  declarations.
+- `npm run deno:check` passed for all Edge Function entrypoints.
+- `npx vitest run packages/browser/src/lib/deployment-audit.test.ts` passed.
+- `git diff --check` passed.
