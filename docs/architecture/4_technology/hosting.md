@@ -105,7 +105,7 @@ flowchart LR
 5. Configure hosted cron database settings for `app.settings.supabase_url`, `app.settings.scheduler_secret`, and `app.settings.service_role_key`; cron uses `pg_cron` plus `pg_net` to invoke Edge Functions with scheduler-secret authorization.
 6. Deploy the `api`, `schedule-daily`, `work`, and `cleanup` Edge Functions.
 7. Add backend secrets: OpenAI API key, encryption key, Brevo API key/sender, operator email, Telegram bot token, scheduler secret, and allowed frontend origin.
-8. Invoke each scheduled function manually once, verify authorization, and inspect the recorded cron/job result before enabling users.
+8. Invoke each scheduled function manually once, verify authorization, and inspect the recorded cron/job result before enabling users. The daily scheduler remains due-only for cron, and operator smoke tests use an explicit `{"force": true}` body when the first configured flow is not due yet.
 9. Run the infrastructure audit script and store its non-secret result as the initial desired-state baseline.
 
 ### 4.2 OAuth Providers

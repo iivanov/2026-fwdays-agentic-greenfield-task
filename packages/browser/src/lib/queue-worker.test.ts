@@ -35,6 +35,14 @@ const hostedCronRepairMigrationSource = readFileSync(
   'supabase/migrations/20260707211433_repair_hosted_cron_pg_net.sql',
   'utf8',
 );
+const schedulerDiagnosticsMigrationSource = readFileSync(
+  'supabase/migrations/20260707214801_add_schedule_daily_force_and_diagnostics.sql',
+  'utf8',
+);
+const scheduleDailyFunctionSource = readFileSync(
+  'supabase/functions/schedule-daily/index.ts',
+  'utf8',
+);
 const allMigrationSources = readdirSync('supabase/migrations')
   .filter((fileName) => fileName.endsWith('.sql'))
   .sort()
@@ -551,6 +559,22 @@ describe('R-11F queue worker safeguards', () => {
     expect(schedulerSecretMigrationSource).toContain("'/functions/v1/schedule-daily'");
     expect(schedulerSecretMigrationSource).toContain("'/functions/v1/work'");
     expect(schedulerSecretMigrationSource).toContain("'/functions/v1/cleanup'");
+  });
+
+  it('keeps cron due-only while allowing explicit forced scheduler smoke tests', () => {
+    expect(schedulerDiagnosticsMigrationSource).toContain(
+      'function public.schedule_daily_flows(p_force boolean default false)',
+    );
+    expect(schedulerDiagnosticsMigrationSource).toContain(
+      'and (p_force = true or next_run_at <= run_now)',
+    );
+    expect(schedulerDiagnosticsMigrationSource).toContain("'skipped_not_due'");
+    expect(schedulerDiagnosticsMigrationSource).toContain("'skipped_existing_cycle'");
+    expect(schedulerDiagnosticsMigrationSource).toContain(
+      "next_run_at = flow_rec.next_run_at + interval '1 day'",
+    );
+    expect(scheduleDailyFunctionSource).toContain('{ p_force: forceRun }');
+    expect(scheduleDailyFunctionSource).toContain('body.force === true');
   });
 
   it('cleanup reclaims abandoned leases and applies distinct content and metadata lifecycles', () => {

@@ -98,7 +98,7 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
       .delete()
       .neq('id', '00000000-0000-0000-0000-000000000000');
 
-    // 1. Seed a global source and a processing flow due for execution
+    // 1. Seed a global source and a processing flow for execution
     const { data: source } = await supabaseAdmin
       .from('global_sources')
       .insert({
@@ -117,7 +117,7 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
         name: 'Daily tech flow',
         frequency: 'daily',
         is_enabled: true,
-        next_run_at: new Date(Date.now() - 10000).toISOString(),
+        next_run_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       })
       .select('id')
       .single();
@@ -127,7 +127,7 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
     // Trigger update as service_role (which bypasses handling trigger filter on next_run_at)
     await supabaseAdmin
       .from('processing_flows')
-      .update({ next_run_at: new Date(Date.now() - 10000).toISOString() })
+      .update({ next_run_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() })
       .eq('id', flow!.id);
 
     // Associate source to flow
@@ -146,9 +146,32 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
     });
     expect(unauthorizedRes.status).toBe(401);
 
-    // 2. Trigger daily scheduler edge function handler
-    const schedReq = new Request('http://localhost/functions/v1/schedule-daily', {
+    // 2. Trigger normal scheduler mode before the flow is due.
+    const notDueReq = new Request('http://localhost/functions/v1/schedule-daily', {
       headers: { Authorization: `Bearer ${LOCAL_SCHEDULER_SECRET}` },
+    });
+    const notDueRes = await scheduleDailyHandler(notDueReq, {
+      SUPABASE_URL: LOCAL_SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: LOCAL_SERVICE_KEY,
+      SCHEDULER_SECRET: LOCAL_SCHEDULER_SECRET,
+    });
+    expect(notDueRes.status).toBe(200);
+
+    const notDueResult = await notDueRes.json();
+    expect(notDueResult.data.active_flows).toBe(1);
+    expect(notDueResult.data.due_flows).toBe(0);
+    expect(notDueResult.data.skipped_not_due).toBe(1);
+    expect(notDueResult.data.flows_processed).toBe(0);
+    expect(notDueResult.data.jobs_enqueued).toBe(0);
+
+    // 3. Trigger forced scheduler mode for operator smoke tests.
+    const schedReq = new Request('http://localhost/functions/v1/schedule-daily', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${LOCAL_SCHEDULER_SECRET}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ force: true }),
     });
     const schedRes = await scheduleDailyHandler(schedReq, {
       SUPABASE_URL: LOCAL_SUPABASE_URL,
