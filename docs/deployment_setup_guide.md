@@ -348,14 +348,28 @@ alter database postgres
 set app.settings.supabase_url = 'https://your-project-ref.supabase.co';
 
 alter database postgres
+set app.settings.scheduler_secret = 'YOUR_SCHEDULER_SECRET';
+
+alter database postgres
 set app.settings.service_role_key = 'YOUR_SUPABASE_SERVICE_ROLE_KEY';
 
 select pg_reload_conf();
 ```
 
-Use the real Project URL and legacy `service_role` key. These settings are read
-by `pg_cron` when it calls `schedule-daily`, `work`, and `cleanup`. Do not put
-the service-role key in Vercel or frontend code.
+Use the real Project URL, generated `SCHEDULER_SECRET`, and legacy
+`service_role` key. Cron sends `SCHEDULER_SECRET` when it calls
+`schedule-daily`, `work`, and `cleanup`; the functions use the service-role key
+internally for database access. Do not put either secret in Vercel or frontend
+code.
+
+To manually invoke the daily scheduler after deployment:
+
+```bash
+curl -i -X POST "https://your-project-ref.supabase.co/functions/v1/schedule-daily" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_SCHEDULER_SECRET" \
+  -d '{}'
+```
 
 The functions that must exist for this app include:
 

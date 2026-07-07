@@ -5,6 +5,8 @@ import { workHandler } from '../../../../supabase/functions/work/index.ts';
 import { cleanupHandler } from '../../../../supabase/functions/cleanup/index.ts';
 import { LOCAL_SERVICE_KEY, LOCAL_SUPABASE_URL } from '../../../../tests/setup/supabase-local';
 
+const LOCAL_SCHEDULER_SECRET = 'local-scheduler-secret';
+
 describe('Scheduler and Queue Infrastructure Integration Tests', () => {
   let supabaseAdmin: ReturnType<typeof createClient>;
   let testUserId = '';
@@ -57,6 +59,10 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
     await supabaseAdmin.rpc('set_app_setting', {
       key: 'app.settings.service_role_key',
       val: LOCAL_SERVICE_KEY,
+    });
+    await supabaseAdmin.rpc('set_app_setting', {
+      key: 'app.settings.scheduler_secret',
+      val: LOCAL_SCHEDULER_SECRET,
     });
 
     // Clean up queues and tables for test run
@@ -142,11 +148,12 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
 
     // 2. Trigger daily scheduler edge function handler
     const schedReq = new Request('http://localhost/functions/v1/schedule-daily', {
-      headers: { Authorization: `Bearer ${LOCAL_SERVICE_KEY}` },
+      headers: { Authorization: `Bearer ${LOCAL_SCHEDULER_SECRET}` },
     });
     const schedRes = await scheduleDailyHandler(schedReq, {
       SUPABASE_URL: LOCAL_SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY: LOCAL_SERVICE_KEY,
+      SCHEDULER_SECRET: LOCAL_SCHEDULER_SECRET,
     });
     if (schedRes.status !== 200) {
       console.error('Schedule Daily Failed:', await schedRes.json());
@@ -167,11 +174,12 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
 
     // 3. Trigger worker handler to consume the ingestion job
     const workReq = new Request('http://localhost/functions/v1/work', {
-      headers: { Authorization: `Bearer ${LOCAL_SERVICE_KEY}` },
+      headers: { Authorization: `Bearer ${LOCAL_SCHEDULER_SECRET}` },
     });
     const workRes = await workHandler(workReq, {
       SUPABASE_URL: LOCAL_SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY: LOCAL_SERVICE_KEY,
+      SCHEDULER_SECRET: LOCAL_SCHEDULER_SECRET,
     });
     expect(workRes.status).toBe(200);
     const workResult = await workRes.json();
@@ -376,6 +384,7 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
     const failRes = await workHandler(workReq, {
       SUPABASE_URL: LOCAL_SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY: LOCAL_SERVICE_KEY,
+      SCHEDULER_SECRET: LOCAL_SCHEDULER_SECRET,
     });
     expect(failRes.status).toBe(500);
     const failResult = await failRes.json();
@@ -423,6 +432,7 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
     const dlqRes = await workHandler(workReq, {
       SUPABASE_URL: LOCAL_SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY: LOCAL_SERVICE_KEY,
+      SCHEDULER_SECRET: LOCAL_SCHEDULER_SECRET,
     });
     expect(dlqRes.status).toBe(200);
     const dlqResult = await dlqRes.json();
@@ -438,11 +448,12 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
 
     // 6. Test cleanup visibility reset and prune older than 7 days
     const cleanupReq = new Request('http://localhost/functions/v1/cleanup', {
-      headers: { Authorization: `Bearer ${LOCAL_SERVICE_KEY}` },
+      headers: { Authorization: `Bearer ${LOCAL_SCHEDULER_SECRET}` },
     });
     const cleanupRes = await cleanupHandler(cleanupReq, {
       SUPABASE_URL: LOCAL_SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY: LOCAL_SERVICE_KEY,
+      SCHEDULER_SECRET: LOCAL_SCHEDULER_SECRET,
     });
     expect(cleanupRes.status).toBe(200);
     const cleanupResult = await cleanupRes.json();

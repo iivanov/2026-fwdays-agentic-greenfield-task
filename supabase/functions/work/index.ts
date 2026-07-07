@@ -1,5 +1,4 @@
 /// <reference types="@supabase/functions-js/edge-runtime.d.ts" />
-import { withSupabase } from '@supabase/server';
 import { createClient } from '@supabase/supabase-js';
 import { XMLParser } from 'fast-xml-parser';
 import { parseHTML } from 'linkedom';
@@ -2424,9 +2423,14 @@ export const createWorkHandler =
     const startedAt = Date.now();
     const authHeader = req.headers.get('Authorization') ?? '';
     const serviceKey = envs.SUPABASE_SERVICE_ROLE_KEY ?? '';
+    const schedulerSecret = envs.SCHEDULER_SECRET ?? '';
 
     if (!serviceKey) return json({ error: 'Unauthorized: Service key not configured' }, 401);
-    if (authHeader !== `Bearer ${serviceKey}` && authHeader !== serviceKey) {
+    const acceptedSecrets = [schedulerSecret, serviceKey].filter(Boolean);
+    const isAuthorized = acceptedSecrets.some(
+      (secret) => authHeader === `Bearer ${secret}` || authHeader === secret,
+    );
+    if (!isAuthorized) {
       return json({ error: 'Unauthorized' }, 401);
     }
 
@@ -2740,11 +2744,12 @@ export const workHandler = createWorkHandler((url, serviceKey) =>
 );
 
 export default {
-  fetch: withSupabase({ auth: ['secret'] }, async (req) => {
+  fetch: async (req: Request) => {
     try {
       const envs = {
         SUPABASE_URL: Deno.env.get('SUPABASE_URL') ?? '',
         SUPABASE_SERVICE_ROLE_KEY: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        SCHEDULER_SECRET: Deno.env.get('SCHEDULER_SECRET') ?? '',
         OPENAI_API_KEY: Deno.env.get('OPENAI_API_KEY') ?? '',
         BREVO_API_KEY: Deno.env.get('BREVO_API_KEY') ?? '',
         BREVO_SENDER_EMAIL: Deno.env.get('BREVO_SENDER_EMAIL') ?? '',
@@ -2758,5 +2763,5 @@ export default {
     } catch (err: unknown) {
       return json({ error: err instanceof Error ? err.message : 'Internal Server Error' }, 500);
     }
-  }),
+  },
 };

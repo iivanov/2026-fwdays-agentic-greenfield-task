@@ -102,7 +102,7 @@ flowchart LR
 2. Link the repository with the Supabase CLI and commit migrations, function source, and local configuration.
 3. Enable/configure Auth providers for Google and GitHub. Add production and localhost redirect URLs. Disable hosted email/password sign-up in production.
 4. Apply migrations that create the application schema, row-level security policies, database functions, queues, and cron schedules.
-5. Configure hosted cron database settings for `app.settings.supabase_url` and `app.settings.service_role_key`; cron uses `pg_cron` plus `pg_net` to invoke Edge Functions.
+5. Configure hosted cron database settings for `app.settings.supabase_url`, `app.settings.scheduler_secret`, and `app.settings.service_role_key`; cron uses `pg_cron` plus `pg_net` to invoke Edge Functions with scheduler-secret authorization.
 6. Deploy the `api`, `schedule-daily`, `work`, and `cleanup` Edge Functions.
 7. Add backend secrets: OpenAI API key, encryption key, Brevo API key/sender, operator email, Telegram bot token, scheduler secret, and allowed frontend origin.
 8. Invoke each scheduled function manually once, verify authorization, and inspect the recorded cron/job result before enabling users.

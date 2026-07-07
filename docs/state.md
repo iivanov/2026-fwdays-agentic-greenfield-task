@@ -20,7 +20,9 @@
   deployment behavior and config keys were rechecked on 2026-07-07. Added a
   hosted cron repair migration after production cron failed with
   `schema "net" does not exist`; the repair enables `pg_net` and recreates the
-  schedules with configurable hosted Supabase URLs.
+  schedules with configurable hosted Supabase URLs. Updated scheduled function
+  auth so manual and cron calls use `SCHEDULER_SECRET`, while the service-role
+  key remains internal to the functions.
 - **Previous checkpoint**: R-20 OpenSpec change is archived at
   `openspec/changes/archive/2026-07-05-r-20-browser-auth-lifecycle/`, with
   fresh independent verifier PASS and reviewer APPROVE reports retained. R-20
