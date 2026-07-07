@@ -1887,3 +1887,30 @@ A change is complete only when:
 - `npm run supabase:lint` passed after the reset.
 - `npm run test:integration` passed with the existing-cycle recovery covered.
 - `git diff --check` passed.
+
+### 2026-07-08 — Digest content rendering
+
+**Human correction**
+
+- A generated digest appeared in the browser, but the Digests panel only showed
+  shell metadata: title, timestamp, item count, and feedback buttons.
+
+**AI contribution**
+
+- Identified that stored digest content already contains
+  `sections[].items[].summary`, but `DigestFeedbackPanel` never rendered those
+  fields.
+- Added digest-content parsing and visible rendering for section headings, item
+  titles, summaries, and source links.
+- Extended the browser smoke fixture to assert that a digest summary is visible
+  on the Digests panel.
+
+**Verification performed**
+
+- `npm run format` passed.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run build:browser` passed.
+- `npx playwright test tests/e2e/browser-smoke.spec.ts` passed and verified
+  digest summary text is visible on mobile.
+- `git diff --check` passed.
