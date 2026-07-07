@@ -16,6 +16,9 @@ interface ProcessingFlow {
   name: string;
 }
 
+const TELEGRAM_BOT_USERNAME = 'news_desk_ai_bot';
+const TELEGRAM_BOT_HANDLE = `@${TELEGRAM_BOT_USERNAME}`;
+
 export default function DeliveryPanel({ session }: { session: Session | null }) {
   const queryClient = useQueryClient();
   const [selectedType, setSelectedType] = useState<'email' | 'slack' | 'telegram' | 'webhook'>(
@@ -348,15 +351,42 @@ export default function DeliveryPanel({ session }: { session: Session | null }) 
                     }}
                   />
                 </div>
-                <span
+                <div
                   style={{
-                    fontSize: '0.75rem',
+                    display: 'grid',
+                    gap: '10px',
+                    padding: '14px',
+                    borderRadius: '8px',
+                    border: '1px solid hsl(var(--border-color))',
+                    background: 'hsl(var(--bg-secondary))',
+                    fontSize: '0.82rem',
                     color: 'hsl(var(--text-secondary))',
                   }}
                 >
-                  Telegram delivery uses the application-owned bot. Start the bot chat, then paste
-                  only the chat ID here.
-                </span>
+                  <div>
+                    Delivery uses the application bot{' '}
+                    <a
+                      href={`https://t.me/${TELEGRAM_BOT_USERNAME}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: 'hsl(var(--accent-primary))', fontWeight: 700 }}
+                    >
+                      {TELEGRAM_BOT_HANDLE}
+                    </a>
+                    . Start that chat first, then paste only the chat ID here.
+                  </div>
+                  <ol style={{ margin: 0, paddingLeft: '18px' }}>
+                    <li>Open Telegram and send any message to {TELEGRAM_BOT_HANDLE}.</li>
+                    <li>
+                      For a group, add {TELEGRAM_BOT_HANDLE} to the group and send a message there.
+                    </li>
+                    <li>
+                      The bot replies with the numeric chat ID and where to paste it. Group IDs are
+                      usually negative; paste the value exactly as returned.
+                    </li>
+                  </ol>
+                  <div>Do not paste the bot token into this dashboard.</div>
+                </div>
               </div>
             )}
 
@@ -489,7 +519,9 @@ export default function DeliveryPanel({ session }: { session: Session | null }) 
                             <span>Webhook: {channel.config.webhook_url}</span>
                           )}
                           {channel.type === 'telegram' && (
-                            <span>Chat ID: {channel.config.chat_id}</span>
+                            <span>
+                              Bot: {TELEGRAM_BOT_HANDLE} - Chat ID: {channel.config.chat_id}
+                            </span>
                           )}
                           {channel.type === 'webhook' && (
                             <div>

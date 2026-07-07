@@ -103,7 +103,7 @@ flowchart LR
 3. Enable/configure Auth providers for Google and GitHub. Add production and localhost redirect URLs. Disable hosted email/password sign-up in production.
 4. Apply migrations that create the application schema, row-level security policies, database functions, queues, and cron schedules.
 5. Configure hosted cron database settings for `app.settings.supabase_url`, `app.settings.scheduler_secret`, and `app.settings.service_role_key`; cron uses `pg_cron` plus `pg_net` to invoke Edge Functions with scheduler-secret authorization.
-6. Deploy the `api`, `schedule-daily`, `work`, and `cleanup` Edge Functions.
+6. Deploy the `api`, `schedule-daily`, `work`, `cleanup`, and `telegram-bot` Edge Functions.
 7. Add backend secrets: OpenAI API key, encryption key, Brevo API key/sender, operator email, Telegram bot token, scheduler secret, and allowed frontend origin.
 8. Invoke each scheduled function manually once, verify authorization, and inspect the recorded cron/job result before enabling users. The daily scheduler remains due-only for cron, and operator smoke tests use an explicit `{"force": true}` body when the first configured flow is not due yet.
 9. Run the infrastructure audit script and store its non-secret result as the initial desired-state baseline.
@@ -128,14 +128,14 @@ If the repository is transferred to a GitHub organization, reassess `T-04`; Verc
 ### 4.4 Delivery Providers
 
 - Verify one application-owned sender identity in Brevo and create a restricted transactional API key.
-- Create one Telegram bot and store its token only in Supabase secrets.
+- Create one Telegram bot (`@news_desk_ai_bot` for the current deployment), store its token only in Supabase secrets, deploy the `telegram-bot` Edge Function, and register it with Telegram `setWebhook` using a secret token.
 - Slack webhook URLs are supplied per user/channel and encrypted by the API before storage.
 - Generic webhook URLs and generated signing secrets are encrypted by the API. Test endpoints must return 2xx before activation.
 
 ### 4.5 CI/CD
 
 - Vercel deploys the frontend from the production branch through its Git integration and creates preview deployments for pull requests.
-- Supabase GitHub integration deploys migrations and the declared Edge Functions (`api`, `schedule-daily`, `work`, and `cleanup`) from `supabase/config.toml` when production deployment is enabled for `main`.
+- Supabase GitHub integration deploys migrations and the declared Edge Functions (`api`, `schedule-daily`, `work`, `cleanup`, and `telegram-bot`) from `supabase/config.toml` when production deployment is enabled for `main`.
 - A GitHub Actions workflow runs tests on pull requests. A future protected production workflow may use pinned Supabase CLI tooling to apply forward migrations and deploy Edge Functions if provider-managed GitHub deployment is replaced.
 - Store the Supabase access token, project reference, and database password as GitHub environment secrets. Require approval for the production environment; never expose them to pull requests from forks.
 - GitHub Actions is used only for analysis, tests, and deployment—not daily processing or cleanup. Standard hosted runners are free for the public repository.
@@ -239,6 +239,7 @@ External limits and plan behavior were checked on 2026-07-01:
 - [Supabase Cron](https://supabase.com/docs/guides/cron), [Queues](https://supabase.com/docs/guides/queues), and [Edge Function limits](https://supabase.com/docs/guides/functions/limits) document the scheduled worker design and its constraints.
 - [GitHub Actions billing](https://docs.github.com/en/actions/concepts/billing-and-usage), [CodeQL](https://docs.github.com/en/code-security/concepts/code-scanning/codeql/codeql-code-scanning), [Dependency Review](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependency-review), and [secret scanning](https://docs.github.com/en/code-security/reference/secret-security/secret-scanning-scope) document the public-repository tooling used here.
 - [Supabase deployment](https://supabase.com/docs/guides/deployment) documents its repository/CLI deployment model; [Vercel's Terraform integration](https://vercel.com/kb/guide/integrating-terraform-with-vercel) and [OpenTofu state encryption](https://opentofu.org/docs/v1.10/language/state/encryption/) document the deferred stateful IaC alternative.
+- [Telegram Bot API](https://core.telegram.org/bots/api) was rechecked on 2026-07-08 for `setWebhook.secret_token`, `sendMessage`, and `chat_id` behavior used by the Telegram delivery setup guide.
 
 ## 10. Traceability Check
 

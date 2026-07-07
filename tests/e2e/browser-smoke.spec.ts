@@ -144,3 +144,30 @@ test('authenticated dashboard and digest feedback stay usable on mobile', async 
     expect(tabOverflow, `${tab} tab should not overflow mobile viewport`).toBe(false);
   }
 });
+
+test('telegram delivery setup shows bot identity and chat id guidance', async ({ page }) => {
+  await page.route('**/functions/v1/api/channels', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    });
+  });
+  await page.route('**/functions/v1/api/flows', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    });
+  });
+
+  await page.goto('/dashboard/delivery?fixture=dashboard');
+
+  await expect(page.getByRole('heading', { name: /Delivery Channels/i })).toBeVisible();
+  await page.getByRole('combobox').selectOption('telegram');
+
+  await expect(page.getByRole('link', { name: '@news_desk_ai_bot' })).toHaveAttribute(
+    'href',
+    'https://t.me/news_desk_ai_bot',
+  );
+  await expect(page.getByText(/The bot replies with the numeric chat ID/i)).toBeVisible();
+  await expect(page.getByText(/Do not paste the bot token into this dashboard/i)).toBeVisible();
+});

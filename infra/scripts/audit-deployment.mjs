@@ -20,6 +20,7 @@ const requiredEnvNames = [
   'BREVO_SENDER_EMAIL',
   'OPERATOR_ALERT_EMAIL',
   'TELEGRAM_BOT_TOKEN',
+  'TELEGRAM_WEBHOOK_SECRET',
   'SCHEDULER_SECRET',
   'ENCRYPTION_MASTER_KEY',
 ];
@@ -132,7 +133,7 @@ requireCondition(
   /^\[inbucket\]/m.test(supabaseConfig),
   'supabase/config.toml must configure the local email test server with [inbucket].',
 );
-for (const functionName of ['api', 'schedule-daily', 'work', 'cleanup']) {
+for (const functionName of ['api', 'schedule-daily', 'work', 'cleanup', 'telegram-bot']) {
   const escapedName = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   requireCondition(
     new RegExp(`^\\[functions\\.${escapedName}\\]`, 'm').test(supabaseConfig),
@@ -150,6 +151,7 @@ for (const path of [
   'supabase/functions/schedule-daily/index.ts',
   'supabase/functions/work/index.ts',
   'supabase/functions/cleanup/index.ts',
+  'supabase/functions/telegram-bot/index.ts',
   'openspec/changes/archive/2026-07-05-r-19-deploy-config-bootstrap/proposal.md',
   'openspec/changes/archive/2026-07-05-r-19-deploy-config-bootstrap/design.md',
   'openspec/changes/archive/2026-07-05-r-19-deploy-config-bootstrap/verification.md',

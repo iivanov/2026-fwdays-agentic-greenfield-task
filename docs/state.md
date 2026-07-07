@@ -30,7 +30,11 @@
   stored digest section headings, item summaries, and source links after a real
   generated digest showed only its shell metadata; the digest detail content
   now starts collapsed and expands on demand. Fixed gradient action buttons
-  that inherited dark text on the light dashboard surface.
+  that inherited dark text on the light dashboard surface. Expanded Telegram
+  delivery guidance in the dashboard and deployment guide so operators see the
+  application bot `@news_desk_ai_bot` and can obtain chat IDs from the bot's
+  automatic reply; added the `telegram-bot` Edge Function and captured the
+  behavior in OpenSpec change artifacts.
 - **Previous checkpoint**: R-20 OpenSpec change is archived at
   `openspec/changes/archive/2026-07-05-r-20-browser-auth-lifecycle/`, with
   fresh independent verifier PASS and reviewer APPROVE reports retained. R-20

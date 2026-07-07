@@ -1943,3 +1943,52 @@ A change is complete only when:
   inspection for button contrast, collapsed default state, expand/collapse
   control, and smoke coverage.
 - Independent reviewer APPROVE found no blocking or non-blocking findings.
+
+### 2026-07-08 — Telegram delivery setup guidance
+
+**Human correction**
+
+- The Telegram delivery setup copy was too thin: it did not show the concrete
+  application bot or explain how operators obtain the Telegram chat ID.
+
+**AI contribution**
+
+- Rechecked the official Telegram Bot API documentation on 2026-07-08 for
+  `setWebhook.secret_token`, `sendMessage`, and `chat_id` behavior.
+- Added a `telegram-bot` Supabase Edge Function that accepts Telegram webhook
+  updates, validates `X-Telegram-Bot-Api-Secret-Token`, extracts the incoming
+  chat ID, and replies with where to paste it in the dashboard.
+- Updated the Delivery tab Telegram path to show `@news_desk_ai_bot`, link to
+  the bot, explain the direct-chat and group-chat auto-reply flow, and keep bot
+  token collection out of the browser.
+- Added deployment-guide instructions for `TELEGRAM_WEBHOOK_SECRET`,
+  `telegram-bot` deployment, Telegram `setWebhook` registration, and Telegram's
+  webhook secret token character constraints.
+- Added OpenSpec change artifacts for the Telegram chat ID bot behavior and
+  deployment declarations.
+- Added browser smoke coverage for the Telegram bot identity and chat ID guide,
+  plus unit coverage for the inbound Telegram webhook function.
+
+**Verification performed**
+
+- `npm run format` passed.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run test` passed with 16 files and 170 tests after the existing
+  Supabase-client proxy test was made deterministic against local `.env`
+  values.
+- `npm run build:browser` passed.
+- `npm run deno:check`, `npm run deno:lint`, `npm run deno:fmt`, and
+  `npm run deno:lock` passed with the new `telegram-bot` function included.
+- `npm run infra:audit` passed and now checks `telegram-bot` plus
+  `TELEGRAM_WEBHOOK_SECRET`.
+- `npx -y @fission-ai/openspec@1.5.0 validate --all --strict` passed.
+- `npx playwright test tests/e2e/browser-smoke.spec.ts --reporter=list` passed
+  with 11 Chromium tests, including the Telegram setup guide assertion.
+- `git diff --check` passed.
+- Independent reviewer first requested changes for Telegram
+  `setWebhook.secret_token` character constraints; the guide and OpenSpec
+  design were updated to document `A-Z`, `a-z`, `0-9`, `_`, `-`, and length
+  limits.
+- Fresh independent verifier PASS and reviewer APPROVE found no remaining
+  blocking findings.
