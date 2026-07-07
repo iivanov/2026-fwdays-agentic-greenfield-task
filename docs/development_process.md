@@ -1677,3 +1677,25 @@ A change is complete only when:
 - `rg "\\[[^\\]]+\\]\\([^\\)]+\\)" docs/deployment_setup_guide.md` found no
   local Markdown links requiring path validation; the guide uses plain official
   provider URLs.
+
+### 2026-07-07 — Vercel root directory deployment correction
+
+**Human correction**
+
+- A Vercel production deployment failed during the browser build with
+  `sh: line 1: tsc: command not found`.
+- The logs showed Vercel ran the package-local `@news-aggregator/browser` build
+  after installing only the browser package dependencies, which means the Vercel
+  project was rooted at `packages/browser` instead of the repository root.
+
+**AI contribution**
+
+- Updated `docs/deployment_setup_guide.md` to explicitly leave the Vercel root
+  directory at the repository root and added the `tsc: command not found`
+  troubleshooting entry.
+
+**Verification performed**
+
+- `npx prettier --check docs/deployment_setup_guide.md docs/state.md
+  docs/development_process.md` passed.
+- `git diff --check` passed.

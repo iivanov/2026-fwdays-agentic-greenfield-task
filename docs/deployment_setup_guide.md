@@ -259,6 +259,7 @@ Supabase hosted Edge Functions usually provide some Supabase values automaticall
 
 | Vercel setting | Value |
 | --- | --- |
+| Root directory | Leave blank or use the repository root. Do not choose `packages/browser`. |
 | Framework | Vite |
 | Install command | `npm ci` |
 | Build command | `npm run build --workspace @news-aggregator/browser` |
@@ -384,6 +385,7 @@ After deployment, test the live site in a normal browser window:
 | `Function not found` | Supabase functions were not deployed | Deploy `api`, `schedule-daily`, `work`, and `cleanup`. |
 | Login redirects to the wrong place | Supabase redirect URLs are missing | Add the Vercel URL and `/auth/callback` in Supabase Auth URL settings. |
 | Preferences page says profile cannot load | Wrong Supabase URL/key or API function not deployed | Check Vercel env vars and Supabase function deployment. |
+| Vercel says `tsc: command not found` | Vercel is building from `packages/browser` instead of the repository root | Set the Vercel project root directory to the repository root, then redeploy. |
 | Encryption key error | Missing runtime encryption key | Add the same value under `ENCRYPTION_MASTER_KEY` and `MASTER_CRYPTO_KEY`. |
 | No digest is created | Worker/cron not deployed, no source/flow, or missing OpenAI key | Check Supabase functions, secrets, and logs. |
 | Email does not send | Brevo key or sender is wrong | Check `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, and sender verification. |
