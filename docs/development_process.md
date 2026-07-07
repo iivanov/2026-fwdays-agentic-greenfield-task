@@ -1728,3 +1728,29 @@ A change is complete only when:
 - `npm run deno:check` passed for all Edge Function entrypoints.
 - `npx vitest run packages/browser/src/lib/deployment-audit.test.ts` passed.
 - `git diff --check` passed.
+
+### 2026-07-07 — Supabase Preview config parser repair
+
+**Human correction**
+
+- Supabase Preview failed to parse `supabase/config.toml` with
+  `invalid keys: local_smtp`.
+
+**AI contribution**
+
+- Verified the current Supabase CLI configuration docs list the local email test
+  server under `[inbucket]`, not `[local_smtp]`.
+- Replaced `[local_smtp]` with `[inbucket]` in `supabase/config.toml`.
+- Restored the required `schedule-daily`, `work`, and `cleanup` function
+  declarations that were missing from the local working copy.
+- Extended the deployment audit to reject `[local_smtp]` and require
+  `[inbucket]`.
+
+**Verification performed**
+
+- `npm run format` passed.
+- `npm run lint` passed.
+- `npm run infra:audit` passed and now rejects `[local_smtp]`.
+- `npm run deno:check` passed for all Edge Function entrypoints.
+- `npx vitest run packages/browser/src/lib/deployment-audit.test.ts` passed.
+- `git diff --check` passed.

@@ -324,6 +324,7 @@ If the Edge Functions page stays empty after connecting GitHub, confirm that:
 2. The production branch is `main`.
 3. The working directory is the repository root.
 4. `supabase/config.toml` includes entries for `api`, `schedule-daily`, `work`, and `cleanup`.
+5. The Supabase preview check does not report invalid config keys. This repo uses `[inbucket]` for local email testing; `[local_smtp]` is not accepted by the hosted parser.
 
 ### Option B: Technical Helper Runs the Supabase CLI
 
