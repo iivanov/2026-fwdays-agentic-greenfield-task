@@ -17,7 +17,10 @@
   config. Replaced the deprecated local email config key `[local_smtp]` with
   `[inbucket]` after Supabase Preview rejected it as invalid. Provider
   deployment/API-key references were rechecked on 2026-07-06; Supabase GitHub
-  deployment behavior and config keys were rechecked on 2026-07-07.
+  deployment behavior and config keys were rechecked on 2026-07-07. Added a
+  hosted cron repair migration after production cron failed with
+  `schema "net" does not exist`; the repair enables `pg_net` and recreates the
+  schedules with configurable hosted Supabase URLs.
 - **Previous checkpoint**: R-20 OpenSpec change is archived at
   `openspec/changes/archive/2026-07-05-r-20-browser-auth-lifecycle/`, with
   fresh independent verifier PASS and reviewer APPROVE reports retained. R-20

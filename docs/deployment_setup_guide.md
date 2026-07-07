@@ -339,6 +339,24 @@ supabase db push
 supabase functions deploy
 ```
 
+For hosted cron, the database also needs runtime settings for the public project
+URL and service-role authorization header. In the Supabase SQL Editor, set them
+without pasting the values anywhere public:
+
+```sql
+alter database postgres
+set app.settings.supabase_url = 'https://your-project-ref.supabase.co';
+
+alter database postgres
+set app.settings.service_role_key = 'YOUR_SUPABASE_SERVICE_ROLE_KEY';
+
+select pg_reload_conf();
+```
+
+Use the real Project URL and legacy `service_role` key. These settings are read
+by `pg_cron` when it calls `schedule-daily`, `work`, and `cleanup`. Do not put
+the service-role key in Vercel or frontend code.
+
 The functions that must exist for this app include:
 
 | Function | Purpose |
@@ -394,6 +412,8 @@ After deployment, test the live site in a normal browser window:
 | Login redirects to the wrong place | Supabase redirect URLs are missing | Add the Vercel URL and `/auth/callback` in Supabase Auth URL settings. |
 | Preferences page says profile cannot load | Wrong Supabase URL/key or API function not deployed | Check Vercel env vars and Supabase function deployment. |
 | Vercel says `tsc: command not found` | Vercel is building from `packages/browser` instead of the repository root | Set the Vercel project root directory to the repository root, then redeploy. |
+| Cron says `schema "net" does not exist` | The hosted database has not applied the migration that enables `pg_net` | Apply migrations from `main`, then confirm `pg_net` exists in `pg_extension`. |
+| Cron tries `http://kong:8000` in production | Hosted cron settings were not repaired or `app.settings.supabase_url` is missing | Apply migrations and set `app.settings.supabase_url` to the hosted Supabase Project URL. |
 | Encryption key error | Missing runtime encryption key | Add the same value under `ENCRYPTION_MASTER_KEY` and `MASTER_CRYPTO_KEY`. |
 | No digest is created | Worker/cron not deployed, no source/flow, or missing OpenAI key | Check Supabase functions, secrets, and logs. |
 | Email does not send | Brevo key or sender is wrong | Check `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, and sender verification. |

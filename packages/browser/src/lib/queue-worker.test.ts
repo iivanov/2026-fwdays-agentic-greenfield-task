@@ -27,6 +27,10 @@ const r11gCleanupMigrationSource = readFileSync(
   'supabase/migrations/20260704104026_r11g_retention_metadata_lifecycle.sql',
   'utf8',
 );
+const hostedCronRepairMigrationSource = readFileSync(
+  'supabase/migrations/20260707211433_repair_hosted_cron_pg_net.sql',
+  'utf8',
+);
 const allMigrationSources = readdirSync('supabase/migrations')
   .filter((fileName) => fileName.endsWith('.sql'))
   .sort()
@@ -492,6 +496,24 @@ describe('R-11F queue worker safeguards', () => {
     expect(schedulerMigrationSource).toContain("select cron.schedule(\n  'cleanup-job'");
     expect(schedulerMigrationSource).toContain("'*/30 * * * *'");
     expect(schedulerMigrationSource).toContain("url := 'http://kong:8000/functions/v1/cleanup'");
+  });
+
+  it('repairs hosted cron with pg_net and configurable Supabase URL', () => {
+    expect(hostedCronRepairMigrationSource).toContain(
+      'create extension if not exists pg_net with schema extensions',
+    );
+    expect(hostedCronRepairMigrationSource).toContain("cron.unschedule('schedule-daily-job')");
+    expect(hostedCronRepairMigrationSource).toContain("cron.unschedule('worker-drain-job')");
+    expect(hostedCronRepairMigrationSource).toContain("cron.unschedule('cleanup-job')");
+    expect(hostedCronRepairMigrationSource).toContain(
+      "current_setting('app.settings.supabase_url', true)",
+    );
+    expect(hostedCronRepairMigrationSource).toContain(
+      "current_setting('app.settings.service_role_key', true)",
+    );
+    expect(hostedCronRepairMigrationSource).toContain("'/functions/v1/schedule-daily'");
+    expect(hostedCronRepairMigrationSource).toContain("'/functions/v1/work'");
+    expect(hostedCronRepairMigrationSource).toContain("'/functions/v1/cleanup'");
   });
 
   it('cleanup reclaims abandoned leases and applies distinct content and metadata lifecycles', () => {
