@@ -28,7 +28,9 @@
   existing-cycle recovery so a duplicate processing run does not prevent
   missing source work from being queued. Updated the Digests panel to render
   stored digest section headings, item summaries, and source links after a real
-  generated digest showed only its shell metadata.
+  generated digest showed only its shell metadata; the digest detail content
+  now starts collapsed and expands on demand. Fixed gradient action buttons
+  that inherited dark text on the light dashboard surface.
 - **Previous checkpoint**: R-20 OpenSpec change is archived at
   `openspec/changes/archive/2026-07-05-r-20-browser-auth-lifecycle/`, with
   fresh independent verifier PASS and reviewer APPROVE reports retained. R-20

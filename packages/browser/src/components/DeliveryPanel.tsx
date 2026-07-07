@@ -410,6 +410,7 @@ export default function DeliveryPanel({ session }: { session: Session | null }) 
                 borderRadius: '8px',
                 border: 'none',
                 background: 'var(--accent-gradient)',
+                color: '#ffffff',
                 fontWeight: '600',
                 cursor: 'pointer',
                 fontSize: '0.95rem',

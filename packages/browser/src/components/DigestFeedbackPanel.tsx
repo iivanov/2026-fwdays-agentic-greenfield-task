@@ -136,6 +136,8 @@ function DigestRow({
   const createdAt = new Date(digest.created_at);
   const itemCount = digestItemCount(digest.content);
   const sections = digestSections(digest.content);
+  const [expanded, setExpanded] = useState(false);
+  const contentId = `digest-content-${digest.id}`;
 
   return (
     <article
@@ -147,7 +149,15 @@ function DigestRow({
         gap: '14px',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '16px',
+          flexWrap: 'wrap',
+        }}
+      >
         <div style={{ minWidth: 0 }}>
           <h3 style={{ fontSize: '1rem', marginBottom: '4px' }}>{digestTitle(digest.content)}</h3>
           <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.82rem' }}>
@@ -157,19 +167,45 @@ function DigestRow({
         </div>
         <div
           style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
             color: 'hsl(var(--text-secondary))',
             fontSize: '0.8rem',
             whiteSpace: 'nowrap',
           }}
         >
-          {itemCount} items
+          <span>{itemCount} items</span>
+          {sections.length > 0 ? (
+            <button
+              type="button"
+              aria-expanded={expanded}
+              aria-controls={contentId}
+              onClick={() => setExpanded((current) => !current)}
+              style={{
+                minHeight: '32px',
+                padding: '6px 10px',
+                borderRadius: '6px',
+                border: '1px solid hsl(var(--border-color))',
+                background: '#ffffff',
+                color: 'hsl(var(--accent-primary))',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+              }}
+            >
+              {expanded ? 'Collapse' : 'Expand'}
+            </button>
+          ) : null}
         </div>
       </div>
 
       {sections.length > 0 ? (
         <div
+          id={contentId}
+          hidden={!expanded}
           style={{
-            display: 'grid',
+            display: expanded ? 'grid' : 'none',
             gap: '18px',
             borderTop: '1px solid hsl(var(--border-color))',
             paddingTop: '16px',
