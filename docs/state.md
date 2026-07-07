@@ -9,8 +9,10 @@
   accounts, where to obtain each token, which store receives each value, the
   current Vercel/Supabase deploy order, smoke tests, common failures, and the
   current automation gap that GitHub Actions verifies but does not yet perform
-  a full production Supabase deploy. Provider deployment/API-key references
-  were rechecked on 2026-07-06.
+  a full production Supabase deploy. Added a Vercel root-directory warning after
+  a deployment failed with `tsc: command not found` because Vercel built from
+  `packages/browser` instead of the workspace root. Provider deployment/API-key
+  references were rechecked on 2026-07-06.
 - **Previous checkpoint**: R-20 OpenSpec change is archived at
   `openspec/changes/archive/2026-07-05-r-20-browser-auth-lifecycle/`, with
   fresh independent verifier PASS and reviewer APPROVE reports retained. R-20
