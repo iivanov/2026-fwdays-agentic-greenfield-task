@@ -1,5 +1,4 @@
 /// <reference types="@supabase/functions-js/edge-runtime.d.ts" />
-import { withSupabase } from '@supabase/server';
 import { createClient } from '@supabase/supabase-js';
 
 const logCleanupEvent = (
@@ -21,6 +20,7 @@ export const cleanupHandler = async (req: Request, envs: Record<string, string>)
   const correlationId = req.headers.get('X-Request-Id') ?? crypto.randomUUID();
   const authHeader = req.headers.get('Authorization') ?? '';
   const serviceKey = envs.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  const schedulerSecret = envs.SCHEDULER_SECRET ?? '';
 
   if (!serviceKey) {
     return new Response(JSON.stringify({ error: 'Unauthorized: Service key not configured' }), {
@@ -29,7 +29,10 @@ export const cleanupHandler = async (req: Request, envs: Record<string, string>)
     });
   }
 
-  const isAuthorized = authHeader === `Bearer ${serviceKey}` || authHeader === serviceKey;
+  const acceptedSecrets = [schedulerSecret, serviceKey].filter(Boolean);
+  const isAuthorized = acceptedSecrets.some(
+    (secret) => authHeader === `Bearer ${secret}` || authHeader === secret,
+  );
   if (!isAuthorized) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
@@ -69,11 +72,12 @@ export const cleanupHandler = async (req: Request, envs: Record<string, string>)
 };
 
 export default {
-  fetch: withSupabase({ auth: ['secret'] }, async (req) => {
+  fetch: async (req: Request) => {
     try {
       const envs = {
         SUPABASE_URL: Deno.env.get('SUPABASE_URL') ?? '',
         SUPABASE_SERVICE_ROLE_KEY: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        SCHEDULER_SECRET: Deno.env.get('SCHEDULER_SECRET') ?? '',
       };
       return await cleanupHandler(req, envs);
     } catch (err: unknown) {
@@ -85,5 +89,5 @@ export default {
         },
       );
     }
-  }),
+  },
 };

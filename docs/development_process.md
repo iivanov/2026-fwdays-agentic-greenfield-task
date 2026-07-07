@@ -1787,3 +1787,37 @@ A change is complete only when:
 - `npm run test:integration` passed against the freshly reset local Supabase
   database.
 - `git diff --check` passed.
+
+### 2026-07-08 — Scheduled function auth alignment
+
+**Human correction**
+
+- Manual `curl` calls to `schedule-daily` still failed even when using the
+  service-role value, while Supabase cron might work.
+
+**AI contribution**
+
+- Identified two auth layers: the `@supabase/server` `auth: 'secret'` wrapper
+  expects a Supabase secret API key in the `apikey` header, while the handler
+  expected the service-role key in `Authorization`.
+- Removed the `@supabase/server` wrapper from `schedule-daily`, `work`, and
+  `cleanup`; they now perform their own `Authorization` check against
+  `SCHEDULER_SECRET`, with service-role authorization retained as a
+  compatibility fallback.
+- Added a migration that recreates cron jobs to prefer
+  `app.settings.scheduler_secret` and fall back to
+  `app.settings.service_role_key`.
+- Updated deployment docs with the hosted database setting and manual `curl`
+  command.
+
+**Verification performed**
+
+- `npm run format` passed.
+- `npm run lint` passed.
+- `npm run deno:check` passed for all Edge Function entrypoints.
+- `npx vitest run packages/browser/src/lib/queue-worker.test.ts` passed.
+- `npm run supabase:reset` passed and applied the new migration locally.
+- `npm run supabase:lint` passed after the reset.
+- `npm run test:integration` passed after updating integration invocations to
+  use `SCHEDULER_SECRET`.
+- `git diff --check` passed.

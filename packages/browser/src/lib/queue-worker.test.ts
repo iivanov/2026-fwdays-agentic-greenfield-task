@@ -3,8 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { createWorkHandler } from '../../../../supabase/functions/work/index.ts';
 
 const SERVICE_KEY = 'test-service-key';
+const SCHEDULER_SECRET = 'test-scheduler-secret';
 const AUTH_REQ = new Request('http://localhost/functions/v1/work', {
   headers: { Authorization: `Bearer ${SERVICE_KEY}` },
+});
+const SCHEDULER_AUTH_REQ = new Request('http://localhost/functions/v1/work', {
+  headers: { Authorization: `Bearer ${SCHEDULER_SECRET}` },
 });
 
 const migrationSource = readFileSync(
@@ -179,6 +183,22 @@ describe('R-11F queue worker safeguards', () => {
       status: 'claim_failed',
       error: 'database unavailable',
     });
+  });
+
+  it('accepts scheduler secret authorization without exposing service role to callers', async () => {
+    const fakeClient = makeClient({
+      claim_job: { data: [], error: null },
+    });
+    const handler = createWorkHandler(() => fakeClient);
+
+    const response = await handler(SCHEDULER_AUTH_REQ, {
+      SUPABASE_URL: 'http://localhost',
+      SUPABASE_SERVICE_ROLE_KEY: SERVICE_KEY,
+      SCHEDULER_SECRET,
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: 'idle' });
   });
 
   it('archives exhausted messages before ordinary execution', async () => {
@@ -514,6 +534,23 @@ describe('R-11F queue worker safeguards', () => {
     expect(hostedCronRepairMigrationSource).toContain("'/functions/v1/schedule-daily'");
     expect(hostedCronRepairMigrationSource).toContain("'/functions/v1/work'");
     expect(hostedCronRepairMigrationSource).toContain("'/functions/v1/cleanup'");
+  });
+
+  it('updates hosted cron to prefer scheduler secret authorization', () => {
+    const schedulerSecretMigrationSource = readFileSync(
+      'supabase/migrations/20260707213346_use_scheduler_secret_for_cron_auth.sql',
+      'utf8',
+    );
+
+    expect(schedulerSecretMigrationSource).toContain(
+      "current_setting('app.settings.scheduler_secret', true)",
+    );
+    expect(schedulerSecretMigrationSource).toContain(
+      "current_setting('app.settings.service_role_key', true)",
+    );
+    expect(schedulerSecretMigrationSource).toContain("'/functions/v1/schedule-daily'");
+    expect(schedulerSecretMigrationSource).toContain("'/functions/v1/work'");
+    expect(schedulerSecretMigrationSource).toContain("'/functions/v1/cleanup'");
   });
 
   it('cleanup reclaims abandoned leases and applies distinct content and metadata lifecycles', () => {
