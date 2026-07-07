@@ -126,6 +126,7 @@ test('authenticated dashboard and digest feedback stay usable on mobile', async 
 
   await expect(page.getByRole('heading', { name: /Digest feedback/i })).toBeVisible();
   await expect(page.getByText(/Morning policy brief/i)).toBeVisible();
+  await expect(page.getByText(/Policy teams signaled a slower path for cuts/i)).toBeVisible();
   await expect(page.getByRole('button', { name: /Rate digest thumbs up/i }).first()).toBeVisible();
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,

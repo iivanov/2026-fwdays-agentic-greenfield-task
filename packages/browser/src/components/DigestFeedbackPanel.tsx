@@ -53,6 +53,77 @@ function formatFeedback(value: DigestFeedbackValue): string {
   return 'No rating';
 }
 
+type DigestContentItem = {
+  title: string;
+  summary: string;
+  sourceUrls: string[];
+};
+
+type DigestContentSection = {
+  heading: string;
+  items: DigestContentItem[];
+};
+
+function digestSections(content: unknown): DigestContentSection[] {
+  if (!content || typeof content !== 'object' || !('sections' in content)) {
+    return [];
+  }
+  const sections = (content as { sections?: unknown }).sections;
+  if (!Array.isArray(sections)) {
+    return [];
+  }
+
+  return sections
+    .map((section): DigestContentSection | null => {
+      if (!section || typeof section !== 'object') {
+        return null;
+      }
+      const heading = (section as { heading?: unknown }).heading;
+      const items = (section as { items?: unknown }).items;
+      if (typeof heading !== 'string' || !Array.isArray(items)) {
+        return null;
+      }
+
+      const parsedItems = items
+        .map((item): DigestContentItem | null => {
+          if (!item || typeof item !== 'object') {
+            return null;
+          }
+          const title = (item as { title?: unknown }).title;
+          const summary = (item as { summary?: unknown }).summary;
+          const sourceUrls = (item as { source_urls?: unknown }).source_urls;
+          if (typeof title !== 'string' || typeof summary !== 'string') {
+            return null;
+          }
+          return {
+            title,
+            summary,
+            sourceUrls: Array.isArray(sourceUrls)
+              ? sourceUrls.filter(
+                  (url): url is string => typeof url === 'string' && Boolean(url.trim()),
+                )
+              : [],
+          };
+        })
+        .filter((item): item is DigestContentItem => item !== null);
+
+      return {
+        heading,
+        items: parsedItems,
+      };
+    })
+    .filter((section): section is DigestContentSection => section !== null);
+}
+
+function sourceLabel(url: string, index: number): string {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, '') || `Source ${index + 1}`;
+  } catch {
+    return `Source ${index + 1}`;
+  }
+}
+
 function DigestRow({
   digest,
   pending,
@@ -64,6 +135,7 @@ function DigestRow({
 }) {
   const createdAt = new Date(digest.created_at);
   const itemCount = digestItemCount(digest.content);
+  const sections = digestSections(digest.content);
 
   return (
     <article
@@ -93,6 +165,78 @@ function DigestRow({
           {itemCount} items
         </div>
       </div>
+
+      {sections.length > 0 ? (
+        <div
+          style={{
+            display: 'grid',
+            gap: '18px',
+            borderTop: '1px solid hsl(var(--border-color))',
+            paddingTop: '16px',
+          }}
+        >
+          {sections.map((section, sectionIndex) => (
+            <section key={`${digest.id}-${section.heading}-${sectionIndex}`}>
+              <h4
+                style={{
+                  margin: '0 0 10px',
+                  fontSize: '0.82rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0,
+                  color: 'hsl(var(--text-secondary))',
+                }}
+              >
+                {section.heading}
+              </h4>
+              <ul
+                style={{ display: 'grid', gap: '14px', listStyle: 'none', padding: 0, margin: 0 }}
+              >
+                {section.items.map((item, itemIndex) => (
+                  <li
+                    key={`${digest.id}-${sectionIndex}-${item.title}-${itemIndex}`}
+                    style={{
+                      display: 'grid',
+                      gap: '8px',
+                      paddingTop: itemIndex === 0 ? 0 : '14px',
+                      borderTop: itemIndex === 0 ? '0' : '1px solid hsl(var(--border-color))',
+                    }}
+                  >
+                    <strong style={{ color: 'hsl(var(--text-primary))' }}>{item.title}</strong>
+                    <p
+                      style={{
+                        margin: 0,
+                        color: 'hsl(var(--text-secondary))',
+                        lineHeight: 1.55,
+                      }}
+                    >
+                      {item.summary}
+                    </p>
+                    {item.sourceUrls.length > 0 ? (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {item.sourceUrls.map((url, index) => (
+                          <a
+                            key={`${url}-${index}`}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              color: 'hsl(var(--accent-primary))',
+                              fontSize: '0.82rem',
+                              overflowWrap: 'anywhere',
+                            }}
+                          >
+                            {sourceLabel(url, index)}
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      ) : null}
 
       <div
         style={{
