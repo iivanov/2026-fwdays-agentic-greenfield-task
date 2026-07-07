@@ -196,13 +196,58 @@ If email delivery fails, first confirm the sender email/domain is verified in Br
 2. Search for `@BotFather`.
 3. Start a chat.
 4. Send `/newbot`.
-5. Follow the prompts to choose the bot name and username.
+5. Follow the prompts to choose the bot name and username. The current production bot shown in the app is `@news_desk_ai_bot`.
 6. Copy the token BotFather gives you.
 7. Store it in the password manager.
 8. Put it in Supabase Edge Function secrets as:
    - `TELEGRAM_BOT_TOKEN`
 
 Do not paste this token into Vercel.
+
+Create one additional random secret for Telegram webhook verification:
+
+| Name | Purpose | How to create it |
+| --- | --- | --- |
+| `TELEGRAM_WEBHOOK_SECRET` | Proves incoming bot webhook calls came through the Telegram webhook you configured | Use 32-64 random characters using only `A-Z`, `a-z`, `0-9`, `_`, and `-`. Do not use spaces or other symbols. |
+
+Put `TELEGRAM_WEBHOOK_SECRET` in Supabase Edge Function secrets too.
+
+Telegram accepts `setWebhook.secret_token` values from 1 to 256 characters, but only these characters are valid: letters, digits, underscore, and hyphen. If your password manager can generate a custom password, disable symbols except `_` and `-`.
+
+After the `telegram-bot` Supabase function is deployed, register the Telegram webhook. Replace `TOKEN`, `PROJECT_REF`, and `WEBHOOK_SECRET` with real values from the password manager and Supabase project:
+
+```bash
+curl -X POST "https://api.telegram.org/botTOKEN/setWebhook" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://PROJECT_REF.supabase.co/functions/v1/telegram-bot",
+    "secret_token": "WEBHOOK_SECRET",
+    "allowed_updates": ["message", "edited_message", "channel_post", "edited_channel_post"]
+  }'
+```
+
+### 10.1 Get a Telegram Chat ID for Delivery Testing
+
+The app sends Telegram messages through the project bot `@news_desk_ai_bot`.
+The dashboard asks for a chat ID only; it must never ask for the bot token.
+
+For a direct chat:
+
+1. Open `https://t.me/news_desk_ai_bot`.
+2. Press **Start**, or send any short message such as `hello`.
+3. The bot replies with the chat ID and tells you where to paste it.
+4. Paste that number into the dashboard Telegram Chat ID field.
+
+For a group chat:
+
+1. Add `@news_desk_ai_bot` to the group.
+2. Send a message in the group. If the bot does not appear in updates, mention it directly, for example `@news_desk_ai_bot hello`.
+3. The bot replies with the group chat ID. Group and supergroup IDs are often negative.
+4. Paste that value exactly as returned into the dashboard Telegram Chat ID field.
+
+Then use **Verify Link** in the dashboard. A successful verification means the app-owned bot can send to that chat.
+
+If the bot does not reply, check that the `telegram-bot` Supabase function is deployed, `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET` are set in Supabase secrets, and the Telegram webhook URL points at the current Supabase project.
 
 ## 11. Create App Secrets
 
@@ -241,6 +286,7 @@ In Supabase:
 | `BREVO_SENDER_EMAIL` | Verified Brevo sender email |
 | `OPERATOR_ALERT_EMAIL` | Owner alert email |
 | `TELEGRAM_BOT_TOKEN` | Telegram BotFather token |
+| `TELEGRAM_WEBHOOK_SECRET` | Random secret also used as Telegram `setWebhook.secret_token` |
 | `ENCRYPTION_MASTER_KEY` | Generated encryption key |
 | `MASTER_CRYPTO_KEY` | Same generated encryption key |
 | `SCHEDULER_SECRET` | Generated random scheduler secret |
@@ -323,7 +369,7 @@ If the Edge Functions page stays empty after connecting GitHub, confirm that:
 1. **Deploy to production** is enabled in the Supabase GitHub integration.
 2. The production branch is `main`.
 3. The working directory is the repository root.
-4. `supabase/config.toml` includes entries for `api`, `schedule-daily`, `work`, and `cleanup`.
+4. `supabase/config.toml` includes entries for `api`, `schedule-daily`, `work`, `cleanup`, and `telegram-bot`.
 5. The Supabase preview check does not report invalid config keys. This repo uses `[inbucket]` for local email testing; `[local_smtp]` is not accepted by the hosted parser.
 
 ### Option B: Technical Helper Runs the Supabase CLI
@@ -448,7 +494,8 @@ After deployment, test the live site in a normal browser window:
 | Encryption key error | Missing runtime encryption key | Add the same value under `ENCRYPTION_MASTER_KEY` and `MASTER_CRYPTO_KEY`. |
 | No digest is created | Worker/cron not deployed, no source/flow, or missing OpenAI key | Check Supabase functions, secrets, and logs. |
 | Email does not send | Brevo key or sender is wrong | Check `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, and sender verification. |
-| Telegram does not send | Bot token is wrong or user has not started the bot | Check `TELEGRAM_BOT_TOKEN` and Telegram setup. |
+| Telegram bot does not reply with a chat ID | Webhook not registered, `telegram-bot` function not deployed, or webhook secret mismatch | Check `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_BOT_TOKEN`, the Telegram `setWebhook` URL, and Supabase function logs. |
+| Telegram digest delivery does not send | Bot token is wrong, chat ID is wrong, user has not started the bot, or group removed the bot | Check `TELEGRAM_BOT_TOKEN`, verify the channel again, and send a fresh message to `@news_desk_ai_bot` to confirm the chat ID. |
 | Custom domain cannot call API | API CORS allowlist does not include it | Ask a technical helper to update the allowed origin and redeploy functions. |
 
 ## 19. What Not To Do

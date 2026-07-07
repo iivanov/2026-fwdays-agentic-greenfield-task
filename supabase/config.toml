@@ -463,3 +463,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/deno.json"
 entrypoint = "./functions/cleanup/index.ts"
+
+[functions.telegram-bot]
+enabled = true
+verify_jwt = false
+import_map = "./functions/deno.json"
+entrypoint = "./functions/telegram-bot/index.ts"
