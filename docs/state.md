@@ -24,7 +24,9 @@
   auth so manual and cron calls use `SCHEDULER_SECRET`, while the service-role
   key remains internal to the functions. Added explicit forced scheduler smoke
   tests and diagnostics because a successful manual call can correctly enqueue
-  zero jobs when active flows are not due yet.
+  zero jobs when active flows are not due yet. Repaired the forced scheduler
+  existing-cycle recovery so a duplicate processing run does not prevent
+  missing source work from being queued.
 - **Previous checkpoint**: R-20 OpenSpec change is archived at
   `openspec/changes/archive/2026-07-05-r-20-browser-auth-lifecycle/`, with
   fresh independent verifier PASS and reviewer APPROVE reports retained. R-20

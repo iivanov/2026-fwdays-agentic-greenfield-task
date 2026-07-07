@@ -164,6 +164,14 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
     expect(notDueResult.data.flows_processed).toBe(0);
     expect(notDueResult.data.jobs_enqueued).toBe(0);
 
+    // Reproduce a partially-created cycle: the processing run exists, but
+    // source fetch rows and queue messages are missing.
+    await supabaseAdmin.from('processing_runs').insert({
+      flow_id: flow!.id,
+      cycle_date: new Date().toISOString().slice(0, 10),
+      status: 'pending',
+    });
+
     // 3. Trigger forced scheduler mode for operator smoke tests.
     const schedReq = new Request('http://localhost/functions/v1/schedule-daily', {
       method: 'POST',
@@ -184,7 +192,8 @@ describe('Scheduler and Queue Infrastructure Integration Tests', () => {
     expect(schedRes.status).toBe(200);
 
     const schedResult = await schedRes.json();
-    expect(schedResult.data.flows_processed).toBe(1);
+    expect(schedResult.data.flows_processed).toBe(0);
+    expect(schedResult.data.skipped_existing_cycle).toBe(1);
     expect(schedResult.data.jobs_enqueued).toBe(1);
 
     // Verify database run records were created in pending state

@@ -1856,3 +1856,34 @@ A change is complete only when:
 - `npm run supabase:lint` passed after the reset.
 - `npm run test:integration` passed with the forced scheduler path covered.
 - `git diff --check` passed.
+
+### 2026-07-08 — Forced scheduler existing-cycle repair
+
+**Human correction**
+
+- A forced `schedule-daily` call returned `skipped_existing_cycle: 1` and
+  `jobs_enqueued: 0` while the browser still showed no retained digest and the
+  source had not recorded a fetch.
+
+**AI contribution**
+
+- Identified that the forced scheduler recovery stopped when the
+  `processing_runs(flow_id, cycle_date)` row already existed, before checking
+  whether source fetch rows or ingestion queue messages were present.
+- Added a follow-up migration that keeps the existing-cycle diagnostic but
+  continues through source scheduling. It inserts missing `source_fetch_runs`,
+  enqueues ingestion work, and avoids requeueing source runs that are already
+  completed or actively processing.
+- Extended integration coverage to reproduce an existing processing cycle with
+  missing source work.
+
+**Verification performed**
+
+- `npx vitest run packages/browser/src/lib/queue-worker.test.ts` passed.
+- `npm run deno:check` passed for all Edge Function entrypoints.
+- `npm run format` passed.
+- `npm run lint` passed.
+- `npm run supabase:reset` passed and applied the follow-up migration locally.
+- `npm run supabase:lint` passed after the reset.
+- `npm run test:integration` passed with the existing-cycle recovery covered.
+- `git diff --check` passed.
