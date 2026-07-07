@@ -383,7 +383,10 @@ curl -i -X POST "https://your-project-ref.supabase.co/functions/v1/schedule-dail
 
 If the response says `jobs_enqueued` is `0`, check the diagnostic fields:
 `active_flows`, `due_flows`, `skipped_not_due`, `skipped_existing_cycle`, and
-`next_due_at`.
+`next_due_at`. If `skipped_existing_cycle` is greater than `0`, the scheduler
+found that a run row already existed for that cycle; forced mode still
+re-creates missing source work unless the source run is already completed or
+currently processing.
 
 The functions that must exist for this app include:
 

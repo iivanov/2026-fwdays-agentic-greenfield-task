@@ -39,6 +39,10 @@ const schedulerDiagnosticsMigrationSource = readFileSync(
   'supabase/migrations/20260707214801_add_schedule_daily_force_and_diagnostics.sql',
   'utf8',
 );
+const forcedSchedulerRepairMigrationSource = readFileSync(
+  'supabase/migrations/20260707215837_repair_forced_scheduler_existing_cycle.sql',
+  'utf8',
+);
 const scheduleDailyFunctionSource = readFileSync(
   'supabase/functions/schedule-daily/index.ts',
   'utf8',
@@ -575,6 +579,20 @@ describe('R-11F queue worker safeguards', () => {
     );
     expect(scheduleDailyFunctionSource).toContain('{ p_force: forceRun }');
     expect(scheduleDailyFunctionSource).toContain('body.force === true');
+  });
+
+  it('repairs forced scheduler calls when the processing cycle already exists', () => {
+    expect(forcedSchedulerRepairMigrationSource).toContain(
+      'on conflict (flow_id, cycle_date) do nothing',
+    );
+    expect(forcedSchedulerRepairMigrationSource).toContain(
+      'on conflict (source_id, cycle_date) do nothing',
+    );
+    expect(forcedSchedulerRepairMigrationSource).toContain("'source_runs_reused'");
+    expect(forcedSchedulerRepairMigrationSource).toContain("'source_runs_already_active'");
+    expect(forcedSchedulerRepairMigrationSource).toContain(
+      "perform pgmq.send(\n        'ingestion-queue'",
+    );
   });
 
   it('cleanup reclaims abandoned leases and applies distinct content and metadata lifecycles', () => {
