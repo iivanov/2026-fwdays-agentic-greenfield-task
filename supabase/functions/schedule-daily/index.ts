@@ -15,6 +15,22 @@ const logScheduleEvent = (
   console[level === 'error' ? 'error' : 'log'](JSON.stringify(payload));
 };
 
+const parseForceRun = async (req: Request): Promise<boolean> => {
+  const url = new URL(req.url);
+  const forceParam = url.searchParams.get('force');
+  if (forceParam === 'true' || forceParam === '1') return true;
+
+  const contentType = req.headers.get('Content-Type') ?? '';
+  if (!contentType.toLowerCase().includes('application/json')) return false;
+
+  try {
+    const body = (await req.clone().json()) as { force?: unknown };
+    return body.force === true || body.force === 'true' || body.force === 1;
+  } catch {
+    return false;
+  }
+};
+
 export const scheduleDailyHandler = async (req: Request, envs: Record<string, string>) => {
   const startedAt = Date.now();
   const correlationId = req.headers.get('X-Request-Id') ?? crypto.randomUUID();
@@ -47,12 +63,14 @@ export const scheduleDailyHandler = async (req: Request, envs: Record<string, st
     },
   });
 
-  const { data, error } = await supabaseAdmin.rpc('schedule_daily_flows');
+  const forceRun = await parseForceRun(req);
+  const { data, error } = await supabaseAdmin.rpc('schedule_daily_flows', { p_force: forceRun });
   if (error) {
     logScheduleEvent('error', 'schedule_daily.failed', {
       correlation_id: correlationId,
       duration_ms: Date.now() - startedAt,
       error_code: 'schedule_daily_rpc_failed',
+      force: forceRun,
     });
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
@@ -63,6 +81,7 @@ export const scheduleDailyHandler = async (req: Request, envs: Record<string, st
   logScheduleEvent('info', 'schedule_daily.completed', {
     correlation_id: correlationId,
     duration_ms: Date.now() - startedAt,
+    force: forceRun,
     ...(data && typeof data === 'object' ? (data as Record<string, unknown>) : {}),
   });
   return new Response(JSON.stringify({ data }), {

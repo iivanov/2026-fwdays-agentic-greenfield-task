@@ -1821,3 +1821,38 @@ A change is complete only when:
 - `npm run test:integration` passed after updating integration invocations to
   use `SCHEDULER_SECRET`.
 - `git diff --check` passed.
+
+### 2026-07-08 — Scheduler diagnostics and forced smoke test
+
+**Human correction**
+
+- A manual HTTP call to `schedule-daily` returned
+  `{"jobs_enqueued":0,"flows_processed":0}` even though the browser showed one
+  enabled flow. The browser also showed the flow's next run was later the same
+  day.
+
+**AI contribution**
+
+- Confirmed the scheduler RPC is due-only for normal cron calls:
+  `next_run_at <= now()`. That makes zero enqueues expected before the visible
+  next run time.
+- Added an explicit `{"force": true}` operator path to `schedule-daily` so
+  smoke tests can enqueue an active flow before its scheduled time without
+  changing normal cron behavior.
+- Replaced the scheduler RPC with a diagnostic version returning
+  `active_flows`, `due_flows`, `skipped_not_due`, `skipped_existing_cycle`, and
+  `next_due_at`.
+- Repaired the existing-cycle edge case so a due flow with an already-created
+  run advances instead of remaining stuck on the same cycle date.
+
+**Verification performed**
+
+- `npm run deno:check` passed for all Edge Function entrypoints.
+- `npx vitest run packages/browser/src/lib/queue-worker.test.ts` passed.
+- `npm run format` passed.
+- `npm run lint` passed.
+- `npm run supabase:reset` passed and applied the scheduler diagnostics
+  migration locally.
+- `npm run supabase:lint` passed after the reset.
+- `npm run test:integration` passed with the forced scheduler path covered.
+- `git diff --check` passed.

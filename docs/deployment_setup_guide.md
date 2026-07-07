@@ -371,6 +371,20 @@ curl -i -X POST "https://your-project-ref.supabase.co/functions/v1/schedule-dail
   -d '{}'
 ```
 
+That normal call only enqueues flows whose `next_run_at` is already due. For an
+operator smoke test before the scheduled time, use an explicit forced run:
+
+```bash
+curl -i -X POST "https://your-project-ref.supabase.co/functions/v1/schedule-daily" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_SCHEDULER_SECRET" \
+  -d '{"force":true}'
+```
+
+If the response says `jobs_enqueued` is `0`, check the diagnostic fields:
+`active_flows`, `due_flows`, `skipped_not_due`, `skipped_existing_cycle`, and
+`next_due_at`.
+
 The functions that must exist for this app include:
 
 | Function | Purpose |
