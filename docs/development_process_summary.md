@@ -1,5 +1,7 @@
 # Development Process Summary
 
+Initially was defined architecture as a collaboration between human and AI agents (./docs/architecture/). Human defined requirements and asked AI to generate all other levels of the architecture. Then human verified ideas and asked to add more detail where needed.
+
 This project is developed through a spec-driven human-AI loop. The human owns
 intent, constraints, and acceptance, while the AI converts those decisions into
 traceable architecture, implementation, tests, and process records.
