@@ -27,7 +27,7 @@ Preferred path:
 1. Export `OPENAI_API_KEY` in the shell without printing it.
 2. Run `node docs/demo-video/generate-voiceover.mjs`.
 3. Use `docs/demo-video/assets/voiceover.mp3` in the editor.
-4. If the API returns `401`, refresh the API key or API project access and rerun; do not print secrets while debugging.
+4. The current generated file is `docs/demo-video/assets/voiceover.mp3` and is about 81 seconds long.
 
 Fallback path: record the narration from `script.md` manually, then keep the same slide timings.
 
