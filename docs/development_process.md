@@ -2127,3 +2127,24 @@ A change is complete only when:
 
 - `openspec validate --all --strict` passed with 24 items.
 - `npx prettier --check` passed for the touched OpenSpec and process files.
+
+
+### 2026-07-09 — Demo video MP4 render
+
+**Human direction**
+
+- Asked whether the assistant could record the final demo video, possibly using Playwright CLI.
+
+**AI contribution**
+
+- Added `docs/demo-video/render-video.mjs` to render the static deck with Playwright and mux the generated voiceover with ffmpeg.
+- Adjusted the renderer to use the available ffmpeg `mpeg4` encoder because the local ffmpeg build does not include `libx264`.
+- Tuned final slide timing to preserve the full 80.856 second voiceover.
+- Rendered `docs/demo-video/demo-video.mp4`.
+- Updated the demo-video OpenSpec requirement, tasks, and verification evidence.
+
+**Verification performed**
+
+- `node --check docs/demo-video/render-video.mjs` passed.
+- `node docs/demo-video/render-video.mjs` passed.
+- `ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 docs/demo-video/demo-video.mp4` reported `80.899000` seconds.

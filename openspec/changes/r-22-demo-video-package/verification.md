@@ -15,5 +15,8 @@ PASS with one documented auth repair during TTS generation.
 - `ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 docs/demo-video/assets/voiceover.mp3` reported `80.856000` seconds.
 - `git diff --check --cached` passed before the demo package and voiceover commits.
 
+- `node docs/demo-video/render-video.mjs` passed and wrote `docs/demo-video/demo-video.mp4`.
+- `ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 docs/demo-video/demo-video.mp4` reported `80.899000` seconds.
+
 ## Notes
 The voiceover generation script loads the local API key without printing it. The generated MP3 is committed as a demo artifact and contains no secret material.

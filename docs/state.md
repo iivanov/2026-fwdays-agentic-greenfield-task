@@ -2,6 +2,7 @@
 
 ## Current Position
 
+- **Demo video render**: On 2026-07-09, added `docs/demo-video/render-video.mjs` and rendered `docs/demo-video/demo-video.mp4` with Playwright visuals plus the generated voiceover. The MP4 duration is 80.899 seconds.
 - **OpenSpec sync task**: On 2026-07-09, committed the Playwright CLI skills, synced active `r-21-public-landing-vercel` and `r-telegram-chat-id-bot` delta specs into canonical specs, created retrospective `r-22-demo-video-package` OpenSpec artifacts, and synced the new `demo-video-package` canonical spec. `openspec validate --all --strict` passed with 24 items.
 - **Ad hoc demo-video task**: On 2026-07-09, added a repo-contained
   demo-video preparation package under `docs/demo-video/` with an animated
