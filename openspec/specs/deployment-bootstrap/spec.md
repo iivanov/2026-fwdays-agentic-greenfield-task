@@ -9,7 +9,8 @@ frontend plus Supabase backend deployment posture (`T-04`, `T-14`,
 ### Requirement: Static Frontend Deployment Config
 The repository SHALL provide Vercel configuration for the React/Vite browser
 SPA that serves static assets only, defines client-side route fallback, applies
-security headers, and does not introduce Vercel API/runtime behavior
+security headers compatible with the public landing page, and does not introduce
+Vercel API/runtime behavior
 (satisfies `BR-PROJ-01..03`, `NFR-CON-04..08`, `A-01`, `A-06`, `T-04`,
 `T-14`, `H-01`, `H-04`, `H-06`).
 
@@ -21,9 +22,9 @@ security headers, and does not introduce Vercel API/runtime behavior
 - **WHEN** `vercel.json` is validated
 - **THEN** it contains no function, cron, or external API proxy configuration that would move backend runtime behavior into Vercel
 
-#### Scenario: Security headers are configured
+#### Scenario: Security headers support the landing shell
 - **WHEN** the deployed frontend serves static routes through Vercel
-- **THEN** responses include baseline anti-framing, nosniff, referrer, permissions, HSTS, cache, and content-security headers suitable for a static authenticated SPA
+- **THEN** responses include baseline anti-framing, nosniff, referrer, permissions, HSTS, cache, and content-security headers that allow the committed landing page assets, Google font endpoints, and Supabase browser/API connections
 
 ### Requirement: Human-Gated Provider Bootstrap
 The repository SHALL document and audit provider bootstrap boundaries without
@@ -59,3 +60,13 @@ deployment configuration and human bootstrap readiness (satisfies `AT-01`,
 #### Scenario: Audit is non-mutating
 - **WHEN** `npm run infra:audit` or the bootstrap helper is executed repeatedly
 - **THEN** it does not create provider accounts, link projects, deploy, enable paid features, mutate GitHub settings, or write provider state
+
+### Requirement: Supabase backend deployment declarations
+The repository SHALL declare every Supabase Edge Function that must be deployed from source control, and deployment audits SHALL fail when a required function or runtime secret name is omitted.
+
+#### Scenario: Telegram bot function is declared and audited
+- **WHEN** deployment configuration is audited
+- **THEN** `supabase/config.toml` declares the `telegram-bot` Edge Function
+- **AND** `.env.example` and the deployment audit include `TELEGRAM_WEBHOOK_SECRET`
+- **AND** the deployment guide explains how to register Telegram `setWebhook.secret_token` with the deployed function URL
+- **AND** the deployment guide documents Telegram's webhook secret character and length constraints so operators do not generate rejected secrets

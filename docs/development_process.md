@@ -2106,3 +2106,24 @@ A change is complete only when:
   local `.env` key. The generator now prefers the repo `.env` value without
   printing secrets, and it generated `docs/demo-video/assets/voiceover.mp3`
   with an 80.856 second duration.
+
+
+### 2026-07-09 — OpenSpec sync for landing, Telegram, and demo video
+
+**Human direction**
+
+- Requested committing the added Playwright CLI skills.
+- Requested syncing existing OpenSpec change deltas into canonical specs and creating/syncing OpenSpec coverage for the demo-video generation work.
+
+**AI contribution**
+
+- Committed the added Playwright CLI skills under both `.agent/skills/playwright-cli/` and `.claude/skills/playwright-cli/`.
+- Synced active OpenSpec deltas from `r-21-public-landing-vercel` into canonical `public-landing-page` and `deployment-bootstrap` specs.
+- Synced active OpenSpec deltas from `r-telegram-chat-id-bot` into canonical `delivery-channels` and `deployment-bootstrap` specs.
+- Created retrospective OpenSpec change `r-22-demo-video-package` with proposal, design, tasks, delta spec, and verification evidence.
+- Synced `r-22-demo-video-package` into the new canonical `demo-video-package` spec.
+
+**Verification performed**
+
+- `openspec validate --all --strict` passed with 24 items.
+- `npx prettier --check` passed for the touched OpenSpec and process files.
