@@ -10,6 +10,7 @@ function loadLocalEnvWithoutPrinting() {
   const envPath = path.resolve(process.cwd(), '.env');
   return readFile(envPath, 'utf8')
     .then((content) => {
+      let dotenvOpenAiKey;
       for (const line of content.split(/\r?\n/)) {
         let trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
@@ -33,6 +34,13 @@ function loadLocalEnvWithoutPrinting() {
         if (key && process.env[key] === undefined) {
           process.env[key] = value;
         }
+        if (key === 'OPENAI_API_KEY' && value) {
+          dotenvOpenAiKey = value;
+        }
+      }
+      if (dotenvOpenAiKey && process.env.OPENAI_API_KEY !== dotenvOpenAiKey) {
+        process.env.OPENAI_API_KEY = dotenvOpenAiKey;
+        console.log('Using OPENAI_API_KEY from local .env for demo voiceover generation.');
       }
     })
     .catch((error) => {

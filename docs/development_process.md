@@ -2101,5 +2101,8 @@ A change is complete only when:
 - Rendered `docs/demo-video/index.html` through Playwright and confirmed the
   first slide loaded without console/page errors.
 - Checked generated PNG dimensions with `identify docs/demo-video/assets/*.png`.
-- Attempted `node docs/demo-video/generate-voiceover.mjs`; OpenAI returned
-  HTTP 401, so no voiceover audio was generated or committed.
+- Initial `node docs/demo-video/generate-voiceover.mjs` returned HTTP 401
+  because a stale exported shell `OPENAI_API_KEY` differed from the working
+  local `.env` key. The generator now prefers the repo `.env` value without
+  printing secrets, and it generated `docs/demo-video/assets/voiceover.mp3`
+  with an 80.856 second duration.

@@ -30,6 +30,6 @@ node docs/demo-video/capture-screenshots.mjs
 
 ## Voiceover
 
-`generate-voiceover.mjs` loads `OPENAI_API_KEY` from the environment or local `.env` without printing it and writes `assets/voiceover.mp3`. If OpenAI returns `401`, refresh the API key or billing/project access and rerun the script. The committed package remains usable with a manually recorded voiceover.
+`generate-voiceover.mjs` loads `OPENAI_API_KEY` from local `.env` without printing it and writes `assets/voiceover.mp3`. It intentionally prefers the repo `.env` value over a different already-exported shell value so a stale terminal key cannot shadow the working project key.
 
 Open `index.html` in a browser or serve this directory with any static server. Use the left and right arrow keys to move through slides.

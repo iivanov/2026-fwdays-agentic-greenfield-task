@@ -6,8 +6,10 @@
   demo-video preparation package under `docs/demo-video/` with an animated
   slide deck, English script, storyboard, deterministic local Playwright
   screenshot capture, generated fixture screenshots, and optional OpenAI TTS
-  generation. Screenshot generation and deck render checks passed; OpenAI TTS
-  returned HTTP 401, so no voiceover audio was committed.
+  generation. Screenshot generation and deck render checks passed. OpenAI TTS
+  initially returned HTTP 401 because the shell key shadowed the working `.env`
+  key; the generator now prefers `.env` and produced an 80.856 second
+  `docs/demo-video/assets/voiceover.mp3`.
 - **Ad hoc documentation task**: Creating `docs/development_process_summary.md` on
   2026-07-08 from `docs/development_process.md`, summarizing the project's
   human-owned intent, AI implementation role, upstream-to-downstream
