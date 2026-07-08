@@ -1,5 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { supabase } from './lib/supabase.js';
+import { isSupabaseConfigured, supabase } from './lib/supabase.js';
+import newsDeskHero from './assets/news-desk-hero.png';
 import ProfilePanel from './components/ProfilePanel.js';
 import SourcesPanel from './components/SourcesPanel.js';
 import FlowsPanel from './components/FlowsPanel.js';
@@ -21,6 +22,7 @@ import {
 } from './lib/auth-routing.js';
 
 const e2eFixtureMode = isE2eFixtureMode();
+const supabaseConfigured = isSupabaseConfigured();
 const showLocalPasswordAuth = shouldShowDevPasswordAuth(
   import.meta.env.DEV,
   import.meta.env.VITE_ENABLE_DEV_PASSWORD_AUTH,
@@ -81,6 +83,11 @@ export default function App() {
       setAuthStatusText('Restoring your secure session...');
     } else if (isDashboardPath(window.location.pathname)) {
       storeReturnPath(safeDashboardReturnPath(window.location.pathname));
+    }
+
+    if (!supabaseConfigured) {
+      setLoading(false);
+      return;
     }
 
     const applySession = (nextSession: Session | null) => {
@@ -149,6 +156,9 @@ export default function App() {
   const handleOAuthLogin = async (provider: 'google' | 'github') => {
     try {
       setLoginError(null);
+      if (!supabaseConfigured) {
+        throw new Error('Supabase browser environment variables are not configured for sign-in.');
+      }
       storeReturnPath(
         safeDashboardReturnPath(window.location.pathname) ?? readStoredReturnPath() ?? '/dashboard',
       );
@@ -171,6 +181,9 @@ export default function App() {
     }
     try {
       setLoginError(null);
+      if (!supabaseConfigured) {
+        throw new Error('Supabase browser environment variables are not configured for sign-in.');
+      }
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -188,6 +201,9 @@ export default function App() {
 
     try {
       setLoginError(null);
+      if (!supabaseConfigured) {
+        throw new Error('Supabase browser environment variables are not configured for sign-up.');
+      }
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -212,6 +228,12 @@ export default function App() {
       if (simulateFixtureSignOutFailure) {
         setLoginError('Remote sign-out failed: fixture sign-out failure');
       }
+      setIsSigningOut(false);
+      return;
+    }
+
+    if (!supabaseConfigured) {
+      setLoginError('Remote sign-out failed: Supabase browser environment is not configured.');
       setIsSigningOut(false);
       return;
     }
@@ -246,212 +268,123 @@ export default function App() {
     );
   }
 
-  // Login Screen (Mockup + Local developer login capabilities)
+  // Public landing page plus local developer login capabilities.
   if (!session) {
     return (
-      <main
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '24px',
-          background:
-            'radial-gradient(circle at 10% 20%, hsl(224 25% 15%) 0%, hsl(224 25% 10%) 90%)',
-        }}
-      >
-        <div
-          className="glass-panel"
-          style={{
-            maxWidth: '440px',
-            width: '100%',
-            padding: '40px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '24px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-          }}
-        >
-          <div style={{ textAlign: 'center' }}>
-            <h1
-              style={{
-                fontSize: '2rem',
-                marginBottom: '8px',
-                background: 'var(--accent-gradient)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              News Aggregator
-            </h1>
-            <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.9rem' }}>
-              Configure your daily AI-driven newsletter digest.
+      <main className="landing-page">
+        <section className="landing-hero" aria-labelledby="landing-title">
+          <div className="landing-hero__copy">
+            <p className="eyebrow">AI news desk</p>
+            <h1 id="landing-title">Source-backed daily briefings without the tab sprawl.</h1>
+            <p className="landing-hero__lede">
+              Connect trusted feeds and article URLs, tune the prompt once, and receive one
+              controlled digest across the channels your team already checks.
             </p>
-          </div>
 
-          {loginError && (
-            <div
-              style={{
-                background: 'rgba(220, 38, 38, 0.15)',
-                border: '1px dashed hsl(var(--danger))',
-                padding: '12px',
-                borderRadius: '8px',
-                fontSize: '0.85rem',
-                color: 'hsl(var(--danger))',
-              }}
-            >
-              {loginError}
-            </div>
-          )}
-
-          {/* Social Logins */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <button
-              onClick={() => handleOAuthLogin('google')}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '1px solid hsl(var(--border-color))',
-                background: 'rgba(255,255,255,0.03)',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
-            >
-              Sign in with Google
-            </button>
-            <button
-              onClick={() => handleOAuthLogin('github')}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '1px solid hsl(var(--border-color))',
-                background: 'rgba(255,255,255,0.03)',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
-            >
-              Sign in with GitHub
-            </button>
-          </div>
-
-          {showLocalPasswordAuth ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <hr style={{ flex: 1, borderColor: 'rgba(255,255,255,0.08)' }} />
-                <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-secondary))' }}>
-                  or dev login
-                </span>
-                <hr style={{ flex: 1, borderColor: 'rgba(255,255,255,0.08)' }} />
+            {loginError && (
+              <div className="auth-error" role="alert">
+                {loginError}
               </div>
+            )}
 
-              <form
-                onSubmit={handleLocalSignIn}
-                style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+            <div className="landing-actions" aria-label="Sign in options">
+              <button
+                className="landing-button landing-button--primary"
+                onClick={() => handleOAuthLogin('google')}
               >
-                <div>
-                  <label
-                    style={{
-                      fontSize: '0.8rem',
-                      color: 'hsl(var(--text-secondary))',
-                      display: 'block',
-                      marginBottom: '6px',
-                    }}
-                  >
-                    Email address
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: '1px solid hsl(var(--border-color))',
-                      background: 'hsl(var(--bg-secondary))',
-                    }}
-                  />
-                </div>
+                Sign in with Google
+              </button>
+              <button className="landing-button" onClick={() => handleOAuthLogin('github')}>
+                Sign in with GitHub
+              </button>
+            </div>
 
-                <div>
-                  <label
-                    style={{
-                      fontSize: '0.8rem',
-                      color: 'hsl(var(--text-secondary))',
-                      display: 'block',
-                      marginBottom: '6px',
-                    }}
-                  >
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: '1px solid hsl(var(--border-color))',
-                      background: 'hsl(var(--bg-secondary))',
-                    }}
-                  />
-                </div>
+            <dl className="landing-proof">
+              <div>
+                <dt>5</dt>
+                <dd>flows per user</dd>
+              </div>
+              <div>
+                <dt>06:00</dt>
+                <dd>UTC digest window</dd>
+              </div>
+              <div>
+                <dt>7 days</dt>
+                <dd>content retention</dd>
+              </div>
+            </dl>
+          </div>
 
-                <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                  <button
-                    type="submit"
-                    style={{
-                      flex: 1,
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: 'var(--accent-gradient)',
-                      color: '#ffffff',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Log In
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleLocalSignUp}
-                    style={{
-                      flex: 1,
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: '1px solid hsl(var(--border-color))',
-                      background: 'transparent',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Sign Up
-                  </button>
-                </div>
-              </form>
-            </>
-          ) : null}
-        </div>
+          <figure className="landing-hero__visual">
+            <img
+              src={newsDeskHero}
+              alt="Editorial desk showing source cards flowing into one daily digest"
+            />
+          </figure>
+        </section>
+
+        <section className="landing-workflow" aria-label="Digest workflow">
+          <article>
+            <span>Source intake</span>
+            <h2>Bring RSS feeds and articles into one controlled queue.</h2>
+            <p>
+              Shared fetching keeps duplicate source work low while health checks flag feeds that
+              need attention.
+            </p>
+          </article>
+          <article>
+            <span>AI brief</span>
+            <h2>Summaries follow your language, interests, and prompt rules.</h2>
+            <p>
+              The pipeline truncates inputs before AI processing and stores digest feedback for
+              operator review.
+            </p>
+          </article>
+          <article>
+            <span>Delivery</span>
+            <h2>Send one digest to in-app, email, Telegram, Slack, or webhook.</h2>
+            <p>
+              Delivery secrets stay encrypted, generic webhooks are signed, and retries remain
+              durable outside the browser.
+            </p>
+          </article>
+        </section>
+
+        {showLocalPasswordAuth ? (
+          <section className="dev-login" aria-label="Local development login">
+            <p className="eyebrow">or dev login</p>
+            <form onSubmit={handleLocalSignIn}>
+              <label>
+                <span>Email address</span>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </label>
+
+              <label>
+                <span>Password</span>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </label>
+
+              <div className="dev-login__actions">
+                <button className="landing-button landing-button--primary" type="submit">
+                  Log In
+                </button>
+                <button className="landing-button" type="button" onClick={handleLocalSignUp}>
+                  Sign Up
+                </button>
+              </div>
+            </form>
+          </section>
+        ) : null}
       </main>
     );
   }

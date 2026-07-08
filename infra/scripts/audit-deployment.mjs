@@ -81,6 +81,10 @@ const headerKeys = new Set(
     .flatMap((entry) => entry.headers ?? [])
     .map((header) => String(header.key).toLowerCase()),
 );
+const cspHeaderValue =
+  (vercel.headers ?? [])
+    .flatMap((entry) => entry.headers ?? [])
+    .find((header) => String(header.key).toLowerCase() === 'content-security-policy')?.value ?? '';
 for (const key of [
   'content-security-policy',
   'permissions-policy',
@@ -91,6 +95,16 @@ for (const key of [
   'cache-control',
 ]) {
   requireCondition(headerKeys.has(key), `vercel.json must configure ${key}.`);
+}
+for (const requiredCspSource of [
+  'https://fonts.googleapis.com',
+  'https://fonts.gstatic.com',
+  'wss://*.supabase.co',
+]) {
+  requireCondition(
+    cspHeaderValue.includes(requiredCspSource),
+    `vercel.json CSP must allow ${requiredCspSource}.`,
+  );
 }
 
 const packageJson = readJson('package.json');

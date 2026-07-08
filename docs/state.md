@@ -2,12 +2,15 @@
 
 ## Current Position
 
-- **Active implementation slice**: `r-21-public-landing-github-pages`.
+- **Active implementation slice**: `r-21-public-landing-vercel`.
 - **Current checkpoint**: Started a user-requested public landing page and
-  GitHub Pages hosting change on 2026-07-08. The intended scope is a static
-  unauthenticated landing screen for the existing React/Vite browser package,
-  GitHub Pages deployment via GitHub Actions, and downstream documentation that
-  records GitHub Pages as the public static host for the landing shell.
+  Vercel-hosted browser app change on 2026-07-08. The intended scope is a
+  static unauthenticated landing screen for the existing React/Vite browser
+  package while preserving Vercel for the whole browser application and
+  Supabase for backend/stateful runtime. Implementation is complete locally:
+  the landing shell, generated hero asset, Vercel CSP update, deployment audit
+  guard, focused unit coverage, and Playwright smoke coverage pass. Independent
+  verifier/reviewer sub-agents have not been run for this slice.
 - **Last completed stage**: R-20 (`r-20-browser-auth-lifecycle`)
 - **Current checkpoint**: Added a non-technical deployment setup guide at
   `docs/deployment_setup_guide.md`. It records where to create provider

@@ -3,17 +3,33 @@ import { expect, test } from '@playwright/test';
 test('browser shell loads the main panels', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: /News Aggregator/i })).toBeVisible();
-  await expect(page.getByText(/Configure your daily AI-driven newsletter digest/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Source-backed daily briefings/i })).toBeVisible();
+  await expect(page.getByText(/Connect trusted feeds and article URLs/i)).toBeVisible();
+  await expect(page.getByAltText(/source cards flowing into one daily digest/i)).toBeVisible();
   await expect(page.getByRole('button', { name: /Sign in with Google/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /Sign in with GitHub/i })).toBeVisible();
   await expect(page.getByText(/or dev login/i)).toHaveCount(0);
 });
 
+test('public landing page stays usable on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto('/');
+
+  await expect(page.getByRole('heading', { name: /Source-backed daily briefings/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Sign in with Google/i })).toBeVisible();
+  await expect(page.getByText(/Source intake/i)).toBeVisible();
+  await expect(page.getByText(/Delivery secrets stay encrypted/i)).toBeVisible();
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  );
+  expect(overflow).toBe(false);
+});
+
 test('unauthenticated protected dashboard routes show sign-in shell', async ({ page }) => {
   await page.goto('/dashboard/digests');
 
-  await expect(page.getByRole('heading', { name: /News Aggregator/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Source-backed daily briefings/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /Sign in with Google/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Daily intelligence control room/i })).toHaveCount(
     0,
@@ -94,7 +110,7 @@ test('authenticated logout returns to the sign-in shell', async ({ page }) => {
   await page.getByRole('button', { name: /Log out/i }).click();
 
   await expect(page).toHaveURL('/');
-  await expect(page.getByRole('heading', { name: /News Aggregator/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Source-backed daily briefings/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Daily intelligence control room/i })).toHaveCount(
     0,
   );
@@ -109,7 +125,7 @@ test('logout clears local dashboard UI even when remote sign-out fails', async (
   await page.getByRole('button', { name: /Log out/i }).click();
 
   await expect(page).toHaveURL('/');
-  await expect(page.getByRole('heading', { name: /News Aggregator/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Source-backed daily briefings/i })).toBeVisible();
   await expect(page.getByText(/Remote sign-out failed: fixture sign-out failure/i)).toBeVisible();
   await expect(page.getByRole('heading', { name: /Daily intelligence control room/i })).toHaveCount(
     0,
