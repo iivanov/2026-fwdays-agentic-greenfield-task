@@ -34,7 +34,13 @@
   delivery guidance in the dashboard and deployment guide so operators see the
   application bot `@news_desk_ai_bot` and can obtain chat IDs from the bot's
   automatic reply; added the `telegram-bot` Edge Function and captured the
-  behavior in OpenSpec change artifacts.
+  behavior in OpenSpec change artifacts. Fixed Telegram Bot API calls to keep
+  the bot token in Telegram's documented raw `/bot<token>/METHOD_NAME` path for
+  channel verification, digest delivery, and the chat-ID helper reply after a
+  real digest appeared in the web UI but no Telegram message arrived. Focused
+  Telegram delivery/API tests, TypeScript, ESLint, Prettier, Deno check/lint,
+  and `git diff --check` passed locally. Independent checker agents were not
+  run in this hotfix turn because delegation was not explicitly requested.
 - **Previous checkpoint**: R-20 OpenSpec change is archived at
   `openspec/changes/archive/2026-07-05-r-20-browser-auth-lifecycle/`, with
   fresh independent verifier PASS and reviewer APPROVE reports retained. R-20

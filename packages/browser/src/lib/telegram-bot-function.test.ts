@@ -52,7 +52,7 @@ describe('telegram chat id bot function', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ ok: true, chat_id: '-1001234567890' });
     expect(fetchImpl).toHaveBeenCalledWith(
-      'https://api.telegram.org/bot123456%3Aapp-owned-token/sendMessage',
+      'https://api.telegram.org/bot123456:app-owned-token/sendMessage',
       expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

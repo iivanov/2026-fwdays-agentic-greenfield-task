@@ -177,6 +177,27 @@ describe('R-14 delivery worker', () => {
     });
   });
 
+  it('sends Telegram digests through the documented raw bot-token path', async () => {
+    const client = makeDeliveryClient('telegram', { chat_id: '-1001234567890' });
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchImpl = async (input: string | URL | Request, init?: RequestInit) => {
+      requests.push({ url: String(input), init });
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    };
+
+    await deliverAttempt(client, ATTEMPT_ID, {
+      fetchImpl,
+      telegramBotToken: '123456:app-owned-token',
+    });
+
+    expect(requests[0]?.url).toBe('https://api.telegram.org/bot123456:app-owned-token/sendMessage');
+    expect(JSON.parse(String(requests[0]?.init?.body))).toMatchObject({
+      chat_id: '-1001234567890',
+      text: expect.stringContaining('Daily Digest'),
+      disable_web_page_preview: true,
+    });
+  });
+
   it('posts generic webhook payloads with stable event id and HMAC signature', async () => {
     const client = makeDeliveryClient('webhook', {
       webhook_url: 'https://hooks.example.com/digest',

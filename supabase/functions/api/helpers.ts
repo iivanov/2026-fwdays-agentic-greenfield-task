@@ -278,9 +278,7 @@ export async function verifyDeliveryChannelTarget(
       return { success: false, error: 'Telegram chat ID is missing' };
     }
     const response = await fetchWithVerificationTimeout(
-      `https://api.telegram.org/bot${encodeURIComponent(botToken)}/getChat?chat_id=${
-        encodeURIComponent(chatId)
-      }`,
+      `https://api.telegram.org/bot${botToken}/getChat?chat_id=${encodeURIComponent(chatId)}`,
       { method: 'GET' },
       resolveDns,
     );
