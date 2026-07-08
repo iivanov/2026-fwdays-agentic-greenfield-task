@@ -2,7 +2,7 @@
 
 ## Current Position
 
-- **Ad hoc documentation task**: Creating `development_process_summary.md` on
+- **Ad hoc documentation task**: Creating `docs/development_process_summary.md` on
   2026-07-08 from `docs/development_process.md`, summarizing the project's
   human-owned intent, AI implementation role, upstream-to-downstream
   traceability, OpenSpec maker/checker loop, verification evidence, and
