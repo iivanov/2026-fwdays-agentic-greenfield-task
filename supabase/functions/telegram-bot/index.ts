@@ -80,7 +80,7 @@ const sendMessage = async (
   fetchImpl: FetchLike,
 ) => {
   const response = await fetchImpl(
-    `https://api.telegram.org/bot${encodeURIComponent(botToken)}/sendMessage`,
+    `https://api.telegram.org/bot${botToken}/sendMessage`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

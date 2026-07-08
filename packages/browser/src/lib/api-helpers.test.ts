@@ -1580,7 +1580,7 @@ describe('API Edge Function Handler Integration Tests', () => {
         );
         expect(res.status).toBe(200);
         expect(fetchSpy).toHaveBeenCalledWith(
-          expect.stringContaining('/getChat?chat_id=12345'),
+          'https://api.telegram.org/bot123456:app-owned-token/getChat?chat_id=12345',
           expect.any(Object),
         );
       } finally {

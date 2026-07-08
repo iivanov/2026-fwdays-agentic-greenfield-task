@@ -1992,3 +1992,35 @@ A change is complete only when:
   limits.
 - Fresh independent verifier PASS and reviewer APPROVE found no remaining
   blocking findings.
+
+### 2026-07-08 — Telegram digest delivery URL hotfix
+
+**Human correction**
+
+- New digests were visible in the web dashboard, but corresponding Telegram
+  messages were not arriving.
+
+**AI contribution**
+
+- Rechecked the official Telegram Bot API on 2026-07-08: bot requests are made
+  as `https://api.telegram.org/bot<token>/METHOD_NAME`, with the sample token
+  shown raw in the path.
+- Updated Telegram channel verification, digest delivery, and the Telegram
+  chat-ID helper bot to keep the bot token raw in the Bot API path instead of
+  percent-encoding the token colon.
+- Added focused regressions proving Telegram verification, digest delivery, and
+  chat-ID helper replies call the raw-token Bot API URL.
+
+**Verification performed**
+
+- `npx vitest run packages/browser/src/lib/delivery-worker.test.ts packages/browser/src/lib/api-helpers.test.ts packages/browser/src/lib/telegram-bot-function.test.ts` passed with 3 files and 70 tests.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run format` passed after formatting the new test.
+- `npm run deno:check` passed.
+- `npm run deno:lint` passed.
+- `git diff --check` passed.
+- Separate verifier/reviewer sub-agents were not run in this hotfix turn because
+  the available sub-agent tool is restricted to explicit user-requested
+  delegation. This remains a process evidence gap, not production-readiness
+  evidence.

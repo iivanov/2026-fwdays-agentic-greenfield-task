@@ -902,7 +902,7 @@ const deliverTelegram = async (
   const text = renderDigestPlainText(bundle.digest.content, bundle.flow.name);
   for (const chunk of splitMessage(text, 3900)) {
     const response = await fetchJsonWithTimeout(
-      `https://api.telegram.org/bot${encodeURIComponent(botToken)}/sendMessage`,
+      `https://api.telegram.org/bot${botToken}/sendMessage`,
       { chat_id: chatId, text: chunk, disable_web_page_preview: true },
       options,
     );
