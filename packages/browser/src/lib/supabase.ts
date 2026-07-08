@@ -17,6 +17,10 @@ const supabaseAnonKey: string = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
 
 let clientInstance: SupabaseClient | null = null;
 
+export function isSupabaseConfigured(): boolean {
+  return Boolean(supabaseUrl && supabaseAnonKey);
+}
+
 export function getSupabaseClient(): SupabaseClient {
   if (!clientInstance) {
     if (!supabaseUrl || !supabaseAnonKey) {

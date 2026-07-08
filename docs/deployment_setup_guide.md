@@ -22,7 +22,9 @@ The app uses these services:
 | Telegram BotFather | Creates the app Telegram bot token | Free |
 | Slack webhooks | User-owned delivery targets | Optional, usually configured by users later |
 
-Vercel only hosts the static website. Supabase runs the backend work. Do not set up Vercel Functions or Vercel Cron for this project.
+Vercel only hosts the static website, including the public landing page and the
+authenticated browser dashboard shell. Supabase runs the backend work. Do not
+set up Vercel Functions or Vercel Cron for this project.
 
 ## 2. Golden Rules for Tokens
 

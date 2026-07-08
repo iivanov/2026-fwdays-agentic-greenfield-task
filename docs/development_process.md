@@ -2024,3 +2024,49 @@ A change is complete only when:
   the available sub-agent tool is restricted to explicit user-requested
   delegation. This remains a process evidence gap, not production-readiness
   evidence.
+
+### 2026-07-08 — Public landing page on Vercel
+
+**Human correction**
+
+- The initial wording about "github page" was clarified: the browser
+  application should remain hosted on Vercel, and the landing page may also be
+  served there.
+
+**AI contribution**
+
+- Created OpenSpec change artifacts for `r-21-public-landing-vercel` after
+  correcting an initial GitHub Pages planning checkpoint with a follow-up change
+  on `main`.
+- Replaced the unauthenticated compact login card with a Vercel-served public
+  landing page for the AI news desk, keeping Google/GitHub OAuth entry points,
+  callback error display, protected-route sign-in behavior, and production-hidden
+  password auth.
+- Generated one project-local newsroom hero image and wired it into the browser
+  build.
+- Kept `vercel.json` as the static frontend hosting contract and updated the CSP
+  to allow the landing page font endpoints and Supabase browser connections.
+- Updated the deployment audit to verify the required CSP sources.
+
+**Verification performed**
+
+- `openspec validate r-21-public-landing-vercel --strict` passed.
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run format` passed.
+- `npm run test` passed with 16 files and 171 tests.
+- `npm run infra:audit` passed and now checks Vercel CSP sources needed by the
+  landing page.
+- `npm run build:browser` passed.
+- `npx playwright test tests/e2e/browser-smoke.spec.ts --reporter=list` passed
+  with 12 Chromium tests, including the public landing page mobile overflow
+  check.
+- `openspec validate --all --strict` passed with 21 items.
+- `git diff --check` passed.
+- Local desktop and mobile screenshots were inspected after fixing a dev-mode
+  no-env blank screen; the public page renders without local Supabase browser
+  env vars and sign-in actions report a configuration error instead of crashing.
+- Separate verifier/reviewer sub-agents were not run in this turn because the
+  available sub-agent tool is restricted to explicit user-requested delegation.
+  This remains a process evidence gap before archive/production-readiness
+  claims.
