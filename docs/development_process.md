@@ -2070,3 +2070,36 @@ A change is complete only when:
   available sub-agent tool is restricted to explicit user-requested delegation.
   This remains a process evidence gap before archive/production-readiness
   claims.
+
+
+### 2026-07-09 — Demo video preparation package
+
+**Human direction**
+
+- Requested help preparing a 1-2 minute project demo video showing the product,
+  screenshots, animation, and a short agentic development-process explanation.
+- Clarified a preference for English narration, slides plus product screenshots,
+  and optional AI voiceover tooling. Confirmed local secrets may be used without
+  printing or inspecting secret values.
+
+**AI contribution**
+
+- Added `docs/demo-video/` with an animated static slide deck, English
+  voiceover script, storyboard/recording checklist, deterministic Playwright
+  screenshot capture script, and optional OpenAI TTS generator.
+- Captured local fixture screenshots for the landing page, dashboard overview,
+  digest feedback, delivery channels, and process-evidence slide assets.
+- Kept the package self-contained and avoided committing secrets or production
+  data. The user-added Playwright CLI skill remained untracked and was not
+  committed by this stage.
+
+**Verification performed**
+
+- Built the browser app in e2e fixture mode.
+- Ran `node docs/demo-video/capture-screenshots.mjs`; generated five 1440x960
+  PNG assets.
+- Rendered `docs/demo-video/index.html` through Playwright and confirmed the
+  first slide loaded without console/page errors.
+- Checked generated PNG dimensions with `identify docs/demo-video/assets/*.png`.
+- Attempted `node docs/demo-video/generate-voiceover.mjs`; OpenAI returned
+  HTTP 401, so no voiceover audio was generated or committed.

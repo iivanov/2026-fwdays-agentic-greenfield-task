@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI News Desk Demo</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="deck" aria-live="polite">
+      <section class="slide slide--title is-active" data-slide>
+        <div class="slide__grid">
+          <div class="kicker">AI News Desk</div>
+          <h1>One daily briefing from the sources you trust.</h1>
+          <p>
+            A personalized news aggregator built through traceable agentic engineering.
+          </p>
+          <div class="pipeline" aria-hidden="true">
+            <span>RSS</span>
+            <span>Articles</span>
+            <span>AI digest</span>
+            <span>Delivery</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide slide--image" data-slide>
+        <div>
+          <p class="kicker">Product concept</p>
+          <h2>Reduce tab sprawl.</h2>
+          <p>
+            Users connect feeds and articles, tune interests once, and receive one controlled
+            digest.
+          </p>
+        </div>
+        <figure class="browser-shot">
+          <img src="./assets/landing.png" alt="Landing page for AI news desk" />
+        </figure>
+      </section>
+
+      <section class="slide slide--image slide--reverse" data-slide>
+        <div>
+          <p class="kicker">Operator dashboard</p>
+          <h2>Flows, sources, and digest state are visible.</h2>
+          <p>
+            The app shows enabled flows, source warnings, latest digest status, and next actions.
+          </p>
+        </div>
+        <figure class="browser-shot">
+          <img src="./assets/dashboard-overview.png" alt="Dashboard overview screenshot" />
+        </figure>
+      </section>
+
+      <section class="slide slide--split" data-slide>
+        <div class="split-copy">
+          <p class="kicker">Digest and delivery</p>
+          <h2>One briefing, multiple outputs.</h2>
+          <p>
+            Keep digests in-app, send them through delivery channels, and retain feedback without
+            keeping content forever.
+          </p>
+        </div>
+        <figure class="browser-shot">
+          <img src="./assets/digest-feedback.png" alt="Digest feedback screenshot" />
+        </figure>
+        <figure class="browser-shot">
+          <img src="./assets/delivery-channels.png" alt="Delivery channel screenshot" />
+        </figure>
+      </section>
+
+      <section class="slide slide--loop" data-slide>
+        <p class="kicker">How it was built agentically</p>
+        <h2>Human intent became verified slices.</h2>
+        <ol class="loop">
+          <li>Requirements</li>
+          <li>OpenSpec</li>
+          <li>Maker</li>
+          <li>Verifier</li>
+          <li>Reviewer</li>
+          <li>Archive</li>
+        </ol>
+      </section>
+
+      <section class="slide slide--image" data-slide>
+        <div>
+          <p class="kicker">Evidence in the repo</p>
+          <h2>Rules, process notes, tests, and checker reports.</h2>
+          <p>
+            The project records what was decided, what was built, what was checked, and what still
+            needs human bootstrap.
+          </p>
+        </div>
+        <figure class="browser-shot">
+          <img src="./assets/process-evidence.png" alt="Process evidence board" />
+        </figure>
+      </section>
+
+      <section class="slide slide--close" data-slide>
+        <p class="kicker">Demo takeaway</p>
+        <h2>Not just generated code.</h2>
+        <p>
+          A small product built through traceable decisions, repeatable checks, and a maker-checker
+          agent loop.
+        </p>
+        <p class="disclosure">Voiceover generated with AI text-to-speech, if used.</p>
+      </section>
+    </main>
+
+    <footer class="controls" aria-label="Slide controls">
+      <button type="button" data-prev aria-label="Previous slide">Prev</button>
+      <span data-count>1 / 7</span>
+      <button type="button" data-next aria-label="Next slide">Next</button>
+    </footer>
+
+    <script>
+      const slides = [...document.querySelectorAll('[data-slide]')];
+      const count = document.querySelector('[data-count]');
+      let index = 0;
+
+      function show(nextIndex) {
+        slides[index].classList.remove('is-active');
+        index = (nextIndex + slides.length) % slides.length;
+        slides[index].classList.add('is-active');
+        count.textContent = `${index + 1} / ${slides.length}`;
+      }
+
+      document.querySelector('[data-prev]').addEventListener('click', () => show(index - 1));
+      document.querySelector('[data-next]').addEventListener('click', () => show(index + 1));
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowRight' || event.key === ' ') show(index + 1);
+        if (event.key === 'ArrowLeft') show(index - 1);
+      });
+    </script>
+  </body>
+</html>
