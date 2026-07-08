@@ -2,8 +2,13 @@
 
 ## Current Position
 
+- **Active implementation slice**: `r-21-public-landing-github-pages`.
+- **Current checkpoint**: Started a user-requested public landing page and
+  GitHub Pages hosting change on 2026-07-08. The intended scope is a static
+  unauthenticated landing screen for the existing React/Vite browser package,
+  GitHub Pages deployment via GitHub Actions, and downstream documentation that
+  records GitHub Pages as the public static host for the landing shell.
 - **Last completed stage**: R-20 (`r-20-browser-auth-lifecycle`)
-- **Active implementation slice**: none; roadmap Phase 4 slices are complete.
 - **Current checkpoint**: Added a non-technical deployment setup guide at
   `docs/deployment_setup_guide.md`. It records where to create provider
   accounts, where to obtain each token, which store receives each value, the
