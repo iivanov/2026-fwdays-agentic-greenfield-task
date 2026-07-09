@@ -8,6 +8,10 @@ test('browser shell loads the main panels', async ({ page }) => {
   await expect(page.getByAltText(/source cards flowing into one daily digest/i)).toBeVisible();
   await expect(page.getByRole('button', { name: /Sign in with Google/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /Sign in with GitHub/i })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: /Watch the 81-second build walkthrough/i }),
+  ).toBeVisible();
+  await expect(page.getByRole('group', { name: /Project demo video frame/i })).toBeVisible();
   await expect(page.getByText(/or dev login/i)).toHaveCount(0);
 });
 
@@ -19,11 +23,22 @@ test('public landing page stays usable on mobile', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Sign in with Google/i })).toBeVisible();
   await expect(page.getByText(/Source intake/i)).toBeVisible();
   await expect(page.getByText(/Delivery secrets stay encrypted/i)).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: /Watch the 81-second build walkthrough/i }),
+  ).toBeVisible();
+  await expect(page.getByRole('group', { name: /Project demo video frame/i })).toBeVisible();
 
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,
   );
   expect(overflow).toBe(false);
+});
+
+test('demo video asset is served', async ({ request }) => {
+  const response = await request.get('/demo-video.mp4');
+
+  expect(response.ok()).toBe(true);
+  expect(response.headers()['content-type']).toContain('video/mp4');
 });
 
 test('unauthenticated protected dashboard routes show sign-in shell', async ({ page }) => {

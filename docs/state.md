@@ -2,6 +2,7 @@
 
 ## Current Position
 
+- **Landing demo video embed**: On 2026-07-09, added the rendered demo MP4 to the browser public assets, embedded it on the public landing page, added Playwright smoke coverage for desktop/mobile visibility and the served MP4, and created/synced OpenSpec change `r-23-landing-demo-video`. Focused build, e2e, formatting, and OpenSpec checks passed.
 - **Demo video render**: On 2026-07-09, added `docs/demo-video/render-video.mjs` and rendered `docs/demo-video/demo-video.mp4` with Playwright visuals plus the generated voiceover. The MP4 duration is 80.899 seconds.
 - **OpenSpec sync task**: On 2026-07-09, committed the Playwright CLI skills, synced active `r-21-public-landing-vercel` and `r-telegram-chat-id-bot` delta specs into canonical specs, created retrospective `r-22-demo-video-package` OpenSpec artifacts, and synced the new `demo-video-package` canonical spec. `openspec validate --all --strict` passed with 24 items.
 - **Ad hoc demo-video task**: On 2026-07-09, added a repo-contained

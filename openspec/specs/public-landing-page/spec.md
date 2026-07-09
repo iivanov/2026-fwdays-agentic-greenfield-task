@@ -5,7 +5,7 @@ Define the unauthenticated public landing-page experience for the browser applic
 
 ## Requirements
 ### Requirement: Public Landing Page
-The browser application SHALL render a responsive public landing page for unauthenticated visitors that explains the AI-powered personalized news aggregator, follows the approved newsroom visual direction, and keeps OAuth sign-in actions available without exposing development-only password controls in production (satisfies `BR-USER-01`, `BR-PROJ-01..03`, `NFR-SEC-01`, `NFR-UX-01`, `A-01`, `T-02`, `Q-04`).
+The browser application SHALL render a responsive public landing page for unauthenticated visitors that explains the AI-powered personalized news aggregator, follows the approved newsroom visual direction, and keeps OAuth sign-in actions available, and exposes the project demo video without development-only password controls in production (satisfies `BR-USER-01`, `BR-PROJ-01..03`, `NFR-SEC-01`, `NFR-UX-01`, `A-01`, `T-02`, `Q-04`).
 
 #### Scenario: Visitor sees product landing content
 - **WHEN** an unauthenticated visitor opens the browser root route
@@ -23,9 +23,21 @@ The browser application SHALL render a responsive public landing page for unauth
 - **THEN** the landing page displays a sanitized authentication failure message and does not render authenticated dashboard content
 
 ### Requirement: Landing Page Responsive Behavior
-The public landing page SHALL remain usable at desktop and mobile viewport sizes without horizontal overflow, overlapping controls, or text escaping its container (satisfies `NFR-UX-01`, `NFR-PERF-02`, `Q-04`, `T-12`).
+The public landing page SHALL remain usable at desktop and mobile viewport sizes without horizontal overflow, overlapping controls, or text escaping its container, including the embedded project demo video section (satisfies `NFR-UX-01`, `NFR-PERF-02`, `Q-04`, `T-12`).
 
 #### Scenario: Mobile landing page fits viewport
 - **WHEN** the landing page is rendered on a mobile viewport
 - **THEN** primary copy, sign-in actions, proof points, and workflow sections are visible or reachable without horizontal page overflow
 - **AND** text wraps or truncates intentionally instead of overlapping controls
+
+
+#### Scenario: Visitor can watch the project demo video
+- **WHEN** an unauthenticated visitor opens the browser root route
+- **THEN** the landing page includes a project demo video section
+- **AND** the video is playable through native browser controls
+- **AND** the section explains that the video covers the product and agentic build process
+
+#### Scenario: Demo video fits mobile viewport
+- **WHEN** the landing page is rendered on a mobile viewport
+- **THEN** the demo video section remains visible without horizontal page overflow
+- **AND** the video scales within its container
