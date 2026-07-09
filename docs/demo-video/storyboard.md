@@ -37,4 +37,4 @@ Fallback path: record the narration from `script.md` manually, then keep the sam
 - Use about 12 seconds per slide, with the final slide held for 6 seconds.
 - Keep cursor movement minimal; the screenshots and callouts should carry the story.
 - Include a small caption on the final slide: "Voiceover generated with AI text-to-speech" when AI audio is used.
-- Automated rendering is available with `node docs/demo-video/render-video.mjs`; it writes `docs/demo-video/demo-video.mp4`.
+- Automated rendering is available with `node docs/demo-video/render-video.mjs`; it writes `docs/demo-video/demo-video.webm`.

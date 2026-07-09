@@ -15,8 +15,10 @@ PASS with one documented auth repair during TTS generation.
 - `ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 docs/demo-video/assets/voiceover.mp3` reported `80.856000` seconds.
 - `git diff --check --cached` passed before the demo package and voiceover commits.
 
-- `node docs/demo-video/render-video.mjs` passed and wrote `docs/demo-video/demo-video.mp4`.
-- `ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 docs/demo-video/demo-video.mp4` reported `80.899000` seconds.
+- `node docs/demo-video/render-video.mjs` passed and wrote `docs/demo-video/demo-video.webm`.
+- `ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,codec_tag_string,pix_fmt,width,height -of default=nw=1 docs/demo-video/demo-video.webm` reported VP8 video at 1920x1080 with `yuv420p`.
+- `ffprobe -v error -select_streams a:0 -show_entries stream=codec_name,sample_rate,channels -of default=nw=1 docs/demo-video/demo-video.webm` reported Opus audio at 48000 Hz mono.
+- `ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 docs/demo-video/demo-video.webm` reported `80.883000` seconds.
 
 ## Notes
 The voiceover generation script loads the local API key without printing it. The generated MP3 is committed as a demo artifact and contains no secret material.

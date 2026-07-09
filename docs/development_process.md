@@ -2129,7 +2129,7 @@ A change is complete only when:
 - `npx prettier --check` passed for the touched OpenSpec and process files.
 
 
-### 2026-07-09 — Demo video MP4 render
+### 2026-07-09 — Demo video browser render
 
 **Human direction**
 
@@ -2138,16 +2138,16 @@ A change is complete only when:
 **AI contribution**
 
 - Added `docs/demo-video/render-video.mjs` to render the static deck with Playwright and mux the generated voiceover with ffmpeg.
-- Adjusted the renderer to use the available ffmpeg `mpeg4` encoder because the local ffmpeg build does not include `libx264`.
+- Adjusted the renderer to keep Playwright's VP8 WebM video stream and mux the generated narration as Opus audio for browser playback.
 - Tuned final slide timing to preserve the full 80.856 second voiceover.
-- Rendered `docs/demo-video/demo-video.mp4`.
+- Rendered `docs/demo-video/demo-video.webm`.
 - Updated the demo-video OpenSpec requirement, tasks, and verification evidence.
 
 **Verification performed**
 
 - `node --check docs/demo-video/render-video.mjs` passed.
 - `node docs/demo-video/render-video.mjs` passed.
-- `ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 docs/demo-video/demo-video.mp4` reported `80.899000` seconds.
+- `ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 docs/demo-video/demo-video.webm` reported `80.883000` seconds.
 
 
 ### 2026-07-09 — Landing page demo video embed
@@ -2158,14 +2158,45 @@ A change is complete only when:
 
 **AI contribution**
 
-- Copied the rendered MP4 into `packages/browser/public/demo-video.mp4` so Vite/Vercel serve it from the browser app.
+- Copied the rendered WebM into `packages/browser/public/demo-video.webm` so Vite/Vercel serve it from the browser app.
 - Added a responsive public landing-page demo section below the workflow cards, preserving the first-viewport product hero and OAuth entry points.
-- Added Playwright smoke coverage for the landing demo section and `/demo-video.mp4` response.
+- Added Playwright smoke coverage for the landing demo section and `/demo-video.webm` response.
 - Created and synced OpenSpec change `r-23-landing-demo-video` into `public-landing-page` and `demo-video-package` specs.
 
 **Verification performed**
 
 - `npm run build:browser` passed.
-- `npx playwright test tests/e2e/browser-smoke.spec.ts --reporter=list` passed with 13 Chromium tests.
+- `npx playwright test tests/e2e/browser-smoke.spec.ts --reporter=list` passed with 14 Chromium tests, including a decoded-frame canvas pixel assertion for the embedded demo video.
 - `openspec validate --all --strict` passed with 25 items.
 - `npx prettier --check` passed for touched browser, e2e, and OpenSpec files.
+
+
+### 2026-07-09 — Landing demo video codec repair
+
+**Human direction**
+
+- Reported that the embedded demo audio played but the video area stayed black in the browser.
+- Asked to replace the `.agents` symlink with a folder copy because the symlink blocked sandboxed edits.
+
+**AI contribution**
+
+- Replaced the tracked `.agents` symlink with a real directory copied from `.agent` and committed that tooling stage as `34c8cf7`.
+- Confirmed the committed MP4 video stream used MPEG-4 Part 2 (`mp4v`), which can leave browsers with playable audio but no decoded video.
+- Attempted a local H.264 rerender, but the available OpenH264 encoder failed due to a local library-version mismatch.
+- Reworked `docs/demo-video/render-video.mjs` to keep Playwright's VP8 WebM recording and mux the generated voiceover as Opus audio.
+- Added `docs/demo-video/demo-video.webm`, copied it to `packages/browser/public/demo-video.webm`, and changed the landing page video source plus smoke coverage to use `video/webm`.
+- Removed the stale `docs/demo-video/demo-video.mp4` and `packages/browser/public/demo-video.mp4` binaries so the repo and browser app no longer carry the incompatible playback asset.
+
+**Verification performed**
+
+- `node --check docs/demo-video/render-video.mjs` passed.
+- `node docs/demo-video/render-video.mjs` passed and wrote `docs/demo-video/demo-video.webm`.
+- `ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,codec_tag_string,pix_fmt,width,height -of default=nw=1 docs/demo-video/demo-video.webm` reported VP8 video at 1920x1080 with `yuv420p`.
+- `ffprobe -v error -select_streams a:0 -show_entries stream=codec_name,sample_rate,channels -of default=nw=1 docs/demo-video/demo-video.webm` reported Opus audio at 48000 Hz mono.
+- `ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 docs/demo-video/demo-video.webm` reported `80.883000` seconds.
+- `diff -q docs/demo-video/demo-video.webm packages/browser/public/demo-video.webm` passed.
+- `npm run build:browser` passed.
+- `npx playwright test tests/e2e/browser-smoke.spec.ts --reporter=list` passed with 14 Chromium tests, including a decoded-frame canvas pixel assertion for the embedded demo video.
+- `openspec validate --all --strict` passed with 25 items.
+- `npx prettier --check` passed for touched browser, e2e, docs, and OpenSpec files.
+- `git diff --check` passed.

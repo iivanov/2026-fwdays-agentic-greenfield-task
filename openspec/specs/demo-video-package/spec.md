@@ -5,7 +5,7 @@ Define the repository-contained assets and workflows used to record the course d
 
 ## Requirements
 ### Requirement: Repository Demo Video Package
-The repository SHALL provide a self-contained demo-video package and browser-served final MP4 that supports recording and viewing a 1-2 minute product and agentic-development demo without requiring production data, external slide tooling, or committed secrets (satisfies `BR-PROJ-02..03`, `NFR-UX-01`, `Q-04`, `Q-05`).
+The repository SHALL provide a self-contained demo-video package and browser-served final browser video that supports recording and viewing a 1-2 minute product and agentic-development demo without requiring production data, external slide tooling, or committed secrets (satisfies `BR-PROJ-02..03`, `NFR-UX-01`, `Q-04`, `Q-05`).
 
 #### Scenario: Slide deck is available locally
 - **WHEN** a contributor opens `docs/demo-video/index.html`
@@ -27,13 +27,13 @@ The repository SHALL provide a self-contained demo-video package and browser-ser
 - **WHEN** a contributor reads `docs/demo-video/README.md` or `docs/demo-video/storyboard.md`
 - **THEN** the required screenshot refresh commands, voiceover path, target timing, and AI voice disclosure guidance are documented
 
-#### Scenario: Final MP4 can be rendered
+#### Scenario: Final browser video can be rendered
 - **WHEN** `node docs/demo-video/render-video.mjs` runs after screenshots and voiceover exist
-- **THEN** it writes `docs/demo-video/demo-video.mp4`
+- **THEN** it writes `docs/demo-video/demo-video.webm`
 - **AND** the rendered video combines slide visuals with the generated voiceover inside the 1-2 minute target window
 
 
-#### Scenario: Final MP4 is available to the browser landing page
+#### Scenario: Final browser video is available to the browser landing page
 - **WHEN** the browser app is built
-- **THEN** the generated demo video is available as `/demo-video.mp4`
-- **AND** the served asset uses the `video/mp4` content type
+- **THEN** the generated demo video is available as `/demo-video.webm`
+- **AND** the served asset uses the `video/webm` content type

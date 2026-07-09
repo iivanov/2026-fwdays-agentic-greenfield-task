@@ -8,4 +8,4 @@
 - [x] Generate and commit `docs/demo-video/assets/voiceover.mp3`.
 - [x] Update state and development-process records.
 - [x] Run focused formatting, syntax, screenshot, deck-render, and audio checks.
-- [x] Render and commit `docs/demo-video/demo-video.mp4`.
+- [x] Render and commit `docs/demo-video/demo-video.webm`.
