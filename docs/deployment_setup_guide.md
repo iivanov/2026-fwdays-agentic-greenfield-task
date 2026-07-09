@@ -415,7 +415,7 @@ To manually invoke the daily scheduler after deployment:
 ```bash
 curl -i -X POST "https://your-project-ref.supabase.co/functions/v1/schedule-daily" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_SCHEDULER_SECRET" \
+  -H "Authorization: Bearer ${SCHEDULER_SECRET}" \
   -d '{}'
 ```
 
@@ -425,7 +425,7 @@ operator smoke test before the scheduled time, use an explicit forced run:
 ```bash
 curl -i -X POST "https://your-project-ref.supabase.co/functions/v1/schedule-daily" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_SCHEDULER_SECRET" \
+  -H "Authorization: Bearer ${SCHEDULER_SECRET}" \
   -d '{"force":true}'
 ```
 

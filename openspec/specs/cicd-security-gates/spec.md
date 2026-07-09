@@ -6,11 +6,11 @@ secret-hygiene expectations that support reliable local and hosted validation
 (`T-12`, `T-13`, `Q-01..Q-05`, `NFR-OPS-04`).
 ## Requirements
 ### Requirement: Continuous Integration Pipeline
-The repository SHALL use GitHub Actions and matching root-level local scripts to verify workspace status on push/PR events, including Node typecheck/lint/format/test, Deno Edge Function check/lint/format, backend coverage, browser build, Playwright smoke behavior, dependency update check, actionlint, deployment configuration audit, and local Supabase migration linting where the local stack is available (satisfies T-12, T-13, T-14, Q-01, Q-02, Q-03, Q-04, Q-05, NFR-OPS-04).
+The repository SHALL use GitHub Actions and matching root-level local scripts to verify workspace status on push/PR events, including Node typecheck/lint/format/test, Deno Edge Function check/lint/format, backend coverage, browser build, Playwright smoke behavior, dependency update check, actionlint, deployment configuration audit, secret scanning, and local Supabase migration linting where the local stack is available (satisfies T-12, T-13, T-14, Q-01, Q-02, Q-03, Q-04, Q-05, NFR-OPS-04).
 
 #### Scenario: Running verification gates in CI
 - **WHEN** a pull request is submitted targeting `main`
-- **THEN** GitHub Actions runs the committed root scripts for typechecking, linting, formatting, unit tests, backend coverage, browser build, Deno check, Deno lint, Deno format check, Deno dependency update check, Playwright smoke tests, deployment configuration audit, actionlint, npm audit, and Supabase migration linting
+- **THEN** GitHub Actions runs the committed root scripts for typechecking, linting, formatting, unit tests, backend coverage, browser build, Deno check, Deno lint, Deno format check, Deno dependency update check, Playwright smoke tests, deployment configuration audit, secret scanning, actionlint, npm audit, and Supabase migration linting
 
 #### Scenario: Verifier runs local gates
 - **WHEN** a checker verifies a material code or infrastructure change locally
@@ -37,6 +37,10 @@ The repository SHALL provide a public environment template for developers, run a
 #### Scenario: Verification reports do not expose secrets
 - **WHEN** verifier and reviewer reports are committed for a change
 - **THEN** they contain commands, results, and non-sensitive evidence only, with any required secret/account actions recorded as human-bootstrap blockers
+
+#### Scenario: Current tracked files are scanned for secrets
+- **WHEN** `npm run secrets:scan` is executed from the repository root
+- **THEN** the command installs the pinned Gitleaks binary if needed and scans only tracked repository files with redacted output, excluding local `.env` files from the scan input
 
 ### Requirement: Deno Edge Function Verification
 The repository SHALL verify Supabase Edge Function source with Deno type checking, linting, formatting, lockfile integrity, and dependency update checking before runtime worker changes are accepted (satisfies T-03, T-12, T-13, Q-01, Q-02, Q-05).

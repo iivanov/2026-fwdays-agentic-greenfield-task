@@ -2329,3 +2329,35 @@ A change is complete only when:
 - Synced the static-analysis requirement into the canonical
   `cicd-security-gates` spec and archived the change at
   `openspec/changes/archive/2026-07-09-r-26-static-quality-analysis/`.
+
+
+### 2026-07-09 — Gitleaks secret scanning gate
+
+**Human direction**
+
+- Asked to install Gitleaks after a manual secret scan confirmed no current
+  non-`.env` secret values were visible in the committed code.
+
+**AI contribution**
+
+- Added a pinned Gitleaks installer for `v8.30.1` that downloads the official
+  release archive, verifies the SHA-256 checksum, and stores the local binary
+  under ignored `.tools/bin/`.
+- Added `npm run secrets:scan`, which scans a temporary copy of tracked files
+  with redacted output so untracked local `.env` files are not read.
+- Added the secret scan to `npm run verify:local` and the CI quality workflow.
+- Removed bearer-token placeholder strings from the deployment guide and added
+  a narrow Gitleaks allowlist for the documented local Supabase test JWT
+  fixture.
+- Synced the `cicd-security-gates` spec and state record with the new current
+  tracked-file secret scanning gate.
+
+**Verification performed**
+
+- `npm run secrets:scan` installed Gitleaks and then passed with no leaks found
+  in current tracked files.
+- A separate full Git-history Gitleaks scan was run with redaction and reported
+  historical findings in deleted legacy config files and older test/doc
+  placeholders. Secret values were not printed; the historical findings remain
+  a rotation/history-cleanup follow-up if full-history scanning becomes a hard
+  gate.
