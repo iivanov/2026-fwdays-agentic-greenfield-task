@@ -1,8 +1,22 @@
 # Development Process Summary
 
-Initially was defined architecture as a collaboration between human and AI agents (./docs/architecture/). Human defined requirements and asked AI to generate all other levels of the architecture. Then human verified ideas and asked to add more detail where needed.
+## Steps
+1. Defined architecture as a collaboration between human and AI agents (./docs/architecture/).
+2. Human defined requirements and asked AI to generate all other levels of the architecture moving from high-level to low-level Business -> Data -> Application -> Technology (using trade-off analysis).
+3. Human verified ideas in each level and asked to add more detail where needed.
+4. Based on the requirements AI prepared required list of skills, AGENTS.md, validation gates, and other artifacts.
+5. Using AI was prepared a general implementation plan. Finally AI implemented the plan step by step using OpenSpec.
+6. Human configured infrastructure and deployed the application based on the AI generated documentation.
 
-This project is developed through a spec-driven human-AI loop. The human owns
+## Thoughts after the development process
+
+To avoid major refactoring later, it’s better to have stronger human involvement at the beginning of the project, until the required skills, gates, and feedback loops are defined and polished. At later stages, human involvement can be significantly reduced.
+
+For example, I missed that the AI had put all the logic into a single file, which required refactoring later. This would have been much cheaper to catch and fix earlier.
+
+## General AI Summary
+
+The human owns
 intent, constraints, and acceptance, while the AI converts those decisions into
 traceable architecture, implementation, tests, and process records.
 
