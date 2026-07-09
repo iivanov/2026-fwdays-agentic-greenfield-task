@@ -2,6 +2,18 @@
 
 ## Current Position
 
+- **API helper decomposition refactor**: On 2026-07-09, created OpenSpec
+  change `r-25-api-helper-decomposition` and split
+  `supabase/functions/api/helpers.ts` into focused internal modules for shared
+  types, HTTP helpers, digest reporting, flow prompt storage, delivery-channel
+  config/verification, and routing. The public `api/helpers.ts` import surface
+  remains stable. Focused API helper Vitest, Deno check/lint/fmt/lock, unit
+  tests, coverage, typecheck, OpenSpec validation, scoped ESLint/Prettier, and
+  scoped whitespace checks passed locally. Full root lint remains blocked only
+  by unchanged `docs/demo-video/*.mjs` Node global lint configuration.
+  Independent verifier PASS and reviewer APPROVE reports are retained in the
+  active change; reviewer feedback narrowed `api/helpers.ts` to explicit
+  compatibility exports.
 - **Worker decomposition refactor**: On 2026-07-09, created OpenSpec change
   `r-24-work-function-decomposition` and split the `work` Edge Function into
   focused internal modules for types, errors, database helpers, logging,
