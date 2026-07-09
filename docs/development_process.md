@@ -2148,3 +2148,24 @@ A change is complete only when:
 - `node --check docs/demo-video/render-video.mjs` passed.
 - `node docs/demo-video/render-video.mjs` passed.
 - `ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 docs/demo-video/demo-video.mp4` reported `80.899000` seconds.
+
+
+### 2026-07-09 — Landing page demo video embed
+
+**Human direction**
+
+- Asked to put the generated demo video somewhere on the landing page.
+
+**AI contribution**
+
+- Copied the rendered MP4 into `packages/browser/public/demo-video.mp4` so Vite/Vercel serve it from the browser app.
+- Added a responsive public landing-page demo section below the workflow cards, preserving the first-viewport product hero and OAuth entry points.
+- Added Playwright smoke coverage for the landing demo section and `/demo-video.mp4` response.
+- Created and synced OpenSpec change `r-23-landing-demo-video` into `public-landing-page` and `demo-video-package` specs.
+
+**Verification performed**
+
+- `npm run build:browser` passed.
+- `npx playwright test tests/e2e/browser-smoke.spec.ts --reporter=list` passed with 13 Chromium tests.
+- `openspec validate --all --strict` passed with 25 items.
+- `npx prettier --check` passed for touched browser, e2e, and OpenSpec files.

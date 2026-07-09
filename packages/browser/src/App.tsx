@@ -350,6 +350,24 @@ export default function App() {
           </article>
         </section>
 
+        <section className="landing-demo" aria-labelledby="landing-demo-title">
+          <div className="landing-demo__copy">
+            <p className="eyebrow">project demo</p>
+            <h2 id="landing-demo-title">Watch the 81-second build walkthrough.</h2>
+            <p>
+              The video shows the product surface and the agentic engineering loop behind it:
+              requirements, OpenSpec slices, maker/checker passes, and retained verification
+              evidence.
+            </p>
+          </div>
+          <div className="landing-demo__frame" role="group" aria-label="Project demo video frame">
+            <video controls preload="metadata" aria-label="Project demo video">
+              <source src="/demo-video.mp4" type="video/mp4" />
+              <a href="/demo-video.mp4">Download the project demo video.</a>
+            </video>
+          </div>
+        </section>
+
         {showLocalPasswordAuth ? (
           <section className="dev-login" aria-label="Local development login">
             <p className="eyebrow">or dev login</p>
