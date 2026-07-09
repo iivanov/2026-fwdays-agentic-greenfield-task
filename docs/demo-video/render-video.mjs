@@ -7,7 +7,7 @@ import { chromium } from 'playwright';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const deckPath = path.join(__dirname, 'index.html');
 const voiceoverPath = path.join(__dirname, 'assets', 'voiceover.mp3');
-const outputPath = path.join(__dirname, 'demo-video.mp4');
+const outputPath = path.join(__dirname, 'demo-video.webm');
 const tmpDir = path.join('/tmp', 'news-demo-video-render');
 
 const slideDurationsMs = [7_000, 12_000, 16_000, 13_000, 14_000, 10_000, 13_000];
@@ -58,15 +58,11 @@ await run('ffmpeg', [
   '-map',
   '1:a:0',
   '-c:v',
-  'mpeg4',
-  '-q:v',
-  '4',
-  '-tag:v',
-  'mp4v',
-  '-pix_fmt',
-  'yuv420p',
+  'copy',
   '-c:a',
-  'aac',
+  'opus',
+  '-strict',
+  '-2',
   '-shortest',
   outputPath,
 ]);

@@ -8,7 +8,7 @@ This folder contains a ready-to-record 1-2 minute demo package for the project:
 - `storyboard.md` - shot list and recording checklist.
 - `capture-screenshots.mjs` - Playwright screenshot capture script for local fixture data.
 - `generate-voiceover.mjs` - optional OpenAI TTS generator.
-- `render-video.mjs` - Playwright + ffmpeg renderer for the final MP4.
+- `render-video.mjs` - Playwright + ffmpeg renderer for the final browser video.
 - `assets/` - generated screenshots used by the deck.
 
 ## Screenshot refresh
@@ -35,7 +35,7 @@ node docs/demo-video/capture-screenshots.mjs
 
 Open `index.html` in a browser or serve this directory with any static server. Use the left and right arrow keys to move through slides.
 
-## Render final MP4
+## Render final browser video
 
 After screenshots and voiceover exist, render the final video:
 
@@ -43,4 +43,4 @@ After screenshots and voiceover exist, render the final video:
 node docs/demo-video/render-video.mjs
 ```
 
-The output is `docs/demo-video/demo-video.mp4`.
+The output is `docs/demo-video/demo-video.webm`.

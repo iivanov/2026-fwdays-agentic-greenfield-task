@@ -316,7 +316,7 @@ textarea {
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(15, 23, 42, 0.96);
   color: rgba(255, 255, 255, 0.72);
-  content: 'demo-video.mp4';
+  content: 'demo-video.webm';
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.72rem;
 }

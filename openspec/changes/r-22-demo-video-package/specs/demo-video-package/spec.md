@@ -23,7 +23,7 @@ The repository SHALL provide a self-contained demo-video package that supports r
 - **WHEN** a contributor reads `docs/demo-video/README.md` or `docs/demo-video/storyboard.md`
 - **THEN** the required screenshot refresh commands, voiceover path, target timing, and AI voice disclosure guidance are documented
 
-#### Scenario: Final MP4 can be rendered
+#### Scenario: Final browser video can be rendered
 - **WHEN** `node docs/demo-video/render-video.mjs` runs after screenshots and voiceover exist
-- **THEN** it writes `docs/demo-video/demo-video.mp4`
+- **THEN** it writes `docs/demo-video/demo-video.webm`
 - **AND** the rendered video combines slide visuals with the generated voiceover inside the 1-2 minute target window

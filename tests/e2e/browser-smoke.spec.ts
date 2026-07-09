@@ -35,10 +35,66 @@ test('public landing page stays usable on mobile', async ({ page }) => {
 });
 
 test('demo video asset is served', async ({ request }) => {
-  const response = await request.get('/demo-video.mp4');
+  const response = await request.get('/demo-video.webm');
 
   expect(response.ok()).toBe(true);
-  expect(response.headers()['content-type']).toContain('video/mp4');
+  expect(response.headers()['content-type']).toContain('video/webm');
+});
+
+test('demo video decodes visible frames in the browser', async ({ page }) => {
+  await page.goto('/');
+
+  const frame = await page
+    .locator('video[aria-label="Project demo video"]')
+    .evaluate(async (video: HTMLVideoElement) => {
+      video.preload = 'auto';
+      video.muted = true;
+
+      if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+        await new Promise<void>((resolve) => {
+          video.addEventListener('loadedmetadata', () => resolve(), { once: true });
+        });
+      }
+
+      video.currentTime = Math.min(8, Math.max(0, video.duration - 1));
+      await new Promise<void>((resolve) => {
+        video.addEventListener('seeked', () => resolve(), { once: true });
+      });
+
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 250));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 160;
+      canvas.height = 90;
+      const context = canvas.getContext('2d');
+
+      if (!context) {
+        throw new Error('Canvas context is unavailable.');
+      }
+
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+      let visiblePixels = 0;
+
+      for (let index = 0; index < data.length; index += 4) {
+        const brightness = data[index] + data[index + 1] + data[index + 2];
+        if (brightness > 72) {
+          visiblePixels += 1;
+        }
+      }
+
+      return {
+        currentTime: video.currentTime,
+        height: video.videoHeight,
+        visibleRatio: visiblePixels / (canvas.width * canvas.height),
+        width: video.videoWidth,
+      };
+    });
+
+  expect(frame.width).toBe(1920);
+  expect(frame.height).toBe(1080);
+  expect(frame.currentTime).toBeGreaterThan(0);
+  expect(frame.visibleRatio).toBeGreaterThan(0.2);
 });
 
 test('unauthenticated protected dashboard routes show sign-in shell', async ({ page }) => {

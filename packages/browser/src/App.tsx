@@ -362,8 +362,8 @@ export default function App() {
           </div>
           <div className="landing-demo__frame" role="group" aria-label="Project demo video frame">
             <video controls preload="metadata" aria-label="Project demo video">
-              <source src="/demo-video.mp4" type="video/mp4" />
-              <a href="/demo-video.mp4">Download the project demo video.</a>
+              <source src="/demo-video.webm" type="video/webm" />
+              <a href="/demo-video.webm">Download the project demo video.</a>
             </video>
           </div>
         </section>
