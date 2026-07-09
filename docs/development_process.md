@@ -2200,3 +2200,41 @@ A change is complete only when:
 - `openspec validate --all --strict` passed with 25 items.
 - `npx prettier --check` passed for touched browser, e2e, docs, and OpenSpec files.
 - `git diff --check` passed.
+
+
+### 2026-07-09 — Work Edge Function decomposition
+
+**Human direction**
+
+- Asked whether the large Supabase Edge Function files should be decomposed,
+  then requested implementation of the worker-first refactor plan.
+
+**AI contribution**
+
+- Created OpenSpec change `r-24-work-function-decomposition` with proposal,
+  design, scheduler-queue spec delta, and implementation tasks.
+- Split `supabase/functions/work/index.ts` into focused modules for shared
+  types/constants/errors/database helpers, structured logging, alerting,
+  ingestion, processing, delivery, and queue orchestration.
+- Kept `work/index.ts` as the Edge Function entrypoint and compatibility export
+  surface for existing tests and callers.
+- Updated the queue worker source-level regression to inspect the new handler
+  and logging modules for sanitized DLQ context handling.
+
+**Verification performed**
+
+- `npm run deno:check` passed.
+- `npm run deno:lint` passed.
+- `npm run deno:fmt` passed after formatting the new worker modules with
+  `npx deno fmt --config supabase/functions/deno.gates.json supabase/functions/work`.
+- `npx vitest run packages/browser/src/lib/ingestion-worker.test.ts packages/browser/src/lib/processing-worker.test.ts packages/browser/src/lib/delivery-worker.test.ts packages/browser/src/lib/queue-worker.test.ts` passed with 4 files and 55 tests.
+- `npm run test` passed with 16 files and 171 tests.
+- `npm run test:coverage` passed with coverage above configured thresholds.
+- `npm run deno:lock` passed.
+- `openspec validate --all --strict` passed with 26 items.
+- `git diff --check -- . ':(exclude)docs/development_process_summary.md'`
+  passed for this refactor. A global `git diff --check` run failed only on
+  pre-existing trailing whitespace in the unrelated dirty
+  `docs/development_process_summary.md`, which was intentionally left untouched.
+- Independent verifier PASS and reviewer APPROVE reports were recorded in
+  `openspec/changes/r-24-work-function-decomposition/`.
