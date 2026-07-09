@@ -12,8 +12,10 @@
   scoped whitespace checks passed locally. Full root lint remains blocked only
   by unchanged `docs/demo-video/*.mjs` Node global lint configuration.
   Independent verifier PASS and reviewer APPROVE reports are retained in the
-  active change; reviewer feedback narrowed `api/helpers.ts` to explicit
-  compatibility exports.
+  archived change; reviewer feedback narrowed `api/helpers.ts` to explicit
+  compatibility exports. The change was archived at
+  `openspec/changes/archive/2026-07-09-r-25-api-helper-decomposition/` after
+  syncing the canonical `api-skeleton` spec.
 - **Worker decomposition refactor**: On 2026-07-09, created OpenSpec change
   `r-24-work-function-decomposition` and split the `work` Edge Function into
   focused internal modules for types, errors, database helpers, logging,
@@ -23,7 +25,9 @@
   scoped whitespace check passed locally; global `git diff --check` is blocked
   only by the unrelated dirty `docs/development_process_summary.md` whitespace.
   Independent verifier PASS and reviewer APPROVE reports are retained in the
-  active change.
+  archived change. The change was archived at
+  `openspec/changes/archive/2026-07-09-r-24-work-function-decomposition/` after
+  syncing the canonical `scheduler-queue` spec.
 - **Tooling sandbox fix**: On 2026-07-09, replaced tracked `.agents` symlink with a real directory copied from `.agent` and committed it as `34c8cf7` so sandboxed file-edit tooling can operate normally.
 - **Landing demo video codec repair**: On 2026-07-09, replaced the embedded demo playback asset with `demo-video.webm` after browser feedback showed the old MP4 played audio but displayed black video, and removed the stale MP4 binaries. The renderer now muxes Playwright VP8 WebM video with Opus narration, and the landing page plus smoke test target `/demo-video.webm`. Renderer, ffprobe, build, Playwright smoke with decoded-frame assertion, OpenSpec, formatting, and diff checks passed.
 - **Landing demo video embed**: On 2026-07-09, added the rendered demo WebM to the browser public assets, embedded it on the public landing page, added Playwright smoke coverage for desktop/mobile visibility and the served WebM, and created/synced OpenSpec change `r-23-landing-demo-video`. Focused build, e2e, formatting, and OpenSpec checks passed.
