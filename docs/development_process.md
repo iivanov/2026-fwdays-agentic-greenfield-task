@@ -2238,6 +2238,9 @@ A change is complete only when:
   `docs/development_process_summary.md`, which was intentionally left untouched.
 - Independent verifier PASS and reviewer APPROVE reports were recorded in
   `openspec/changes/r-24-work-function-decomposition/`.
+- Synced the worker decomposition requirement into the canonical
+  `scheduler-queue` spec and archived the change at
+  `openspec/changes/archive/2026-07-09-r-24-work-function-decomposition/`.
 
 
 ### 2026-07-09 — API helper decomposition
@@ -2285,3 +2288,6 @@ A change is complete only when:
 - Reviewer feedback about broad barrel exports was addressed by narrowing
   `supabase/functions/api/helpers.ts` to explicit compatibility exports, then
   rerunning focused API tests, `npm run deno:check`, and `npm run deno:fmt`.
+- Synced the API helper decomposition requirement into the canonical
+  `api-skeleton` spec and archived the change at
+  `openspec/changes/archive/2026-07-09-r-25-api-helper-decomposition/`.
