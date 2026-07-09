@@ -2,6 +2,15 @@
 
 ## Current Position
 
+- **Static quality analysis gate**: On 2026-07-09, created OpenSpec change
+  `r-26-static-quality-analysis` and extended ESLint so `npm run lint` now
+  includes production complexity, nesting, parameter-count, and file-length
+  limits. The gate also classifies `docs/demo-video/**/*.mjs` as Node tooling
+  so root lint recognizes `process`, `console`, `Buffer`, `fetch`, and `URL`.
+  Root lint, format, typecheck, OpenSpec validation, and whitespace checks pass
+  locally. Independent verifier PASS and reviewer APPROVE reports are retained
+  in the archived change at
+  `openspec/changes/archive/2026-07-09-r-26-static-quality-analysis/`.
 - **API helper decomposition refactor**: On 2026-07-09, created OpenSpec
   change `r-25-api-helper-decomposition` and split
   `supabase/functions/api/helpers.ts` into focused internal modules for shared
