@@ -2291,3 +2291,41 @@ A change is complete only when:
 - Synced the API helper decomposition requirement into the canonical
   `api-skeleton` spec and archived the change at
   `openspec/changes/archive/2026-07-09-r-25-api-helper-decomposition/`.
+
+
+### 2026-07-09 — Static quality analysis gate
+
+**Human direction**
+
+- Asked to commit the remaining development-process summary change and consider
+  adding static analysis to control code quality and complexity.
+
+**AI contribution**
+
+- Committed the updated `docs/development_process_summary.md` as a separate
+  stage after removing trailing whitespace.
+- Created OpenSpec change `r-26-static-quality-analysis` with proposal, design,
+  cicd-security-gates spec delta, and tasks.
+- Extended `eslint.config.js` so `npm run lint` recognizes Node globals for
+  `docs/demo-video/**/*.mjs`, fixing the previous root lint baseline failure.
+- Added ESLint complexity and maintainability controls for production
+  source/script files: cyclomatic complexity, nesting depth, nested callbacks,
+  parameter count, and source file length.
+- Kept strict defaults for new code and explicit baseline overrides for the
+  known complex orchestrator modules that remain after decomposition.
+
+**Verification performed**
+
+- `npm run lint` passed.
+- `npm run format` passed.
+- `npm run typecheck` passed.
+- `openspec validate --all --strict` passed with 26 items.
+- `git diff --check` passed.
+- Independent verifier PASS and reviewer APPROVE reports were recorded in
+  `openspec/changes/r-26-static-quality-analysis/`.
+- Reviewer-requested fixes were applied before approval: design thresholds now
+  match the ESLint implementation, and infrastructure Node scripts share the
+  same `Buffer`/`fetch` global handling as documentation Node scripts.
+- Synced the static-analysis requirement into the canonical
+  `cicd-security-gates` spec and archived the change at
+  `openspec/changes/archive/2026-07-09-r-26-static-quality-analysis/`.
