@@ -2238,3 +2238,50 @@ A change is complete only when:
   `docs/development_process_summary.md`, which was intentionally left untouched.
 - Independent verifier PASS and reviewer APPROVE reports were recorded in
   `openspec/changes/r-24-work-function-decomposition/`.
+
+
+### 2026-07-09 — API helper decomposition
+
+**Human direction**
+
+- Asked to continue after the worker decomposition and decompose the large
+  `supabase/functions/api/helpers.ts` file.
+
+**AI contribution**
+
+- Created OpenSpec change `r-25-api-helper-decomposition` with proposal,
+  design, api-skeleton spec delta, and implementation tasks.
+- Split API helper internals into focused modules for shared types, HTTP
+  helpers, digest report shaping, flow prompt encryption/decryption helpers,
+  delivery-channel config and verification, and route dispatch/handling.
+- Kept `supabase/functions/api/helpers.ts` as the stable compatibility export
+  surface for `api/index.ts` and existing tests.
+- Left `crypto.ts` and `ssrf.ts` unchanged because they were already focused
+  modules.
+
+**Verification performed**
+
+- `npx vitest run packages/browser/src/lib/api-helpers.test.ts` passed with 1
+  file and 59 tests.
+- `npm run deno:check` passed.
+- `npm run deno:lint` passed.
+- `npm run deno:fmt` passed after formatting the new API modules with
+  `npx deno fmt --config supabase/functions/deno.gates.json supabase/functions/api`.
+- `npm run test` passed with 16 files and 171 tests.
+- `npm run test:coverage` passed with coverage above configured thresholds.
+- `npm run typecheck` passed.
+- `npm run deno:lock` passed.
+- `openspec validate --all --strict` passed with 27 items.
+- `git diff --check -- . ':(exclude)docs/development_process_summary.md'`
+  passed for this refactor. A global `git diff --check` remains blocked only
+  by pre-existing trailing whitespace in the unrelated dirty
+  `docs/development_process_summary.md`, which was intentionally left untouched.
+- `npx eslint` over the changed API modules and API helper test passed.
+- `npx prettier --check` over the changed OpenSpec and API module files passed.
+- Full `npm run lint` remains blocked only by unchanged `docs/demo-video/*.mjs`
+  Node global lint configuration.
+- Independent verifier PASS and reviewer APPROVE reports were recorded in
+  `openspec/changes/r-25-api-helper-decomposition/`.
+- Reviewer feedback about broad barrel exports was addressed by narrowing
+  `supabase/functions/api/helpers.ts` to explicit compatibility exports, then
+  rerunning focused API tests, `npm run deno:check`, and `npm run deno:fmt`.
