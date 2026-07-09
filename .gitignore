@@ -17,6 +17,7 @@ Thumbs.db
 
 # Залежності та артефакти збірки (типові для різних стеків)
 node_modules/
+.tools/
 dist/
 build/
 out/

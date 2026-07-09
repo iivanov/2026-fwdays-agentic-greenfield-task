@@ -43,6 +43,9 @@ jobs:
       - name: Deployment config audit
         run: npm run infra:audit
 
+      - name: Secret scan
+        run: npm run secrets:scan
+
       - name: Test
         run: npm run test
 

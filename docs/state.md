@@ -2,6 +2,16 @@
 
 ## Current Position
 
+- **Gitleaks secret scan gate**: On 2026-07-09, installed a pinned local
+  Gitleaks runner (`v8.30.1`) through `infra/scripts/install-gitleaks.mjs` and
+  `infra/scripts/run-gitleaks.mjs`. `npm run secrets:scan` scans a temporary
+  copy of tracked files with redacted output, so local `.env` remains untracked
+  and unread. CI and `verify:local` now include the secret scan. Current tracked
+  scan passed with no leaks found. A separate full Git-history scan, run with
+  redaction, reported historical findings in deleted legacy config files and
+  older test/doc placeholders; those values were not printed and should be
+  treated as rotation/history-cleanup follow-up before relying on full-history
+  secret scanning.
 - **Static quality analysis gate**: On 2026-07-09, created OpenSpec change
   `r-26-static-quality-analysis` and extended ESLint so `npm run lint` now
   includes production complexity, nesting, parameter-count, and file-length
