@@ -53,6 +53,8 @@ const allMigrationSources = readdirSync('supabase/migrations')
   .map((fileName) => readFileSync(`supabase/migrations/${fileName}`, 'utf8'))
   .join('\n');
 const workFunctionSource = readFileSync('supabase/functions/work/index.ts', 'utf8');
+const workHandlerSource = readFileSync('supabase/functions/work/handler.ts', 'utf8');
+const workLoggingSource = readFileSync('supabase/functions/work/logging.ts', 'utf8');
 
 type RpcResult = { data: unknown; error: { message: string } | null };
 type RpcCall = { name: string; args?: Record<string, unknown> };
@@ -657,9 +659,9 @@ describe('R-11F queue worker safeguards', () => {
   });
 
   it('dead-letter surfacing records sanitized operational events', () => {
-    expect(workFunctionSource).toContain('p_context: sanitizeDlqContext(activeQueue, message)');
-    expect(workFunctionSource).toContain('const sanitizeDlqContext =');
-    expect(workFunctionSource).not.toMatch(/p_context:\s*message/);
+    expect(workHandlerSource).toContain('p_context: sanitizeDlqContext(activeQueue, message)');
+    expect(workLoggingSource).toContain('export const sanitizeDlqContext =');
+    expect(workHandlerSource).not.toMatch(/p_context:\s*message/);
     const archiveFunction = r13MigrationSource.slice(
       r13MigrationSource.indexOf('create or replace function public.archive_exhausted_worker_job'),
       r13MigrationSource.indexOf('create or replace function public.persist_processing_digest'),

@@ -1,0 +1,9 @@
+export const DEFAULT_TIMEOUT_MS = 30_000;
+export const DEFAULT_MAX_BYTES = 2 * 1024 * 1024;
+export const DEFAULT_MAX_REDIRECTS = 5;
+export const APPROVED_AI_MODEL = 'gpt-5.4-mini';
+export const MAX_PROCESSING_CANDIDATES = 50;
+export const MAX_ARTICLE_CHARS = 2_000;
+export const MAX_TOTAL_ARTICLE_CHARS = 60_000;
+export const OPENAI_MAX_OUTPUT_TOKENS = 4_000;
+export const NEAR_DUPLICATE_THRESHOLD = 0.6;
