@@ -92,8 +92,14 @@ earlier prose claims as certification evidence.
 
 **Not complete**
 
-- Historical rewrite, independent checks, force push, refreshed GitGuardian
-  result, and archive evidence remain pending.
+- Independent checks, force push, refreshed GitGuardian result, and archive
+  evidence remain pending.
+
+**Rewrite evidence**
+
+- Rewrote the isolated fork `main` through the targeted fixture replacement.
+  The rewritten history has no reachable occurrence of the fixture, and the
+  pre-documentation tree hash matched the original planned tree exactly.
 
 ### 2026-07-10 — Hosted cron deployment documentation correction
 
