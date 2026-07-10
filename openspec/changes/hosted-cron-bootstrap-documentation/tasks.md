@@ -15,15 +15,12 @@
   `curl` is not accepted as evidence of automatic cron health.
 - [x] 1.6 Record the hosted SQL permission failure, Vault repair, and only the
   checks actually run in `docs/development_process.md` and `docs/state.md`.
-  and only the checks actually run in `docs/development_process.md` and
-  `docs/state.md`.
 
 ## 2. Maker checks
 
 - [x] 2.1 Run focused migration tests, the local Supabase migration lint/reset
   when available, plus `git diff --check`, local link/path validation,
   traceability, and strict OpenSpec validation.
-  OpenSpec traceability, and run strict OpenSpec validation.
 
 ## 3. Independent checks
 
