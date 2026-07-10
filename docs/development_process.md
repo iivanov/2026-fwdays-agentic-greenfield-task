@@ -106,6 +106,8 @@ earlier prose claims as certification evidence.
 - Force-pushed only the fork `main` with the captured SHA lease after checking
   the remote had not moved. The old branch SHA was `8ca4ade`; the verified
   rewritten push head was `8a39b83`.
+- Confirmed PR #47 at `aa13135` has successful GitGuardian Security Checks and
+  CodeRabbit review after the rewrite.
 
 ### 2026-07-10 — Hosted cron deployment documentation correction
 

@@ -11,8 +11,9 @@
   exactly matched the captured original. Independent verifier PASS and security
   reviewer APPROVE reports are retained in the active change. The SHA-pinned
   force-with-lease push from `8ca4ade` to rewritten `8a39b83` succeeded on
-  2026-07-10; the refreshed PR result remains pending. Other public refs and
-  shared-worktree changes are excluded.
+  2026-07-10. PR #47 now reports GitGuardian Security Checks SUCCESS and
+  CodeRabbit SUCCESS at `aa13135`. Other public refs and shared-worktree
+  changes are excluded.
 - **Hosted cron Vault repair**: On 2026-07-10, operator-provided `pg_net`
   results showed that the per-minute cron requests were executing but failing
   with `Couldn't resolve host name`; manual `curl` succeeded because it calls
