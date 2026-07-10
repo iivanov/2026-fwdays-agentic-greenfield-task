@@ -100,6 +100,9 @@ earlier prose claims as certification evidence.
 - Rewrote the isolated fork `main` through the targeted fixture replacement.
   The rewritten history has no reachable occurrence of the fixture, and the
   pre-documentation tree hash matched the original planned tree exactly.
+- Independent verifier PASS and security-reviewer APPROVE reports confirm the
+  rewritten history, the scoped replacement, tree preservation, current secret
+  scan, typecheck, lint, formatting, OpenSpec validation, and whitespace check.
 
 ### 2026-07-10 — Hosted cron deployment documentation correction
 

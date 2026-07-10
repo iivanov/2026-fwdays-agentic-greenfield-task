@@ -10,7 +10,7 @@
   non-logging replacement of the local fixture.
 - [x] 2.2 Verify the current tree is unchanged before process documentation and
   that the literal is absent from all rewritten reachable commits.
-- [ ] 2.3 Record the rewrite, run applicable checks, and obtain independent
+- [x] 2.3 Record the rewrite, run applicable checks, and obtain independent
   verifier and security-reviewer reports.
 
 ## 3. Publish
