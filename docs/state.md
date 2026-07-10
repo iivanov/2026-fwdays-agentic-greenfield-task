@@ -2,18 +2,18 @@
 
 ## Current Position
 
-- **Active security remediation**: Created OpenSpec change
-  `remove-local-service-role-fixture` on 2026-07-10 after GitGuardian flagged
-  the documented default local Supabase `service_role` JWT in commit `3bbd1a5`
-  and the shared integration-test helper. Investigation confirmed the value is
-  a deterministic local-emulator credential, not a hosted-project token. The
-  implementation removes it from tracked files, replaces it with CLI runtime
-  discovery scoped to the integration-test process, and removes the
+- **Local Supabase test-credential remediation**: Created and archived OpenSpec
+  change `2026-07-10-remove-local-service-role-fixture` after GitGuardian
+  flagged the documented default local Supabase `service_role` JWT in commit
+  `3bbd1a5` and the shared integration-test helper. Investigation confirmed the
+  value is a deterministic local-emulator credential, not a hosted-project
+  token. The implementation removes it from tracked files, replaces it with CLI
+  runtime discovery scoped to the integration-test process, and removes the
   corresponding Gitleaks allowlist. The focused launcher tests, root unit
   suite, typecheck, ESLint, Prettier, tracked-file Gitleaks scan, real local
   Supabase integration suite, migration lint, strict OpenSpec validation, and
   whitespace check passed. Independent verifier PASS and security-reviewer
-  APPROVE reports are retained in the change. PR #47's GitGuardian
+  APPROVE reports are retained in the archive. PR #47's GitGuardian
   test-credential disposition remains a manual GitGuardian UI action because
   its API exposes no resolution action for the historical check. No production
   secret rotation is required.

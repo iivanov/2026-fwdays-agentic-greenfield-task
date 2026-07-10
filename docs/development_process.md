@@ -136,6 +136,10 @@ earlier prose claims as certification evidence.
   is ready to push; closing the historical local-fixture alert requires the
   GitGuardian UI's `Skip: test credential` action (or a disruptive history
   rewrite, which the human declined).
+- Archived the completed change as
+  `2026-07-10-remove-local-service-role-fixture` and synced its runtime-
+  credential and no-tracked-fixture requirements into the canonical
+  `cicd-security-gates` specification.
 
 ### 2026-07-03 — R-11B verification-gates WIP checkpoint
 
