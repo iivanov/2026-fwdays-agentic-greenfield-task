@@ -1,7 +1,7 @@
 # Verification: remove-local-service-role-fixture
 
-Verifier: independent checker (separate from the maker)  
-Verified commit range: `c4fea96..dda79fe`  
+Verifier: independent checker (separate from the maker)
+Verified commit range: `c4fea96..dda79fe`
 Date: 2026-07-10
 
 | Gate | Command / inspection | Result | Evidence |
