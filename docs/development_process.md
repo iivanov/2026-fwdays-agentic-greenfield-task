@@ -122,6 +122,21 @@ earlier prose claims as certification evidence.
   tests (3 files/5 tests), migration lint, strict OpenSpec validation, and
   `git diff --check` passed.
 
+**Independent checks completed**
+
+- A separate verifier passed runtime discovery with both credential variables
+  removed from the parent environment, the missing-CLI non-sensitive failure
+  path, typecheck, lint, format, unit tests, integration tests, Gitleaks, and
+  tracked-file inspection. Evidence is retained in the change's
+  `verification.md`.
+- A separate security reviewer approved the final implementation with no
+  findings. Evidence is retained in `review.md`.
+- GitGuardian's public GitHub Check Run API confirms PR #47 scans every commit
+  in the PR range and offers no programmable resolution action. The source fix
+  is ready to push; closing the historical local-fixture alert requires the
+  GitGuardian UI's `Skip: test credential` action (or a disruptive history
+  rewrite, which the human declined).
+
 ### 2026-07-03 — R-11B verification-gates WIP checkpoint
 
 **Human direction**

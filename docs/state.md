@@ -12,9 +12,11 @@
   corresponding Gitleaks allowlist. The focused launcher tests, root unit
   suite, typecheck, ESLint, Prettier, tracked-file Gitleaks scan, real local
   Supabase integration suite, migration lint, strict OpenSpec validation, and
-  whitespace check passed. Independent verification/review and PR #47's
-  GitGuardian test-credential disposition remain pending. No production secret
-  rotation is required.
+  whitespace check passed. Independent verifier PASS and security-reviewer
+  APPROVE reports are retained in the change. PR #47's GitGuardian
+  test-credential disposition remains a manual GitGuardian UI action because
+  its API exposes no resolution action for the historical check. No production
+  secret rotation is required.
 - **Gitleaks secret scan gate**: On 2026-07-09, installed a pinned local
   Gitleaks runner (`v8.30.1`) through `infra/scripts/install-gitleaks.mjs` and
   `infra/scripts/run-gitleaks.mjs`. `npm run secrets:scan` scans a temporary

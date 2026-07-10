@@ -12,5 +12,5 @@
   disposition, source remediation, and PR check-run action.
 - [x] 2.2 Run focused unit/static/secret-scan gates and applicable local
   Supabase integration gates.
-- [ ] 2.3 Obtain independent verifier and security-reviewer reports on the
+- [x] 2.3 Obtain independent verifier and security-reviewer reports on the
   final diff, resolve findings, and archive after strict OpenSpec validation.
