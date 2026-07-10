@@ -75,6 +75,32 @@ earlier prose claims as certification evidence.
 
 ## 5. Recorded Milestones
 
+### 2026-07-10 — Hosted cron deployment documentation correction
+
+**Human direction**
+
+- Reported that manual scheduler `curl` invocations produced reports but
+  automatic reports did not, then requested an updated deployment guide.
+
+**Evidence and AI contribution**
+
+- Inspected the hosted `pg_net` response metadata supplied by the operator.
+  Consecutive worker requests failed with `Couldn't resolve host name`, so cron
+  was running but could not reach its target; this is distinct from a manual
+  call to the public function URL.
+- Created OpenSpec change `hosted-cron-bootstrap-documentation` and updated the
+  canonical hosting record plus operator guide. The documented deployment flow
+  now treats the hosted URL and scheduler secret as per-project runtime inputs,
+  removes the unnecessary service-role database setting, and requires
+  non-secret cron/job/HTTP evidence before automatic reports are enabled.
+
+**Verification planned/performed**
+
+- The documentation change requires whitespace, local link/path, traceability,
+  strict OpenSpec, and independent verifier/reviewer checks. Hosted database
+  mutation was not performed by the AI; the operator must enter the real
+  project URL and scheduler secret in the Supabase SQL Editor.
+
 ### 2026-07-10 — Local Supabase test-credential remediation planned
 
 **Human direction**

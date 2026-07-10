@@ -387,9 +387,14 @@ supabase db push
 supabase functions deploy
 ```
 
-For hosted cron, the database also needs runtime settings for the public project
-URL and service-role authorization header. In the Supabase SQL Editor, set them
-without pasting the values anywhere public:
+### Required: bootstrap hosted cron runtime settings
+
+The migrations create portable cron jobs, but they cannot contain this
+project's URL or secrets. After the database and functions are deployed, open
+the **Supabase SQL Editor** for this exact hosted project and configure the
+following two project-specific runtime settings. Use the same
+`SCHEDULER_SECRET` value already stored under **Edge Functions → Secrets**;
+never paste it into this guide, Git, Vercel, chat, or a screenshot.
 
 ```sql
 alter database postgres
@@ -397,18 +402,81 @@ set app.settings.supabase_url = 'https://your-project-ref.supabase.co';
 
 alter database postgres
 set app.settings.scheduler_secret = 'YOUR_SCHEDULER_SECRET';
-
-alter database postgres
-set app.settings.service_role_key = 'YOUR_SUPABASE_SERVICE_ROLE_KEY';
-
-select pg_reload_conf();
 ```
 
-Use the real Project URL, generated `SCHEDULER_SECRET`, and legacy
-`service_role` key. Cron sends `SCHEDULER_SECRET` when it calls
-`schedule-daily`, `work`, and `cleanup`; the functions use the service-role key
-internally for database access. Do not put either secret in Vercel or frontend
-code.
+The URL is not secret, but it remains outside a migration so the repository can
+be deployed to a different Supabase project. The scheduler secret authorizes
+cron-to-function calls. Do **not** add `SUPABASE_SERVICE_ROLE_KEY` as a database
+setting: each Edge Function uses its own `SUPABASE_SERVICE_ROLE_KEY` secret
+internally.
+
+`alter database ... set` stores a default for new database connections. Close
+and reopen the SQL Editor (or otherwise use a new database connection) before
+running the setting check below. Do not rely on a manual `curl` or
+`pg_reload_conf()` as proof that scheduled work is healthy. Wait at least one
+minute for the worker cron job, then run the read-only checks.
+
+### Verify automatic cron before enabling reports
+
+These queries return configuration state and operational metadata only. They do
+not reveal the URL value, scheduler secret, service-role key, request headers,
+or response content.
+
+```sql
+select
+  coalesce(nullif(current_setting('app.settings.supabase_url', true), ''), '') <> ''
+    as hosted_url_configured,
+  coalesce(nullif(current_setting('app.settings.scheduler_secret', true), ''), '') <> ''
+    as scheduler_secret_configured;
+
+select
+  jobname,
+  schedule,
+  active,
+  case
+    when command like '%http://kong:8000%' then 'outdated local target'
+    when command like '%app.settings.supabase_url%' then 'configured hosted target'
+    else 'inspect command before enabling reports'
+  end as target_check
+from cron.job
+where jobname in ('schedule-daily-job', 'worker-drain-job', 'cleanup-job')
+order by jobname;
+
+select
+  j.jobname,
+  d.status,
+  d.start_time,
+  d.end_time,
+  d.return_message
+from cron.job_run_details d
+join cron.job j on j.jobid = d.jobid
+where j.jobname in ('schedule-daily-job', 'worker-drain-job', 'cleanup-job')
+order by d.start_time desc
+limit 15;
+
+select created, status_code, error_msg
+from net._http_response
+where created >= now() - interval '10 minutes'
+order by created desc
+limit 15;
+```
+
+Expected result: all three jobs are active, their target check says
+`configured hosted target`, and a recent `net._http_response` row has an HTTP
+status. A successful manual call proves only that the URL and supplied header
+were valid for that one request; it is not evidence that automatic cron has the
+same target or authorization.
+
+If `net._http_response.error_msg` says `Couldn't resolve host name`, the hosted
+database is trying to use a bad URL—most often the local `http://kong:8000`
+fallback. Confirm that the hosted URL setting is configured. If the cron command
+is still marked `outdated local target`, apply the current migrations from
+`main`; do not edit `cron.job` directly.
+
+If the HTTP status is `401`, confirm that the database setting and Edge Function
+secret use exactly the same `SCHEDULER_SECRET` value. If the worker has a
+successful HTTP status but no digest appears, use the queue/flow diagnostics
+below; the daily scheduler is intentionally due-only.
 
 To manually invoke the daily scheduler after deployment:
 
@@ -458,12 +526,14 @@ Follow this order to avoid confusing errors:
 5. Create OpenAI, Brevo, Telegram, encryption, and scheduler secrets.
 6. Add backend secrets in Supabase Edge Functions.
 7. Deploy Supabase database migrations and Edge Functions.
-8. Create the Vercel project from GitHub.
-9. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel.
-10. Deploy the Vercel website.
-11. Copy the Vercel production URL into Supabase Auth Site URL and Redirect URLs.
-12. Redeploy Vercel if environment variables changed after the first deploy.
-13. Run the smoke test checklist below.
+8. Bootstrap the hosted cron URL and scheduler-secret database settings, then
+   verify cron rows, job history, and `pg_net` responses.
+9. Create the Vercel project from GitHub.
+10. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel.
+11. Deploy the Vercel website.
+12. Copy the Vercel production URL into Supabase Auth Site URL and Redirect URLs.
+13. Redeploy Vercel if environment variables changed after the first deploy.
+14. Run the smoke test checklist below.
 
 ## 17. Smoke Test Checklist
 
@@ -477,11 +547,14 @@ After deployment, test the live site in a normal browser window:
 6. Confirm the Preferences page loads without an error.
 7. Add or confirm a news source.
 8. Add or confirm a digest flow.
-9. Ask a technical helper to manually invoke the daily scheduler or worker once.
-10. Confirm a digest appears in the Digests page.
-11. If email is enabled, confirm a test email arrives.
-12. If Telegram is enabled, confirm a test Telegram delivery works.
-13. Check Supabase logs for errors after the test.
+9. Confirm the hosted-cron verification queries show active jobs, a recent
+   `pg_net` HTTP status, and no `Couldn't resolve host name` error.
+10. Ask a technical helper to run the forced daily scheduler smoke test once.
+11. Wait for the automatic one-minute worker invocation, then confirm a digest
+    appears in the Digests page.
+12. If email is enabled, confirm a test email arrives.
+13. If Telegram is enabled, confirm a test Telegram delivery works.
+14. Check Supabase logs for errors after the test.
 
 ## 18. Common Problems
 
@@ -492,7 +565,8 @@ After deployment, test the live site in a normal browser window:
 | Preferences page says profile cannot load | Wrong Supabase URL/key or API function not deployed | Check Vercel env vars and Supabase function deployment. |
 | Vercel says `tsc: command not found` | Vercel is building from `packages/browser` instead of the repository root | Set the Vercel project root directory to the repository root, then redeploy. |
 | Cron says `schema "net" does not exist` | The hosted database has not applied the migration that enables `pg_net` | Apply migrations from `main`, then confirm `pg_net` exists in `pg_extension`. |
-| Cron tries `http://kong:8000` in production | Hosted cron settings were not repaired or `app.settings.supabase_url` is missing | Apply migrations and set `app.settings.supabase_url` to the hosted Supabase Project URL. |
+| Cron reports `Couldn't resolve host name` | Hosted cron is using a missing/incorrect URL, commonly the local `http://kong:8000` fallback | Check the non-secret cron verification queries above; set the hosted URL and apply current migrations if the active command contains `http://kong:8000`. |
+| Cron gets HTTP `401` | Database scheduler secret does not match the `SCHEDULER_SECRET` Edge Function secret | Set the same scheduler-secret value in both places; do not use the service-role key as a database setting. |
 | Encryption key error | Missing runtime encryption key | Add the same value under `ENCRYPTION_MASTER_KEY` and `MASTER_CRYPTO_KEY`. |
 | No digest is created | Worker/cron not deployed, no source/flow, or missing OpenAI key | Check Supabase functions, secrets, and logs. |
 | Email does not send | Brevo key or sender is wrong | Check `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, and sender verification. |

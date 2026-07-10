@@ -102,10 +102,10 @@ flowchart LR
 2. Link the repository with the Supabase CLI and commit migrations, function source, and local configuration.
 3. Enable/configure Auth providers for Google and GitHub. Add production and localhost redirect URLs. Disable hosted email/password sign-up in production.
 4. Apply migrations that create the application schema, row-level security policies, database functions, queues, and cron schedules.
-5. Configure hosted cron database settings for `app.settings.supabase_url`, `app.settings.scheduler_secret`, and `app.settings.service_role_key`; cron uses `pg_cron` plus `pg_net` to invoke Edge Functions with scheduler-secret authorization.
+5. Configure the hosted-cron runtime settings for `app.settings.supabase_url` and `app.settings.scheduler_secret`. These are project-specific deployment inputs, not migration values; cron uses `pg_cron` plus `pg_net` to invoke Edge Functions with scheduler-secret authorization. The Edge Functions retain the service-role key in their own secret store and it is not copied into a database setting.
 6. Deploy the `api`, `schedule-daily`, `work`, `cleanup`, and `telegram-bot` Edge Functions.
 7. Add backend secrets: OpenAI API key, encryption key, Brevo API key/sender, operator email, Telegram bot token, scheduler secret, and allowed frontend origin.
-8. Invoke each scheduled function manually once, verify authorization, and inspect the recorded cron/job result before enabling users. The daily scheduler remains due-only for cron, and operator smoke tests use an explicit `{"force": true}` body when the first configured flow is not due yet.
+8. Verify the installed cron rows, recent `cron.job_run_details`, and `net._http_response` after the next worker interval before enabling users. A manual function invocation verifies only that direct HTTP path; it does not prove that cron resolves the hosted URL. The daily scheduler remains due-only for cron, and operator smoke tests use an explicit `{"force": true}` body when the first configured flow is not due yet.
 9. Run the infrastructure audit script and store its non-secret result as the initial desired-state baseline.
 
 ### 4.2 OAuth Providers

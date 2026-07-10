@@ -1,20 +1,20 @@
 ## 1. Documentation and traceability
 
-- [ ] 1.1 Update the canonical hosting deployment record with the explicit,
+- [x] 1.1 Update the canonical hosting deployment record with the explicit,
   project-specific hosted-cron runtime bootstrap boundary (`T-05`, `T-06`,
   `T-14`, `H-02`, `H-06`, `NFR-SEC-03`, `NFR-OPS-04`).
-- [ ] 1.2 Update the operator deployment guide with ordered bootstrap,
+- [x] 1.2 Update the operator deployment guide with ordered bootstrap,
   read-only verification, and DNS/authorization/outdated-schedule diagnostics
   that do not expose credentials.
-- [ ] 1.3 Update the final deployment order and smoke checklist so a manual
+- [x] 1.3 Update the final deployment order and smoke checklist so a manual
   `curl` is not accepted as evidence of automatic cron health.
-- [ ] 1.4 Record the observed hosted DNS failure, the documentation correction,
+- [x] 1.4 Record the observed hosted DNS failure, the documentation correction,
   and only the checks actually run in `docs/development_process.md` and
   `docs/state.md`.
 
 ## 2. Maker checks
 
-- [ ] 2.1 Run `git diff --check`, validate changed local links/paths, verify
+- [x] 2.1 Run `git diff --check`, validate changed local links/paths, verify
   OpenSpec traceability, and run strict OpenSpec validation.
 
 ## 3. Independent checks
