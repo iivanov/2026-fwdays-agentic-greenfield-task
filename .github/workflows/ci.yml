@@ -84,10 +84,6 @@ jobs:
         timeout-minutes: 6
         run: npm run supabase:reset
 
-      - name: Export Supabase local status
-        timeout-minutes: 1
-        run: npx supabase status -o env | grep '^[A-Z0-9_]*=' | sed 's/^\([^=]*\)="\(.*\)"$/\1=\2/' >> "$GITHUB_ENV"
-
       - name: Supabase migration lint
         timeout-minutes: 2
         run: npm run supabase:lint

@@ -7,10 +7,13 @@
   the documented default local Supabase `service_role` JWT in commit `3bbd1a5`
   and the shared integration-test helper. Investigation confirmed the value is
   a deterministic local-emulator credential, not a hosted-project token. The
-  active change removes it from tracked files, replaces it with CLI runtime
-  discovery scoped to the integration-test process, removes the corresponding
-  Gitleaks allowlist, and will close PR #47's GitGuardian finding as a test
-  credential after independent verification and review. No production secret
+  implementation removes it from tracked files, replaces it with CLI runtime
+  discovery scoped to the integration-test process, and removes the
+  corresponding Gitleaks allowlist. The focused launcher tests, root unit
+  suite, typecheck, ESLint, Prettier, tracked-file Gitleaks scan, real local
+  Supabase integration suite, migration lint, strict OpenSpec validation, and
+  whitespace check passed. Independent verification/review and PR #47's
+  GitGuardian test-credential disposition remain pending. No production secret
   rotation is required.
 - **Gitleaks secret scan gate**: On 2026-07-09, installed a pinned local
   Gitleaks runner (`v8.30.1`) through `infra/scripts/install-gitleaks.mjs` and

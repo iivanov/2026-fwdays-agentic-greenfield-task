@@ -18,7 +18,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:integration": "npm run test:integration:supabase",
-    "test:integration:supabase": "vitest run --config vitest.integration.config.ts",
+    "test:integration:supabase": "node infra/scripts/run-supabase-integration.mjs",
     "test:e2e": "playwright test",
     "build:browser": "npm run build --workspace @news-aggregator/browser",
     "deno:check": "deno check --config supabase/functions/deno.gates.json --lock supabase/functions/deno.lock --frozen supabase/functions/api/index.ts supabase/functions/schedule-daily/index.ts supabase/functions/cleanup/index.ts supabase/functions/work/index.ts supabase/functions/telegram-bot/index.ts",

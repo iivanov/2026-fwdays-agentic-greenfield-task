@@ -1,6 +1,1 @@
 title = "AI News Aggregator Gitleaks Configuration"
-
-[[allowlists]]
-description = "Supabase local integration test fixture uses the documented local service-role JWT"
-paths = ['''tests/setup/supabase-local\.ts$''']
-commits = []

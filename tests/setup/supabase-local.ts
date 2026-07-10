@@ -1,14 +1,16 @@
-const LEGACY_LOCAL_SERVICE_ROLE_KEY =
-  'local-service-role-fixture';
+function requireIntegrationEnv(name: 'SUPABASE_URL' | 'SUPABASE_SERVICE_ROLE_KEY'): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `Supabase integration prerequisites failed: ${name} is unavailable. ` +
+        'Run "npm run test:integration" after "npm run supabase:start" and "npm run supabase:reset".',
+    );
+  }
+  return value;
+}
 
-export const LOCAL_SUPABASE_URL =
-  process.env.SUPABASE_URL ?? process.env.API_URL ?? 'http://127.0.0.1:54321';
-
-export const LOCAL_SERVICE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ??
-  process.env.SERVICE_ROLE_KEY ??
-  process.env.SECRET_KEY ??
-  LEGACY_LOCAL_SERVICE_ROLE_KEY;
+export const LOCAL_SUPABASE_URL = requireIntegrationEnv('SUPABASE_URL');
+export const LOCAL_SERVICE_KEY = requireIntegrationEnv('SUPABASE_SERVICE_ROLE_KEY');
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

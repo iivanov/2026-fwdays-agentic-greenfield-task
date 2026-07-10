@@ -106,8 +106,21 @@ earlier prose claims as certification evidence.
 
 **Not complete**
 
-- Implementation, independent verifier/reviewer reports, GitGuardian check-run
-  disposition, and archive evidence remain pending.
+- Independent verifier/reviewer reports, GitGuardian check-run disposition, and
+  archive evidence remain pending.
+
+**Implementation completed**
+
+- Added a tested Node launcher that reads the running local stack's `API_URL`
+  and `SERVICE_ROLE_KEY` through `supabase status -o env`, maps them only into
+  the Vitest child process, and emits generic start/reset guidance on failure.
+- Removed the hardcoded JWT fallback, the CI-wide `$GITHUB_ENV` export, and the
+  Gitleaks allowlist. The root integration command now uses the launcher, so no
+  manual local credential setup is required.
+- Focused launcher tests, root unit tests (17 files/173 tests), typecheck,
+  ESLint, Prettier, tracked-file Gitleaks scan, real local Supabase integration
+  tests (3 files/5 tests), migration lint, strict OpenSpec validation, and
+  `git diff --check` passed.
 
 ### 2026-07-03 — R-11B verification-gates WIP checkpoint
 
