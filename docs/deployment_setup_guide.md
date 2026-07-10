@@ -462,10 +462,14 @@ limit 15;
 ```
 
 Expected result: all three jobs are active, their target check says
-`configured hosted target`, and a recent `net._http_response` row has an HTTP
-status. A successful manual call proves only that the URL and supplied header
-were valid for that one request; it is not evidence that automatic cron has the
-same target or authorization.
+`configured hosted target`, and a **fresh** response created during the worker
+observation window has `error_msg` as `NULL` and a `status_code` from `200` to
+`299`. `net._http_response` does not identify the cron job or target URL, so
+observe the next one-minute worker interval and corroborate that response's
+timestamp with a successful `work` invocation in **Edge Functions → Logs**. A
+successful manual call proves only that the URL and supplied header were valid
+for that one request; it is not evidence that automatic cron has the same
+target or authorization.
 
 If `net._http_response.error_msg` says `Couldn't resolve host name`, the hosted
 database is trying to use a bad URL—most often the local `http://kong:8000`
@@ -547,8 +551,10 @@ After deployment, test the live site in a normal browser window:
 6. Confirm the Preferences page loads without an error.
 7. Add or confirm a news source.
 8. Add or confirm a digest flow.
-9. Confirm the hosted-cron verification queries show active jobs, a recent
-   `pg_net` HTTP status, and no `Couldn't resolve host name` error.
+9. Observe the next one-minute worker run. Confirm the hosted-cron verification
+   queries show active jobs and a fresh `pg_net` response with a 2xx status and
+   no error, then corroborate its time with a successful `work` invocation in
+   Supabase Edge Function logs.
 10. Ask a technical helper to run the forced daily scheduler smoke test once.
 11. Wait for the automatic one-minute worker invocation, then confirm a digest
     appears in the Digests page.
