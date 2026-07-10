@@ -2,6 +2,13 @@
 
 ## Current Position
 
+- **Active PR #47 history remediation**: On 2026-07-10, created OpenSpec change
+  `rewrite-pr47-local-credential-history` in an isolated clone at the captured
+  fork `main` SHA `8ca4ade`. GitGuardian scans the original local Supabase test
+  credential in historical commit `3bbd1a5` even though the current tree is
+  clean. The active work rewrites only the fork's `main`, preserves the current
+  application tree, and uses a SHA-pinned force-with-lease push; other public
+  refs and shared-worktree changes are excluded.
 - **Hosted cron Vault repair**: On 2026-07-10, operator-provided `pg_net`
   results showed that the per-minute cron requests were executing but failing
   with `Couldn't resolve host name`; manual `curl` succeeded because it calls

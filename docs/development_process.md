@@ -75,6 +75,26 @@ earlier prose claims as certification evidence.
 
 ## 5. Recorded Milestones
 
+### 2026-07-10 — PR #47 local-fixture history rewrite planned
+
+**Human direction**
+
+- Requested rewriting the PR source history after GitGuardian continued to
+  block PR #47 on the historical local test credential.
+- Selected the fork's `main` only, rather than rewriting all public fork refs.
+
+**AI contribution**
+
+- Captured the source SHA and created a clean isolated clone for the rewrite.
+- Created OpenSpec change `rewrite-pr47-local-credential-history`; its scope is
+  exact replacement of the historical fixture without current-tree changes and
+  a SHA-pinned force push.
+
+**Not complete**
+
+- Historical rewrite, independent checks, force push, refreshed GitGuardian
+  result, and archive evidence remain pending.
+
 ### 2026-07-10 — Hosted cron deployment documentation correction
 
 **Human direction**
