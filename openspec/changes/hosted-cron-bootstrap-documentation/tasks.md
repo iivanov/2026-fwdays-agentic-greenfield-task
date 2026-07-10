@@ -24,8 +24,8 @@
 
 ## 3. Independent checks
 
-- [ ] 3.1 Have a separate verifier run the documentation gates and save a
+- [x] 3.1 Have a separate verifier run the documentation gates and save a
   verification report in this change.
-- [ ] 3.2 Have a separate reviewer inspect the final diff for deployment
+- [x] 3.2 Have a separate reviewer inspect the final diff for deployment
   correctness, security/secret exposure, and traceability, then save a review
   report in this change.
