@@ -75,6 +75,40 @@ earlier prose claims as certification evidence.
 
 ## 5. Recorded Milestones
 
+### 2026-07-10 — Local Supabase test-credential remediation planned
+
+**Human direction**
+
+- Requested investigation of GitGuardian's PR #47 finding and approved a
+  remediation that does not require manually managed local secrets.
+- Chose current-source remediation and GitGuardian false-positive disposition
+  over rewriting shared public Git history.
+
+**AI contribution**
+
+- Verified against the official Supabase CLI reference that the detected JWT is
+  the deterministic local `service_role` credential printed by
+  `supabase status`; it cannot grant access to a hosted project.
+- Verified GitGuardian scans every commit in a pull request, so deleting the
+  literal in a later commit does not clear the existing PR check-run finding.
+- Created the `remove-local-service-role-fixture` OpenSpec change. Its design
+  obtains credentials from the running local CLI and scopes them to the
+  integration-test child process; it deliberately does not generate a random
+  JWT because the running stack would reject an unsigned value.
+
+**Verification performed**
+
+- Inspected PR #47: GitGuardian Security Checks is the only failing check;
+  CodeRabbit is successful.
+- Verified the current shared test helper contains the historical default JWT
+  fallback and that CI currently obtains the local key via `supabase status -o
+  env`.
+
+**Not complete**
+
+- Implementation, independent verifier/reviewer reports, GitGuardian check-run
+  disposition, and archive evidence remain pending.
+
 ### 2026-07-03 — R-11B verification-gates WIP checkpoint
 
 **Human direction**
