@@ -1,27 +1,36 @@
-# Verification Report — Hosted Cron Bootstrap Documentation
+# Final Verification Report — Hosted Cron Bootstrap Documentation
 
-**Verifier:** independent sub-agent  
-**Change:** `hosted-cron-bootstrap-documentation`  
-**Implementation reviewed:** `80582f0` (`docs: clarify hosted cron bootstrap`)  
-**Scope:** documentation/OpenSpec artifacts only; no hosted Supabase mutation was performed.
+**Verifier:** independent sub-agent
+**Implementation reviewed:** `fbaed63` (`fix: use Vault for hosted cron configuration`)
+**Scope:** Vault-backed cron migration, focused regression coverage, and deployment/OpenSpec documentation.
+
+This final report supersedes the prior documentation-only verification of
+`80582f0`. It does not rely on maker claims.
 
 | Gate | Command / method | Result | Evidence |
 | --- | --- | --- | --- |
-| Whitespace | `git diff --check 80582f0^ 80582f0` and `git diff --check HEAD` | PASS | Both commands completed with no output; the committed change and worktree have no whitespace errors. |
-| OpenSpec validation | `openspec validate hosted-cron-bootstrap-documentation --strict && openspec validate --all --strict` | PASS | The change is valid; strict validation reported 26 passed and 0 failed items. |
-| Local links and paths | Read-only Node Markdown-link target check over the four changed documents and four change artifacts | PASS | Validated 8 files; no local Markdown targets were missing. |
-| Requirement traceability | Compared proposal, design, delta `deployment-bootstrap` specification, canonical hosting record, and operator guide | PASS | The guide implements the two delta scenarios: project-specific URL/scheduler-secret bootstrap with non-secret checks, and DNS diagnosis that directs operators to inspect active jobs/apply migrations rather than edit `cron.job`. Trace IDs include `NFR-SEC-03`, `NFR-OPS-04`, `T-05`, `T-06`, `T-14`, `H-02`, and `H-06`. |
-| Cron/manual-path correctness | Compared the guide with `20260707213346_use_scheduler_secret_for_cron_auth.sql` and the three scheduled function handlers | PASS | Cron resolves `app.settings.supabase_url`, uses `app.settings.scheduler_secret` first, and calls through `net.http_post`; the handlers accept `SCHEDULER_SECRET`. The documented `curl` calls the public function URL directly with its supplied header, so it is accurately distinguished from cron/`pg_net` evidence. |
-| Secret safety | Inspected changed SQL/Markdown and ran `npm run secrets:scan` | PASS | The SQL uses a project URL placeholder and `YOUR_SCHEDULER_SECRET`; verification queries only return configured/not-configured state and operational metadata. The guide explicitly excludes the service-role key from database settings. Gitleaks scanned about 23 MB of tracked files and reported no leaks. |
-| Stale terminology | Searched tracked docs/configuration for cron database-setting terminology and reviewed changed guidance | PASS | Current deployment guidance requires only `supabase_url` and `scheduler_secret`; remaining `service_role_key` references are compatibility behavior in migrations/tests or dated historical process records, not active bootstrap instructions. |
+| Focused migration-source regression | `npx vitest run packages/browser/src/lib/queue-worker.test.ts` | PASS | 1 file and all 24 tests passed, including the Vault-backed cron source assertions. |
+| Local integration/status path | `npm run test:integration` | PASS | 3 integration files and all 5 tests passed. The launcher obtained local Supabase status internally without printing its credentials. |
+| Strict OpenSpec | `openspec show hosted-cron-bootstrap-documentation`, `openspec validate hosted-cron-bootstrap-documentation --strict`, and `openspec validate --all --strict` | PASS | The change is valid; strict validation reported 26 passed and 0 failed items. |
+| Migration/authorization inspection | Independent review of the migration, scheduled function handlers, and final guide | PASS | All three jobs call the allowlisted private helper; its stored commands contain only paths, not the URL or scheduler secret. The helper reads named Vault values, calls `net.http_post`, rejects missing values, revokes `PUBLIC`, and grants execution only to `postgres`. Handlers accept `SCHEDULER_SECRET`; guide correctly distinguishes direct `curl` from cron/`pg_net` evidence. |
+| Current Supabase guidance | Official Supabase Vault and pg_net documentation | PASS | The implementation uses the documented `vault.create_secret()` / encrypted Vault model and asynchronous `net.http_post` model. |
+| Whitespace, formatting, secret scan, and local Markdown paths | Not completed before the verification time limit | NOT RUN | The first combined check exposed trailing spaces in the superseded verifier report. This replacement removes them, but the full final check was not rerun before handoff. |
+| Local migration reset/lint and installed cron/privilege query | Not runnable in this sandbox | NOT RUN | `supabase` is not on `PATH`; the locally installed CLI attempted to write telemetry under read-only `~/.supabase`. An escalation request was cancelled. Docker socket access is also denied, so direct local cron inspection was not possible. |
 
-## Scenario observations
+## Scenario assessment
 
-- **New hosted project:** the guide provides portable, operator-entered settings, then requires active cron rows, job history, and a recent `net._http_response` HTTP result before reports are enabled. It does not instruct an operator to commit a project URL or secret.
-- **DNS failure:** the guide identifies `Couldn't resolve host name` as a missing/incorrect hosted URL (commonly the `http://kong:8000` fallback), distinguishes an outdated stored job command, and directs the operator to apply current migrations rather than edit `cron.job`.
+- The new Vault bootstrap documentation provides the two exact named entries,
+  avoids a service-role entry, and requires successful scheduled HTTP evidence
+  before reports are enabled.
+- The migration removes the `kong` fallback and prior `app.settings.*` lookup
+  from the recreated jobs. Missing Vault data fails with a name-only error,
+  while the guide directs operators to create the entry or apply migrations;
+  it does not direct edits to `cron.job`.
 
-## Not applicable / not run
+## Verdict
 
-No TypeScript, Deno, unit, integration, browser, migration, or hosted-runtime gate applies to this documentation-only diff. No hosted credentials were supplied, and this verifier did not change provider configuration.
-
-**Verdict:** PASS — all applicable documentation gates are green and both specified cron-bootstrap scenarios are accurately documented without secret exposure.
+**FAIL (verification incomplete).** Focused source coverage, integration
+coverage, strict OpenSpec validation, and the static security/path assessment
+pass. The applicable final formatting/secret/path checks and local
+reset/lint/cron-runtime observation remain unrun; they must be green before
+this change is archived.
