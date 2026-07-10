@@ -22,7 +22,7 @@ also retains a committed default JWT fallback.
 - Generate a random JWT: it would not be signed by the running local stack and
   would fail Supabase authentication.
 - Rewrite public Git history; the existing GitGuardian finding is closed as a
-  local test credential false positive after source remediation.
+  documented local test credential after source remediation.
 
 ## Decisions
 

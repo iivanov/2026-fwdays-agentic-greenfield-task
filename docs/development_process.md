@@ -81,7 +81,7 @@ earlier prose claims as certification evidence.
 
 - Requested investigation of GitGuardian's PR #47 finding and approved a
   remediation that does not require manually managed local secrets.
-- Chose current-source remediation and GitGuardian false-positive disposition
+- Chose current-source remediation and GitGuardian test-credential disposition
   over rewriting shared public Git history.
 
 **AI contribution**

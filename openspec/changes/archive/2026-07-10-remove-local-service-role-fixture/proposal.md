@@ -13,7 +13,7 @@ GitGuardian incident and violates the repository's secret-hygiene policy.
   allowlist.
 - Scope the local service-role key to the integration-test process rather than
   exporting it for all later CI steps.
-- Document the GitGuardian incident as a local test credential false positive;
+- Document the GitGuardian incident as a local test credential;
   no production credential rotation is required.
 
 ## Capabilities
