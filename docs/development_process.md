@@ -103,6 +103,9 @@ earlier prose claims as certification evidence.
 - Independent verifier PASS and security-reviewer APPROVE reports confirm the
   rewritten history, the scoped replacement, tree preservation, current secret
   scan, typecheck, lint, formatting, OpenSpec validation, and whitespace check.
+- Force-pushed only the fork `main` with the captured SHA lease after checking
+  the remote had not moved. The old branch SHA was `8ca4ade`; the verified
+  rewritten push head was `8a39b83`.
 
 ### 2026-07-10 — Hosted cron deployment documentation correction
 

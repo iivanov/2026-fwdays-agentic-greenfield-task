@@ -15,5 +15,5 @@
 
 ## 3. Publish
 
-- [ ] 3.1 Force-push only the rewritten `main` with a captured-SHA lease.
+- [x] 3.1 Force-push only the rewritten `main` with a captured-SHA lease.
 - [ ] 3.2 Confirm PR #47's refreshed GitGuardian result and archive the change.
