@@ -1,43 +1,50 @@
-# Review: hosted-cron-bootstrap-documentation
+# Final Review: hosted-cron-bootstrap-documentation
 
 **Reviewer:** Independent reviewer
 **Date:** 2026-07-10
-**Change reviewed:** OpenSpec artifacts introduced in `8f2de36`; final
-documentation implementation `80582f0`
+**Final implementation reviewed:** `fbaed63`
 **Verdict:** REQUEST CHANGES
 
 ## Blocking findings
 
-1. **P1 — [docs/deployment_setup_guide.md:464](../../../docs/deployment_setup_guide.md#L464), [docs/deployment_setup_guide.md:550](../../../docs/deployment_setup_guide.md#L550): an arbitrary HTTP response is presented as proof that automatic cron is healthy.** The documented expected result only requires a recent `net._http_response` row "has an HTTP status," and the smoke checklist accepts that status so long as it is not the DNS error. However, all three scheduled functions return HTTP 401 for a missing/mismatched scheduler secret ([`schedule-daily`](../../../supabase/functions/schedule-daily/index.ts#L48), [`work`](../../../supabase/functions/work/handler.ts#L212), and [`cleanup`](../../../supabase/functions/cleanup/index.ts#L25)); 500 and 503 responses would also satisfy the stated success condition. An operator can therefore configure a bad secret, see a recent 401, mark cron healthy under the guide, and still receive no automatic reports—the exact operational failure this change is meant to prevent. Require fresh scheduled responses to have `error_msg IS NULL` and a 2xx `status_code` (and make the smoke checklist require that result) before enabling reports. Keep the existing 401 troubleshooting guidance as the failure path.
+1. **P1 — [verification.md:3](verification.md#L3): the final implementation has no valid independent verification artifact, and its committed change fails the required whitespace gate.** `verification.md` explicitly covers only `80582f0` and calls the work documentation-only; it does not verify the Vault migration, its grants, schedules, or the revised deployment instructions in `fbaed63`. Moreover, `git diff --check 80582f0..fbaed63` reports trailing whitespace on lines 3--5 of that artifact. This violates the documentation/change gate and cannot certify the final migration after the maker changed it. Remove the trailing whitespace, then have a separate verifier run and record the final migration/documentation gates (at minimum reset/lint or an explicit unavailable-prerequisite result, focused/full tests, secret scan, diff check, and strict OpenSpec validation) against the final commit.
 
-## Non-blocking findings
+## Prior findings
 
-1. **P2 — [docs/deployment_setup_guide.md:457](../../../docs/deployment_setup_guide.md#L457): the `pg_net` query has no request/job identity.** `net._http_response` contains a request id, status, error, and timestamp, but not a target URL; its request-queue row is removed after execution. A response from another `pg_net` caller, or from `cleanup`, can thus be mistaken for the per-minute `work` response. The final smoke test's digest observation provides later end-to-end evidence, but the pre-enable verification query should say to inspect responses generated after the worker observation window and, where possible, corroborate the `work` Function invocation log. A future runtime change could persist request-id-to-job correlation if stronger SQL-only attribution is needed.
+- **Resolved P1 (HTTP success criterion):** [deployment_setup_guide.md:472](../../../docs/deployment_setup_guide.md#L472) now requires a fresh response with `error_msg IS NULL` and a 2xx status; the smoke checklist repeats that condition. This no longer accepts a 401/5xx response as evidence of operational cron.
+- **Resolved P2 (response attribution):** [deployment_setup_guide.md:475](../../../docs/deployment_setup_guide.md#L475) now acknowledges that `net._http_response` has no job/URL identity and requires a next-minute worker observation plus timestamp corroboration in the `work` Function logs.
 
-## Scope, security, and traceability assessment
+## Implementation assessment
 
-- The guide correctly keeps the project URL and `SCHEDULER_SECRET` outside
-  versioned migrations and does not reintroduce a service-role key into the
-  database-setting instructions. The supplied checks expose only booleans and
-  operational metadata, not setting values, headers, or response bodies.
-- The diagnosis and repair direction match the installed cron migration:
-  it dynamically reads `app.settings.supabase_url`, falls back to local
-  `http://kong:8000`, and prefers `app.settings.scheduler_secret` for the
-  authorization header ([migration](../../../supabase/migrations/20260707213346_use_scheduler_secret_for_cron_auth.sql#L20)). The explanation of why direct `curl` is not evidence for the scheduled path is accurate.
-- The change traces its documentation requirement to `NFR-SEC-03`,
-  `NFR-OPS-04`, `T-05`, `T-06`, `T-14`, `H-02`, and `H-06`, and updates the
-  owning hosting record before the deployment guide. No product behavior,
-  migration, or hosted state was changed.
+- The new migration reads only the two named Vault values at execution time and
+  validates a fixed allowlist of Edge Function paths. Its recreated `cron.job`
+  commands contain only calls to the helper, so neither a project URL nor
+  scheduler secret is stored in cron metadata.
+- It uses `SECURITY INVOKER`, revokes the default `PUBLIC` grant, and grants the
+  helper only to `postgres`. The migrations schedule the jobs as the migration
+  role, so this retains least-privilege access to `vault.decrypted_secrets` and
+  `net.http_post`; no `SECURITY DEFINER`, public schema function, or service-role
+  key is introduced.
+- The helper rejects unknown paths and missing Vault entries before it can make
+  an HTTP request. It removes the local `kong` fallback and preserves the
+  intended daily/minutely/30-minute schedules.
+- The deployment guide creates named Vault values without committing their
+  values, excludes the service-role key, distinguishes direct `curl` from the
+  scheduled path, and includes DNS, missing-Vault, and 401 repair paths.
+- Traceability is present in the proposal/spec and hosting record for
+  `NFR-SEC-03`, `NFR-OPS-04`, `T-05`, `T-06`, `T-14`, `H-02`, and `H-06`.
 
-## Evidence inspected
+## Non-blocking finding
+
+1. **P2 — [tasks.md:18](tasks.md#L18), [tasks.md:24](tasks.md#L24): duplicated task continuation text.** The final task file repeats the end of items 1.6 and 2.1. Clean the duplicated lines when fixing the final verification artifact; it does not affect migration behavior.
+
+## Evidence independently inspected
 
 | Check | Result |
 | --- | --- |
-| Final documentation diff | Inspected `80582f0` directly; only documentation/state/task updates are present. |
-| Cron/auth implementation | Inspected the final scheduler migration and all three function authorization paths. |
-| OpenSpec artifact and traceability | `openspec validate hosted-cron-bootstrap-documentation --strict` passed. |
-| Diff integrity | `git diff --check 80582f0^ 80582f0` passed. |
-| `pg_net` response semantics | Checked the upstream `pg_net` schema: response rows contain `id`, status/error metadata, and timestamp but not the target URL. |
-
-The independent verifier's report was not relied upon; it was not present at
-the time of this review.
+| Final migration, grants, schedules, and function auth paths | Inspected; no secret value, local fallback, or public helper execution path found. |
+| Focused source regression test | `npx vitest run packages/browser/src/lib/queue-worker.test.ts` passed: 24 tests. |
+| Secret scan | `npm run secrets:scan` passed: no tracked leaks. |
+| Strict OpenSpec validation | `openspec validate hosted-cron-bootstrap-documentation --strict` passed. |
+| Final diff integrity | Failed: `git diff --check 80582f0..fbaed63` reports the three trailing-whitespace lines in `verification.md`. |
+| Local Supabase reset/lint | Not independently completed: the CLI reset/lint attempt was interrupted before completion. The existing verifier report cannot substitute because it predates the Vault migration. |
