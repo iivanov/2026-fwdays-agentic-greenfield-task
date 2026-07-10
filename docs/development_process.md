@@ -88,18 +88,34 @@ earlier prose claims as certification evidence.
   Consecutive worker requests failed with `Couldn't resolve host name`, so cron
   was running but could not reach its target; this is distinct from a manual
   call to the public function URL.
-- Created OpenSpec change `hosted-cron-bootstrap-documentation` and updated the
-  canonical hosting record plus operator guide. The documented deployment flow
-  now treats the hosted URL and scheduler secret as per-project runtime inputs,
-  removes the unnecessary service-role database setting, and requires
-  non-secret cron/job/HTTP evidence before automatic reports are enabled.
+- The first documentation correction used `ALTER DATABASE ... SET` for
+  project-specific settings. The operator's hosted SQL Editor returned
+  SQLSTATE `42501` (`permission denied to set parameter
+  "app.settings.supabase_url"`), so the approach is not deployable on the
+  hosted project.
+- Expanded OpenSpec change `hosted-cron-bootstrap-documentation` to replace the
+  setting-based cron commands with a Vault-backed migration. The repair keeps
+  the hosted URL and scheduler secret encrypted in named Vault entries, removes
+  the local-host fallback, and uses a non-exposed, least-privilege helper to
+  make the scheduled `pg_net` calls. The canonical hosting record and operator
+  guide now provision and verify Vault entries instead of database settings.
 
-**Verification planned/performed**
+**Verification performed**
 
-- The documentation change requires whitespace, local link/path, traceability,
-  strict OpenSpec, and independent verifier/reviewer checks. Hosted database
-  mutation was not performed by the AI; the operator must enter the real
-  project URL and scheduler secret in the Supabase SQL Editor.
+- Focused migration-source coverage passed (24 queue-worker tests), as did the
+  full unit suite (17 files/174 tests), typecheck, ESLint, Prettier, Deno SQL
+  format check, tracked-file secret scan, whitespace check, and strict OpenSpec
+  validation (26 items).
+- A real local Supabase database reset applied the new migration; local database
+  lint found no schema errors. Read-only local queries confirmed the installed
+  job commands contain only private-helper calls (no URL/secret), `anon` cannot
+  execute the helper, `postgres` can, and a missing Vault entry fails with the
+  intended name-only error before it can make an HTTP request.
+- Supabase integration tests passed (3 files/5 tests). Fresh independent
+  verifier/reviewer passes on the final migration/doc diff remain required.
+- Hosted database mutation was not performed by the AI; after deployment, the
+  operator must enter the real project URL and scheduler secret in Supabase
+  Vault.
 
 ### 2026-07-10 — Local Supabase test-credential remediation planned
 

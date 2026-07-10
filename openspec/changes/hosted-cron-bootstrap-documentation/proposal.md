@@ -13,10 +13,10 @@ provider state or credentials (`NFR-SEC-03`, `NFR-OPS-04`).
 
 ## What Changes
 
-- Document the project-specific Supabase Cron runtime inputs separately from
-  versioned migrations and Edge Function secrets.
-- Add a copyable hosted-cron bootstrap procedure that configures the public
-  project URL and scheduler authorization without placing values in Git.
+- Replace the unsupported database-setting scheduler configuration with a
+  Vault-backed cron migration that keeps values out of `cron.job` and Git.
+- Document the project-specific Vault bootstrap procedure for the public
+  project URL and scheduler authorization.
 - Add read-only SQL checks for cron registration, recent cron results, and
   `pg_net` HTTP outcomes, including the DNS-failure diagnosis observed in the
   hosted environment.
@@ -37,9 +37,10 @@ provider state or credentials (`NFR-SEC-03`, `NFR-OPS-04`).
 
 ## Impact
 
-- Updates `docs/deployment_setup_guide.md`, the hosting deployment record, and
-  the development-process/state records.
+- Updates the hosted cron migration, migration-source tests,
+  `docs/deployment_setup_guide.md`, the hosting deployment record, and the
+  development-process/state records.
 - Adds a delta specification and verification/review evidence for the
-  documentation-only change.
-- Does not change migrations, cron schedules, runtime code, provider accounts,
-  or hosted configuration.
+  Vault-backed scheduler repair.
+- Does not create or change a hosted Vault secret, provider account, or other
+  hosted configuration; the operator supplies those values after deployment.

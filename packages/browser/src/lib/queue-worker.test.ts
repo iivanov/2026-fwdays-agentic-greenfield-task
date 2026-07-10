@@ -43,6 +43,10 @@ const forcedSchedulerRepairMigrationSource = readFileSync(
   'supabase/migrations/20260707215837_repair_forced_scheduler_existing_cycle.sql',
   'utf8',
 );
+const vaultBackedHostedCronMigrationSource = readFileSync(
+  'supabase/migrations/20260710100511_vault_backed_hosted_cron.sql',
+  'utf8',
+);
 const scheduleDailyFunctionSource = readFileSync(
   'supabase/functions/schedule-daily/index.ts',
   'utf8',
@@ -565,6 +569,48 @@ describe('R-11F queue worker safeguards', () => {
     expect(schedulerSecretMigrationSource).toContain("'/functions/v1/schedule-daily'");
     expect(schedulerSecretMigrationSource).toContain("'/functions/v1/work'");
     expect(schedulerSecretMigrationSource).toContain("'/functions/v1/cleanup'");
+  });
+
+  it('replaces hosted cron database settings with protected Vault-backed invocation', () => {
+    expect(vaultBackedHostedCronMigrationSource).toContain(
+      'create extension if not exists supabase_vault with schema vault',
+    );
+    expect(vaultBackedHostedCronMigrationSource).toContain(
+      'function private.invoke_scheduled_edge_function(p_path text)',
+    );
+    expect(vaultBackedHostedCronMigrationSource).toContain('security invoker');
+    expect(vaultBackedHostedCronMigrationSource).toContain(
+      "name = 'news_aggregator_cron_project_url'",
+    );
+    expect(vaultBackedHostedCronMigrationSource).toContain(
+      "name = 'news_aggregator_cron_scheduler_secret'",
+    );
+    expect(vaultBackedHostedCronMigrationSource).toContain(
+      "raise exception 'Missing Vault secret: news_aggregator_cron_project_url'",
+    );
+    expect(vaultBackedHostedCronMigrationSource).toContain(
+      "raise exception 'Missing Vault secret: news_aggregator_cron_scheduler_secret'",
+    );
+    expect(vaultBackedHostedCronMigrationSource).toContain(
+      'revoke all on function private.invoke_scheduled_edge_function(text) from public',
+    );
+    expect(vaultBackedHostedCronMigrationSource).toContain(
+      'grant execute on function private.invoke_scheduled_edge_function(text) to postgres',
+    );
+    expect(vaultBackedHostedCronMigrationSource).not.toContain('http://kong:8000');
+    expect(vaultBackedHostedCronMigrationSource).not.toContain('app.settings.');
+    expect(vaultBackedHostedCronMigrationSource).toContain("cron.unschedule('schedule-daily-job')");
+    expect(vaultBackedHostedCronMigrationSource).toContain("cron.unschedule('worker-drain-job')");
+    expect(vaultBackedHostedCronMigrationSource).toContain("cron.unschedule('cleanup-job')");
+    expect(vaultBackedHostedCronMigrationSource).toContain(
+      "'0 6 * * *',\n  $$ select private.invoke_scheduled_edge_function('/functions/v1/schedule-daily') $$",
+    );
+    expect(vaultBackedHostedCronMigrationSource).toContain(
+      "'* * * * *',\n  $$ select private.invoke_scheduled_edge_function('/functions/v1/work') $$",
+    );
+    expect(vaultBackedHostedCronMigrationSource).toContain(
+      "'*/30 * * * *',\n  $$ select private.invoke_scheduled_edge_function('/functions/v1/cleanup') $$",
+    );
   });
 
   it('keeps cron due-only while allowing explicit forced scheduler smoke tests', () => {

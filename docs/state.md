@@ -2,16 +2,19 @@
 
 ## Current Position
 
-- **Hosted cron deployment documentation**: On 2026-07-10, operator-provided
-  `pg_net` results showed that the per-minute cron requests were executing but
-  failing with `Couldn't resolve host name`. The likely hosted URL setting was
-  absent/incorrect, causing the local `http://kong:8000` fallback to be used;
-  manual `curl` succeeded because it calls the hosted function URL directly.
-  Created OpenSpec change `hosted-cron-bootstrap-documentation` to document the
-  project-specific database bootstrap, safe cron/HTTP verification, and
-  DNS/401/outdated-schedule diagnostics. The documentation implementation and
-  its independent verifier/reviewer passes are in progress; no hosted setting
-  was changed by the agent.
+- **Hosted cron Vault repair**: On 2026-07-10, operator-provided `pg_net`
+  results showed that the per-minute cron requests were executing but failing
+  with `Couldn't resolve host name`; manual `curl` succeeded because it calls
+  the hosted function URL directly. The initial deployment-guide correction
+  used `ALTER DATABASE ... SET app.settings.supabase_url`, but hosted Supabase
+  rejected it with SQLSTATE `42501` (permission denied). Expanded active
+  OpenSpec change `hosted-cron-bootstrap-documentation` to add a portable
+  Vault-backed cron migration, source coverage, Vault bootstrap/verification,
+  and DNS/401/outdated-schedule diagnostics. Local reset/lint, protected-helper
+  privilege/missing-Vault checks, focused and full unit tests, integration
+  tests, typecheck, lint, formatting, secret scan, whitespace, and strict
+  OpenSpec validation pass. No hosted setting or Vault value was changed by the
+  agent; fresh independent verifier/reviewer passes remain in progress.
 - **Local Supabase test-credential remediation**: Created and archived OpenSpec
   change `2026-07-10-remove-local-service-role-fixture` after GitGuardian
   flagged the documented default local Supabase `service_role` JWT in commit

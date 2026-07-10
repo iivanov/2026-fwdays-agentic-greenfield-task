@@ -387,47 +387,55 @@ supabase db push
 supabase functions deploy
 ```
 
-### Required: bootstrap hosted cron runtime settings
+### Required: bootstrap hosted cron in Supabase Vault
 
 The migrations create portable cron jobs, but they cannot contain this
-project's URL or secrets. After the database and functions are deployed, open
-the **Supabase SQL Editor** for this exact hosted project and configure the
-following two project-specific runtime settings. Use the same
-`SCHEDULER_SECRET` value already stored under **Edge Functions → Secrets**;
+project's URL or secrets. Hosted Supabase does not permit this app to use
+`ALTER DATABASE ... SET app.settings.*` for cron configuration. Instead, after
+the database and functions are deployed, create two named values in
+**Database → Vault** (or in the **SQL Editor**) for this exact project. Use the
+same `SCHEDULER_SECRET` value already stored under **Edge Functions → Secrets**;
 never paste it into this guide, Git, Vercel, chat, or a screenshot.
 
 ```sql
-alter database postgres
-set app.settings.supabase_url = 'https://your-project-ref.supabase.co';
+select vault.create_secret(
+  'https://your-project-ref.supabase.co',
+  'news_aggregator_cron_project_url',
+  'Hosted URL used only by scheduled Edge Function calls'
+);
 
-alter database postgres
-set app.settings.scheduler_secret = 'YOUR_SCHEDULER_SECRET';
+select vault.create_secret(
+  'YOUR_SCHEDULER_SECRET',
+  'news_aggregator_cron_scheduler_secret',
+  'Must match the SCHEDULER_SECRET Edge Function secret'
+);
 ```
 
-The URL is not secret, but it remains outside a migration so the repository can
-be deployed to a different Supabase project. The scheduler secret authorizes
-cron-to-function calls. Do **not** add `SUPABASE_SERVICE_ROLE_KEY` as a database
-setting: each Edge Function uses its own `SUPABASE_SERVICE_ROLE_KEY` secret
-internally.
+The URL is not secret, but placing both values in Vault gives the cron jobs one
+portable configuration mechanism. The migration stores only the two names;
+neither value appears in the migration or in `cron.job`. Vault encrypts stored
+values. If either name already exists, update its value in the Vault dashboard
+instead of creating a duplicate. Do **not** add `SUPABASE_SERVICE_ROLE_KEY` to
+Vault for cron: each Edge Function uses its own `SUPABASE_SERVICE_ROLE_KEY`
+secret internally.
 
-`alter database ... set` stores a default for new database connections. Close
-and reopen the SQL Editor (or otherwise use a new database connection) before
-running the setting check below. Do not rely on a manual `curl` or
-`pg_reload_conf()` as proof that scheduled work is healthy. Wait at least one
-minute for the worker cron job, then run the read-only checks.
+Do not rely on a manual `curl` as proof that scheduled work is healthy. Wait at
+least one minute for the worker cron job, then run the read-only checks.
 
 ### Verify automatic cron before enabling reports
 
-These queries return configuration state and operational metadata only. They do
+These queries return Vault-entry names and operational metadata only. They do
 not reveal the URL value, scheduler secret, service-role key, request headers,
 or response content.
 
 ```sql
-select
-  coalesce(nullif(current_setting('app.settings.supabase_url', true), ''), '') <> ''
-    as hosted_url_configured,
-  coalesce(nullif(current_setting('app.settings.scheduler_secret', true), ''), '') <> ''
-    as scheduler_secret_configured;
+select name, created_at, updated_at
+from vault.secrets
+where name in (
+  'news_aggregator_cron_project_url',
+  'news_aggregator_cron_scheduler_secret'
+)
+order by name;
 
 select
   jobname,
@@ -435,7 +443,7 @@ select
   active,
   case
     when command like '%http://kong:8000%' then 'outdated local target'
-    when command like '%app.settings.supabase_url%' then 'configured hosted target'
+    when command like '%private.invoke_scheduled_edge_function%' then 'Vault-backed target'
     else 'inspect command before enabling reports'
   end as target_check
 from cron.job
@@ -461,26 +469,27 @@ order by created desc
 limit 15;
 ```
 
-Expected result: all three jobs are active, their target check says
-`configured hosted target`, and a **fresh** response created during the worker
-observation window has `error_msg` as `NULL` and a `status_code` from `200` to
-`299`. `net._http_response` does not identify the cron job or target URL, so
-observe the next one-minute worker interval and corroborate that response's
-timestamp with a successful `work` invocation in **Edge Functions → Logs**. A
-successful manual call proves only that the URL and supplied header were valid
-for that one request; it is not evidence that automatic cron has the same
-target or authorization.
+Expected result: both Vault names are present, all three jobs are active, their
+target check says `Vault-backed target`, and a **fresh** response created during
+the worker observation window has `error_msg` as `NULL` and a `status_code` from
+`200` to `299`. `net._http_response` does not identify the cron job or target
+URL, so observe the next one-minute worker interval and corroborate that
+response's timestamp with a successful `work` invocation in **Edge Functions →
+Logs**. A successful manual call proves only that the URL and supplied header
+were valid for that one request; it is not evidence that automatic cron has the
+same target or authorization.
 
 If `net._http_response.error_msg` says `Couldn't resolve host name`, the hosted
-database is trying to use a bad URL—most often the local `http://kong:8000`
-fallback. Confirm that the hosted URL setting is configured. If the cron command
-is still marked `outdated local target`, apply the current migrations from
-`main`; do not edit `cron.job` directly.
+database is trying to use a bad URL. Confirm the value of
+`news_aggregator_cron_project_url` in Vault. If the cron command is still marked
+`outdated local target`, apply the current migrations from `main`; do not edit
+`cron.job` directly. If a cron run reports `Missing Vault secret`, create the
+named entry in Vault and wait for the next scheduled run.
 
-If the HTTP status is `401`, confirm that the database setting and Edge Function
-secret use exactly the same `SCHEDULER_SECRET` value. If the worker has a
-successful HTTP status but no digest appears, use the queue/flow diagnostics
-below; the daily scheduler is intentionally due-only.
+If the HTTP status is `401`, confirm that the Vault scheduler-secret value and
+Edge Function secret use exactly the same `SCHEDULER_SECRET` value. If the
+worker has a successful HTTP status but no digest appears, use the queue/flow
+diagnostics below; the daily scheduler is intentionally due-only.
 
 To manually invoke the daily scheduler after deployment:
 
@@ -530,8 +539,8 @@ Follow this order to avoid confusing errors:
 5. Create OpenAI, Brevo, Telegram, encryption, and scheduler secrets.
 6. Add backend secrets in Supabase Edge Functions.
 7. Deploy Supabase database migrations and Edge Functions.
-8. Bootstrap the hosted cron URL and scheduler-secret database settings, then
-   verify cron rows, job history, and `pg_net` responses.
+8. Create the two hosted-cron Vault entries, then verify cron rows, job history,
+   and `pg_net` responses.
 9. Create the Vercel project from GitHub.
 10. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel.
 11. Deploy the Vercel website.
